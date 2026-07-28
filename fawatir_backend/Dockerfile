@@ -25,11 +25,11 @@ EXPOSE 8000
 
 CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
 
-FROM node:18-alpine AS deps
-WORKDIR /app
-Use wildcard matching so package-lock.json is optional if missing
-COPY package*.json ./
-RUN npm install
+# FROM node:18-alpine AS deps
+# WORKDIR /app
+# Use wildcard matching so package-lock.json is optional if missing
+# COPY package*.json ./
+# RUN npm install
 
 # FROM node:18-alpine AS builder
 # WORKDIR /app
