@@ -3,6 +3,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+FROM node:18-alpine AS deps
+WORKDIR /app
+
+# Using package*.json will match both package.json and package-lock.json
+COPY package*.json ./
+
+RUN npm install
+
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
