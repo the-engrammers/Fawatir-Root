@@ -1,23 +1,21 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV TESSDATA_PREFIX=/usr/share/tessdata/
 
 WORKDIR /app
 
-# Install system binaries: Tesseract OCR, language packs, and C-compilers for python packages
-RUN apk add --no-cache \
+# Install system dependencies: Tesseract OCR, Arabic/French/English packages, and C compilers for Python libs
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
-    tesseract-ocr-data-eng \
-    tesseract-ocr-data-ara \
-    tesseract-ocr-data-fra \
-    gcc \
-    musl-dev \
-    python3-dev \
-    libffi-dev \
-    g++
+    tesseract-ocr-eng \
+    tesseract-ocr-fra \
+    tesseract-ocr-ara \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt-get/lists/*
 
+# Install Python requirements using pre-compiled binaries
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
