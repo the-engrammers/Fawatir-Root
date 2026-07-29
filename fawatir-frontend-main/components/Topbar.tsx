@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Search, Bell, ChevronDown, Check, LogOut, Settings, User } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 export default function Topbar() {
   const ref = useRef<HTMLDivElement>(null);
   const [openDropdown, setOpenDropdown] = useState<"lang" | "bell" | "profile" | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

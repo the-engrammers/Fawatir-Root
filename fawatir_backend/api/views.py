@@ -1,4 +1,6 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from . import models, serializers
 # foundation
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -45,9 +47,19 @@ class PdfTemplateViewSet(viewsets.ModelViewSet):
 # CRM
 class ClientViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Client.objects.all(), serializers.ClientSerializer
+    
+    @action(detail=False, methods=['delete'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({'status': 'cleared'})
 
 class SupplierViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Supplier.objects.all(), serializers.SupplierSerializer
+    
+    @action(detail=False, methods=['delete'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({'status': 'cleared'})
 
 class MarketingCampaignViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.MarketingCampaign.objects.all(), serializers.MarketingCampaignSerializer
@@ -81,6 +93,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Product.objects.all(), serializers.ProductSerializer
+
+    @action(detail=False, methods=['delete'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({'status': 'cleared'})
 
 class ProductVariantViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.ProductVariant.objects.all(), serializers.ProductVariantSerializer
@@ -117,6 +134,11 @@ class BankReconciliationViewSet(viewsets.ModelViewSet):
 #Quotation
 class QuotationViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Quotation.objects.all(), serializers.QuotationSerializer
+
+    @action(detail=False, methods=['delete'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({'status': 'cleared'})
 class QuotationItemViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.QuotationItem.objects.all(), serializers.QuotationItemSerializer
 

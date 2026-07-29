@@ -36,8 +36,23 @@ FIELD_NAMES = [
 class OCRExtractionError(Exception):
     pass
 
+def _to_float(val):
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).replace(' ', '').replace(',', '.')
+    import re
+    s = re.sub(r'[^\d.-]', '', s)
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
 def _fill_missing_amount(parsed: dict):
-    ht, tva, ttc = parsed.get('montant_ht'), parsed.get('montant_tva'), parsed.get('montant_ttc')
+    ht = _to_float(parsed.get('montant_ht'))
+    tva = _to_float(parsed.get('montant_tva'))
+    ttc = _to_float(parsed.get('montant_ttc'))
 
     if ht is None and tva is not None and ttc is not None:
         parsed['montant_ht'] = round(ttc - tva, 2)
@@ -45,12 +60,17 @@ def _fill_missing_amount(parsed: dict):
         parsed['montant_tva'] = round(ttc - ht, 2)
     elif ttc is None and ht is not None and tva is not None:
         parsed['montant_ttc'] = round(ht + tva, 2)
+        
+    if ht is not None: parsed['montant_ht'] = ht
+    if tva is not None: parsed['montant_tva'] = tva
+    if ttc is not None: parsed['montant_ttc'] = ttc
+
     return parsed
 
 def _validate_arithmetic(parsed: dict, confidence: dict):
-    ht = parsed.get('montant_ht')
-    tva = parsed.get('montant_tva')
-    ttc = parsed.get('montant_ttc')
+    ht = _to_float(parsed.get('montant_ht'))
+    tva = _to_float(parsed.get('montant_tva'))
+    ttc = _to_float(parsed.get('montant_ttc'))
     lignes = parsed.get('lignes') or []
 
     if ht is not None and tva is not None and ttc is not None:
@@ -58,21 +78,17 @@ def _validate_arithmetic(parsed: dict, confidence: dict):
             for field in ('montant_ht', 'montant_tva', 'montant_ttc'):
                 confidence[field] = min(confidence.get(field, 0.9), 0.4)
 
-    lignes_total = sum(l.get('montant') or 0 for l in lignes)
+    lignes_total = sum(_to_float(l.get('montant')) or 0 for l in lignes)
     if lignes and ht is not None and abs(lignes_total - ht) > ARITHMETIC_TOLERANCE:
         confidence['lignes'] = min(confidence.get('lignes', 0.9), 0.4)
 
     return confidence
 
 def extract_invoice(file_bytes: bytes, mime_type: str):
-    if not settings.GEMINI_API_KEY:
-        raise OCRExtractionError("GEMINI_API_KEY is not set. Please configure it in .env")
-    
-    genai.configure(api_key=settings.GEMINI_API_KEY, transport="rest")
-    
-    # Use gemini-flash-latest for very fast, accurate multimodal extraction
-    model = genai.GenerativeModel('gemini-flash-latest')
-    
+    import os
+    import json
+    import google.generativeai as genai
+
     prompt = """
     Extract structured data from this document. It could be an invoice, receipt, shipping document, etc.
     Pay careful attention to the language (can be French, Arabic, English, or mixed).
@@ -83,24 +99,45 @@ def extract_invoice(file_bytes: bytes, mime_type: str):
     - 'montant_tva': The actual tax amount in currency (NOT the percentage rate). 
     - 'montant_ttc': The grand total including taxes (TTC).
     - If a field is illegible or missing, use null.
+    
+    CRITICAL: You MUST output ONLY valid JSON matching exactly the requested DocumentData structure, with no markdown formatting and no extra text.
     """
     
-    try:
-        response = model.generate_content(
-            [prompt, {"mime_type": mime_type, "data": file_bytes}],
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=DocumentData,
-                temperature=0.0,
-            )
-        )
-    except Exception as exc:
-        raise OCRExtractionError(f"Gemini API request failed: {exc}") from exc
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if hasattr(settings, 'GEMINI_API_KEY') and settings.GEMINI_API_KEY:
+        api_key = settings.GEMINI_API_KEY
         
-    try:
-        parsed = json.loads(response.text)
-    except Exception as exc:
-        raise OCRExtractionError(f"Failed to parse Gemini response: {exc}") from exc
+    if not api_key:
+        raise OCRExtractionError("GEMINI_API_KEY is not configured.")
+
+    genai.configure(api_key=api_key)
+    
+    models_to_try = ['gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-2.0-flash-lite']
+    parsed = None
+    response_text = ""
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(
+                [prompt, {"mime_type": mime_type, "data": file_bytes}],
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                )
+            )
+            response_text = response.text.strip()
+            import re
+            # Strip markdown formatting if the model still wraps it
+            response_text = re.sub(r'^```[a-zA-Z]*\n', '', response_text)
+            response_text = re.sub(r'\n```$', '', response_text).strip()
+            parsed = json.loads(response_text)
+            break
+        except Exception as e:
+            logger.warning(f"Failed to use model {model_name} for OCR: {e}")
+            continue
+            
+    if not parsed:
+        raise OCRExtractionError("Failed to extract data using Gemini API.")
 
     # Fill missing amounts and prepare confidence
     parsed = _fill_missing_amount(parsed)
