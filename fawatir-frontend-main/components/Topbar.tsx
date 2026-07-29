@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, Bell, ChevronDown, Check, LogOut, Settings, User } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { fetchAPI } from "@/lib/api";
 
 export default function Topbar() {
   const ref = useRef<HTMLDivElement>(null);
@@ -17,8 +18,7 @@ export default function Topbar() {
 
   const fetchStockAlerts = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/products/`);
+      const res = await fetchAPI("api/products/");
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.results || [];

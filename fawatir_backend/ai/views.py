@@ -409,6 +409,14 @@ class AIChatView(APIView):
             
         history = request.data.get('history', [])
         
-        reply = process_chat_message(message, history)
+        # Resolve company context from authenticated user or fallback for single-tenant dev environment
+        from api.models import Company
+        company = None
+        if request.user and request.user.is_authenticated:
+            company = getattr(request.user, 'company', None)
+        if not company:
+            company = Company.objects.first()
+            
+        reply = process_chat_message(message, history, company=company)
         
         return Response({'reply': reply})

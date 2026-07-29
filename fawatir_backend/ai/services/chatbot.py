@@ -3,6 +3,7 @@ import logging
 import os
 import uuid
 from typing import List, Dict, Any, Optional
+from contextvars import ContextVar
 
 import google.generativeai as genai
 from django.conf import settings
@@ -49,9 +50,14 @@ def get_genai_model():
 # AI Tools (Function Calling)
 # -----------------------------------------------------------------------------
 
+current_company: ContextVar[Optional[Company]] = ContextVar('current_company', default=None)
+
 def get_company() -> Company:
-    # For now, returning the first company. In a real multi-tenant app, 
-    # this should be passed down from the request user.
+    # Safely retrieve company from request-bound ContextVar for robust multi-tenancy
+    company = current_company.get()
+    if company:
+        return company
+    # Fallback to the first company in database if context is empty (e.g. testing or mock data)
     return Company.objects.first()
 
 import unicodedata
@@ -551,11 +557,13 @@ def generate_product_description(product_name: str, key_features: str = "") -> s
 # Chatbot Runner
 # -----------------------------------------------------------------------------
 
-def process_chat_message(user_message: str, history: List[Dict[str, str]] = None) -> str:
+def process_chat_message(user_message: str, history: List[Dict[str, str]] = None, company: Company = None) -> str:
     """
     Processes a chat message using Gemini and returns the assistant's response.
     Executes function calls automatically if Gemini requests them.
     """
+    # Bind the company to ContextVar to make it thread/async context-safe
+    token = current_company.set(company)
     try:
         model = get_genai_model()
         
@@ -585,3 +593,6 @@ def process_chat_message(user_message: str, history: List[Dict[str, str]] = None
     except Exception as e:
         logger.error(f"Chatbot error: {e}")
         return f"Désolé, une erreur technique s'est produite lors de la communication avec l'IA: {str(e)}"
+    finally:
+        # Reset the context variable to prevent memory leak or context leakage
+        current_company.reset(token)
