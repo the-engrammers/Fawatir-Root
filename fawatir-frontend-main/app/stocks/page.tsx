@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { mad } from "@/lib/format";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
+import { fetchAPI } from "@/lib/api";
 
 export default function StocksPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -22,8 +23,7 @@ export default function StocksPage() {
 
   const fetchProducts = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/products/`);
+      const res = await fetchAPI("api/products/");
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.results || [];
       setProducts(list);
@@ -66,8 +66,7 @@ export default function StocksPage() {
           <button
             onClick={async () => {
               if (confirm("Voulez-vous vraiment vider toute la liste des produits ?")) {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                await fetch(`${apiUrl}/api/products/clear/`, { method: "DELETE" });
+                await fetchAPI("api/products/clear/", { method: "DELETE" });
                 fetchProducts();
               }
             }}
