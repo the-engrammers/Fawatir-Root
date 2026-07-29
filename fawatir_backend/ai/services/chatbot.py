@@ -195,7 +195,11 @@ def create_quotation(client_search: str, product_names: List[str]) -> str:
     
     # Create quotation
     import random
-    q_number = f"DEV-{random.randint(1000, 9999)}"
+    while True:
+        q_number = f"DEV-{random.randint(1000, 9999)}"
+        if not Quotation.objects.filter(quotation_number=q_number).exists():
+            break
+            
     quotation = Quotation.objects.create(
         company=company,
         client=client,
