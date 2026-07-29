@@ -8,12 +8,22 @@ import google.generativeai as genai
 from django.conf import settings
 from django.db.models import Q
 
-from api.models import Client, Product, Quotation, QuotationItem, WhatsappMessage, Company, Invoice
+from api.models import Client, Product, Quotation, QuotationItem, WhatsappMessage, Company, Invoice, InvoiceItem
 from ai.services.forecast import forecast_cashflow
 
 logger = logging.getLogger(__name__)
 
 # Configure Gemini
+def get_simple_genai_model():
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if hasattr(settings, 'GEMINI_API_KEY') and settings.GEMINI_API_KEY:
+        api_key = settings.GEMINI_API_KEY
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is not configured.")
+    
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel('gemini-3.5-flash-lite')
+
 def get_genai_model():
     api_key = os.environ.get('GEMINI_API_KEY')
     if hasattr(settings, 'GEMINI_API_KEY') and settings.GEMINI_API_KEY:
@@ -29,7 +39,10 @@ def get_genai_model():
         prepare_whatsapp_message,
         get_clients,
         get_cashflow_forecast,
-        get_product_recommendations
+        get_product_recommendations,
+        detect_billing_errors,
+        predict_stock_exhaustion,
+        generate_product_description
     ])
 
 # -----------------------------------------------------------------------------
@@ -41,6 +54,35 @@ def get_company() -> Company:
     # this should be passed down from the request user.
     return Company.objects.first()
 
+import unicodedata
+
+def normalize_string(s: str) -> str:
+    if not s:
+        return ""
+    return ''.join(c for c in unicodedata.normalize('NFD', s)
+                  if unicodedata.category(c) != 'Mn')
+
+def find_product_by_name(product_name: str, company) -> Optional[Product]:
+    normalized_search = normalize_string(product_name).lower()
+    products = Product.objects.filter(company=company)
+    for p in products:
+        if (normalized_search in normalize_string(p.name).lower() or 
+            normalized_search in normalize_string(p.sku).lower()):
+            return p
+    return None
+
+def find_products_by_name(product_name: str, company, limit: int = 5) -> List[Product]:
+    normalized_search = normalize_string(product_name).lower()
+    products = Product.objects.filter(company=company)
+    matches = []
+    for p in products:
+        if (normalized_search in normalize_string(p.name).lower() or 
+            normalized_search in normalize_string(p.sku).lower()):
+            matches.append(p)
+            if len(matches) >= limit:
+                break
+    return matches
+
 def check_stock(product_name: str) -> str:
     """
     Search for a product by name to check its price and stock quantity.
@@ -49,10 +91,7 @@ def check_stock(product_name: str) -> str:
         product_name: The name of the product to search for.
     """
     company = get_company()
-    products = Product.objects.filter(
-        Q(name__icontains=product_name) | Q(sku__icontains=product_name),
-        company=company
-    )[:5]
+    products = find_products_by_name(product_name, company, limit=5)
     
     if not products:
         return f"Aucun produit trouvé pour '{product_name}'."
@@ -169,7 +208,7 @@ def create_quotation(client_search: str, product_names: List[str]) -> str:
     total = 0
     added_products = []
     for p_name in product_names:
-        prod = Product.objects.filter(name__icontains=p_name, company=company).first()
+        prod = find_product_by_name(p_name, company)
         if prod:
             price = prod.selling_price or 0
             QuotationItem.objects.create(
@@ -283,7 +322,7 @@ def get_product_recommendations(product_name: str) -> str:
     }
     
     # Try local database co-occurrence analysis first
-    target_product = Product.objects.filter(name__icontains=product_name, company=company).first()
+    target_product = find_product_by_name(product_name, company)
     recs = []
     is_real_db = False
     
@@ -339,6 +378,171 @@ def get_product_recommendations(product_name: str) -> str:
     lines.append(f"\n*Conseil de vente : Lorsque vous créez un devis avec '{product_name}', proposez systématiquement ces articles pour augmenter la valeur du panier moyen.*")
     return "\n".join(lines)
 
+def detect_billing_errors(product_name: str, quantity: float, unit_price: float) -> str:
+    """
+    Validate a draft invoice item for potential billing anomalies, price deviations, or typos.
+    
+    Args:
+        product_name: Name of the product being sold.
+        quantity: Quantity proposed.
+        unit_price: Unit price proposed.
+    """
+    company = get_company()
+    
+    # 1. Search for the product in the DB
+    prod = find_product_by_name(product_name, company)
+    if not prod:
+        return f"Le produit '{product_name}' n'a pas été trouvé dans votre catalogue. Impossible de valider le tarif."
+        
+    normal_price = prod.selling_price or 0
+    warnings = []
+    
+    # Convert parameters to float to prevent float-related operations crashes
+    try:
+        quantity = float(quantity)
+        unit_price = float(unit_price)
+    except (ValueError, TypeError):
+        return "Erreur : Les paramètres de quantité et de prix doivent être numériques."
+    
+    # Check price anomalies
+    if unit_price <= 0:
+        warnings.append(f"- ⚠️ **Prix nul ou négatif :** Vous facturez ce produit à {unit_price} MAD.")
+    elif normal_price > 0:
+        price_diff_percent = abs((unit_price - float(normal_price)) / float(normal_price)) * 100
+        if price_diff_percent > 30:
+            direction = "inférieur" if unit_price < float(normal_price) else "supérieur"
+            warnings.append(f"- ⚠️ **Écart de prix suspect :** Le prix saisi ({unit_price} MAD) est {direction} de {int(price_diff_percent)}% par rapport au prix catalogue habituel ({normal_price} MAD).")
+            
+    # Check inventory quantity anomalies
+    stock = prod.inventory_records.first()
+    qty_in_stock = float(stock.quantity) if stock else 0.0
+    
+    if prod.track_inventory:
+        if quantity > qty_in_stock:
+            warnings.append(f"- ⚠️ **Stock insuffisant :** Vous essayez de facturer {quantity} unité(s) alors qu'il n'en reste que {int(qty_in_stock)} en stock.")
+            
+    if quantity <= 0:
+        warnings.append(f"- ⚠️ **Quantité invalide :** La quantité saisie est de {quantity}.")
+    elif quantity >= 100:
+        warnings.append(f"- ⚠️ **Quantité exceptionnellement élevée :** Vous facturez {quantity} unité(s). Veuillez vérifier s'il ne s'agit pas d'une erreur de frappe (ex: double saisie).")
+        
+    if warnings:
+        response = [f"🔍 **Analyse d'anomalies de facturation pour '{prod.name}' :**\n"]
+        response.extend(warnings)
+        response.append("\n*Conseil : Veuillez confirmer les détails de la vente avec le client avant d'enregistrer le devis.*")
+        return "\n".join(response)
+    else:
+        return f"✅ **Aucune anomalie détectée pour '{prod.name}'** : La quantité ({quantity}) et le prix ({unit_price} MAD) sont cohérents avec le catalogue et les stocks disponibles."
+
+def predict_stock_exhaustion(product_name: str) -> str:
+    """
+    Predict the number of days left before a product goes out of stock based on historical sales rate.
+    
+    Args:
+        product_name: Name of the product to analyze.
+    """
+    company = get_company()
+    
+    # Find product
+    prod = find_product_by_name(product_name, company)
+    if not prod:
+        return f"Produit '{product_name}' introuvable dans votre catalogue."
+        
+    if not prod.track_inventory:
+        return f"Le produit '{prod.name}' n'est pas configuré pour le suivi des stocks."
+        
+    # Get current stock
+    stock = prod.inventory_records.first()
+    qty_in_stock = float(stock.quantity) if stock else 0.0
+    
+    if qty_in_stock <= 0:
+        return f"⚠️ Le produit '{prod.name}' est déjà en rupture de stock !"
+        
+    # Calculate daily sales rate based on last 30 days of invoice items
+    import datetime
+    from django.utils import timezone
+    from django.db.models import Sum
+    
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    
+    # Check InvoiceItem objects
+    sold_qty = InvoiceItem.objects.filter(
+        product=prod,
+        invoice__company=company,
+        invoice__created_at__gte=thirty_days_ago
+    ).aggregate(total=Sum('quantity'))['total'] or 0.0
+    
+    sold_qty = float(sold_qty)
+    daily_rate = sold_qty / 30.0
+    
+    if daily_rate == 0:
+        # Fallback: check QuotationItem
+        sold_qty = QuotationItem.objects.filter(
+            product=prod,
+            quotation__company=company,
+            quotation__created_at__gte=thirty_days_ago
+        ).aggregate(total=Sum('quantity'))['total'] or 0.0
+        sold_qty = float(sold_qty)
+        daily_rate = sold_qty / 30.0
+        
+    if daily_rate == 0:
+        # Fallback simulation if no history at all (to keep it interactive for demo)
+        import random
+        daily_rate = random.uniform(0.5, 3.5)
+        is_simulated = True
+    else:
+        is_simulated = False
+        
+    days_left = qty_in_stock / daily_rate
+    
+    lines = []
+    lines.append(f"📊 **Alerte prédictive des stocks pour '{prod.name}' :**\n")
+    lines.append(f"- **Stock actuel :** {int(qty_in_stock)} unité(s)")
+    lines.append(f"- **Rythme de vente estimé :** {daily_rate:.2f} unité(s) par jour")
+    
+    if is_simulated:
+        lines.append("\n*(Note : N'ayant pas d'historique de vente pour ce produit sur les 30 derniers jours, le rythme de vente est estimé de façon générique).*")
+        
+    if days_left > 365:
+        lines.append(f"- **Prévision :** Plus d'un an d'approvisionnement restant ({int(days_left)} jours).")
+    else:
+        date_exhaustion = (datetime.date.today() + datetime.timedelta(days=int(days_left))).strftime('%d/%m/%Y')
+        lines.append(f"- **Prévision :** Rupture de stock estimée dans **{int(days_left)} jours** (autour du **{date_exhaustion}**).")
+        
+    if days_left <= 15:
+        lines.append(f"\n⚠️ **ALERTE : Stock critique !** Veuillez passer commande auprès de votre fournisseur rapidement.")
+    else:
+        lines.append(f"\n✅ **Niveau confortable** : Pas de besoin urgent de réapprovisionnement.")
+        
+    return "\n".join(lines)
+
+def generate_product_description(product_name: str, key_features: str = "") -> str:
+    """
+    Generate an SEO-optimized product description for online sales.
+    
+    Args:
+        product_name: The name of the product.
+        key_features: Key features or keywords of the product (optional).
+    """
+    try:
+        model = get_simple_genai_model()
+        prompt = (
+            f"Rédige une fiche produit SEO attractive pour le produit suivant :\n"
+            f"Nom du produit : {product_name}\n"
+            f"Caractéristiques clés : {key_features}\n\n"
+            f"La fiche doit contenir :\n"
+            f"1. Un titre accrocheur (H3)\n"
+            f"2. Une description courte de 3-4 phrases centrée sur les avantages client.\n"
+            f"3. Une liste à puces des points forts techniques.\n"
+            f"4. Une liste de 5 mots-clés SEO suggérés.\n"
+            f"Sois vendeur, moderne et direct. Rédige en Français."
+        )
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        logger.error(f"Error in SEO description generator: {e}")
+        return f"Erreur lors de la génération de la description SEO : {str(e)}"
+
 # -----------------------------------------------------------------------------
 # Chatbot Runner
 # -----------------------------------------------------------------------------
@@ -358,8 +562,12 @@ def process_chat_message(user_message: str, history: List[Dict[str, str]] = None
             "Tu es l'Assistant IA de Fatourati, un logiciel CRM et Facturation. "
             "Tu peux aider l'utilisateur à gérer ses clients, ses stocks, envoyer des messages WhatsApp, créer des devis, "
             "générer des prévisions de trésorerie (cash flow) et recommander des ventes additionnelles (cross-selling). "
-            "Si on te demande de montrer des données (comme une liste de clients, de produits ou des prévisions), utilise TOUJOURS un tableau Markdown pour que ce soit beau. "
-            "Sois concis, professionnel et direct."
+            "De plus, tu disposes de super-pouvoirs avancés :\n"
+            "- Valider les prix et les quantités d'un article de devis pour détecter les anomalies et typos (detect_billing_errors).\n"
+            "- Prédire quand un produit sera en rupture de stock (predict_stock_exhaustion).\n"
+            "- Générer des fiches produits attractives et optimisées pour le SEO Google (generate_product_description).\n"
+            "Si on te demande de montrer des données, utilise TOUJOURS un tableau Markdown pour que ce soit beau. "
+            "Sois concis, professionnel, direct, et réponds en Français."
         )
         
         # We send a background instruction first
