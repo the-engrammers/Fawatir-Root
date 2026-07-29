@@ -134,6 +134,8 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProductSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
     class Meta:
         model = models.Product
         fields = '__all__'
@@ -194,8 +196,9 @@ class BankReconciliationSerializer(serializers.ModelSerializer):
         model = models.BankReconciliation
         fields = '__all__'
 
-# Quotation
 class QuotationSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.company_name', read_only=True)
+
     class Meta:
         model = models.Quotation
         fields = '__all__'

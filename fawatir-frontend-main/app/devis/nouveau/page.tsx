@@ -1,18 +1,59 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { ChevronLeft, Plus, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ChevronLeft, Plus, Trash2, Loader2, Sparkles } from "lucide-react";
 import { clientsRecents, clientsList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 type Ligne = { id: number; article: string; qte: number; prix: number };
 let nextId = 2;
 
-export default function NouveauDevisPage() {
+function DevisFormContent() {
+  const searchParams = useSearchParams();
+  const docId = searchParams.get("doc_id");
+
   const [clientId, setClientId] = useState("");
   const [taxePct, setTaxePct] = useState(20);
   const [lignes, setLignes] = useState<Ligne[]>([{ id: 1, article: "", qte: 1, prix: 0 }]);
+  const [isLoadingOcr, setIsLoadingOcr] = useState(false);
+  const [ocrMessage, setOcrMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!docId) return;
+    const fetchDoc = async () => {
+      setIsLoadingOcr(true);
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${apiUrl}/api/ai/documents/${docId}/`);
+        if (!res.ok) throw new Error("Erreur lors de la récupération du document");
+        const doc = await res.json();
+        
+        if (doc.extracted_data && doc.extracted_data.lignes) {
+          const newLignes = doc.extracted_data.lignes.map((l: any, idx: number) => {
+            nextId++;
+            return {
+              id: nextId,
+              article: l.description || "Article inconnu",
+              qte: l.quantite || 1,
+              prix: l.prix_unitaire || l.montant || 0,
+            };
+          });
+          if (newLignes.length > 0) {
+            setLignes(newLignes);
+            setOcrMessage("Les lignes ont été remplies par l'IA.");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        setOcrMessage("Impossible de lire les données du document.");
+      } finally {
+        setIsLoadingOcr(false);
+      }
+    };
+    fetchDoc();
+  }, [docId]);
 
   const sousTotal = useMemo(() => lignes.reduce((s, l) => s + l.qte * l.prix, 0), [lignes]);
   const taxe = sousTotal * (taxePct / 100);
@@ -40,6 +81,20 @@ export default function NouveauDevisPage() {
         </Link>
         <h1 className="font-display text-[22px] font-semibold text-ink-900">Créer un devis</h1>
       </div>
+
+      {isLoadingOcr && (
+        <div className="rounded-card bg-brass/10 border border-brass/30 p-4 flex items-center gap-3">
+          <Loader2 className="animate-spin text-brass-dark" size={20} />
+          <p className="text-[13.5px] font-medium text-brass-dark">Extraction des données du document en cours par l'IA...</p>
+        </div>
+      )}
+
+      {ocrMessage && !isLoadingOcr && (
+        <div className="rounded-card bg-green-50 border border-green-200 p-4 flex items-center gap-3">
+          <Sparkles className="text-green-600" size={20} />
+          <p className="text-[13.5px] font-medium text-green-800">{ocrMessage}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
@@ -186,5 +241,13 @@ export default function NouveauDevisPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NouveauDevisPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-ink-500">Chargement...</div>}>
+      <DevisFormContent />
+    </Suspense>
   );
 }
