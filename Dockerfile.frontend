@@ -3,7 +3,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:18-alpine AS deps
 WORKDIR /app
 
 # Using package*.json will match both package.json and package-lock.json
