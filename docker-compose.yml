@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   frontend:
@@ -33,10 +33,17 @@ services:
     ports:
       - "11434:11434"
     entrypoint: ["/bin/sh", "-c"]
-    volumes:
-      - ollama_models:/root/.ollama
-    command: >
-      sh -c "ollama serve & sleep 5 && ollama pull qwen2.5:3b-instruct && wait"
+    command: "ollama serve & sleep 5 && ollama pull llama3 && sleep infinity"
+
+  #ollama:
+  #  image: ollama/ollama:latest
+  #  ports:
+  #    - "11434:11434"
+  #  entrypoint: ["/bin/sh", "-c"]
+  #  volumes:
+  #    - ollama_models:/root/.ollama
+  #  command: >
+  #    sh -c "ollama serve & sleep 5 && ollama pull qwen2.5:3b-instruct && wait"
 
 volumes:
   ollama_models:
