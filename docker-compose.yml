@@ -33,7 +33,7 @@ services:
     ports:
       - "11434:11434"
     entrypoint: ["/bin/sh", "-c"]
-    command: "ollama serve & sleep 5 && ollama pull llama3 && sleep infinity"
+    command: "ollama serve & sleep 15 && ollama pull llama3 && tail -f /dev/null"
 
   #ollama:
   #  image: ollama/ollama:latest
