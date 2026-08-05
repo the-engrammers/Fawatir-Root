@@ -32,6 +32,7 @@ services:
     image: ollama/ollama:latest
     ports:
       - "11434:11434"
+    entrypoint: ["/bin/sh", "-c"]
     volumes:
       - ollama_models:/root/.ollama
     command: >
