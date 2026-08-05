@@ -1,37 +1,53 @@
 "use client";
 
 import { useMemo, useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, Plus, Trash2, Loader2, Sparkles } from "lucide-react";
-import { clientsRecents, clientsList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
+import { fetchAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/store/authStore";
 
 type Ligne = { id: number; article: string; qte: number; prix: number };
 let nextId = 2;
 
 function DevisFormContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const docId = searchParams.get("doc_id");
+  const companyId = useAuthStore((s) => s.user?.company);
 
+  const [clients, setClients] = useState<any[]>([]);
   const [clientId, setClientId] = useState("");
+  const [validiteJusquau, setValiditeJusquau] = useState(
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  );
   const [taxePct, setTaxePct] = useState(20);
   const [lignes, setLignes] = useState<Ligne[]>([{ id: 1, article: "", qte: 1, prix: 0 }]);
   const [isLoadingOcr, setIsLoadingOcr] = useState(false);
   const [ocrMessage, setOcrMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchAPI("api/clients/")
+      .then((res) => res.json())
+      .then((data) => setClients(Array.isArray(data) ? data : data.results || []))
+      .catch(() => setError("Impossible de charger les clients"));
+  }, []);
 
   useEffect(() => {
     if (!docId) return;
     const fetchDoc = async () => {
       setIsLoadingOcr(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${apiUrl}/api/ai/documents/${docId}/`);
+        const res = await fetchAPI(`api/ai/documents/${docId}/`);
         if (!res.ok) throw new Error("Erreur lors de la récupération du document");
         const doc = await res.json();
-        
+
         if (doc.extracted_data && doc.extracted_data.lignes) {
-          const newLignes = doc.extracted_data.lignes.map((l: any, idx: number) => {
+          const newLignes = doc.extracted_data.lignes.map((l: any) => {
             nextId++;
             return {
               id: nextId,
@@ -46,7 +62,6 @@ function DevisFormContent() {
           }
         }
       } catch (err) {
-        console.error(err);
         setOcrMessage("Impossible de lire les données du document.");
       } finally {
         setIsLoadingOcr(false);
@@ -70,6 +85,78 @@ function DevisFormContent() {
     setLignes((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
   }
 
+  async function handleSubmit(statut: "Brouillon" | "Envoyée") {
+    if (!clientId) {
+      setError("Veuillez sélectionner un client");
+      return;
+    }
+    if (lignes.some((l) => !l.article)) {
+      setError("Chaque ligne doit avoir un article");
+      return;
+    }
+
+    setError("");
+    setSubmitting(true);
+
+    try {
+      const quotationNumber = `DEV-${Date.now()}`;
+
+      const devRes = await fetchAPI("api/quotations/", {
+        method: "POST",
+        body: JSON.stringify({
+          company: companyId,
+          client: clientId,
+          quotation_number: quotationNumber,
+          status: statut,
+          total_amount: total.toFixed(2),
+        }),
+      });
+
+      if (!devRes.ok) {
+        const errData = await devRes.json().catch(() => ({}));
+        setError("Erreur devis: " + JSON.stringify(errData));
+        setSubmitting(false);
+        return;
+      }
+
+      const quotation = await devRes.json();
+
+      for (const l of lignes) {
+        const prodRes = await fetchAPI("api/products/", {
+          method: "POST",
+          body: JSON.stringify({
+            company: companyId,
+            name: l.article,
+            selling_price: l.prix.toFixed(2),
+          }),
+        });
+
+        if (!prodRes.ok) continue;
+        const product = await prodRes.json();
+
+        const lineTotal = l.qte * l.prix;
+
+        await fetchAPI("api/quotation-items/", {
+          method: "POST",
+          body: JSON.stringify({
+            quotation: quotation.id,
+            product: product.id,
+            quantity: l.qte,
+            unit_price: l.prix.toFixed(2),
+            tax_rate: taxePct.toFixed(2),
+            tax_amount: (lineTotal * (taxePct / 100)).toFixed(2),
+            line_total: lineTotal.toFixed(2),
+          }),
+        });
+      }
+
+      router.push("/devis");
+    } catch (err) {
+      setError("Erreur de connexion au serveur");
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div className="flex items-center gap-3">
@@ -81,6 +168,12 @@ function DevisFormContent() {
         </Link>
         <h1 className="font-display text-[22px] font-semibold text-ink-900">Créer un devis</h1>
       </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+          {error}
+        </div>
+      )}
 
       {isLoadingOcr && (
         <div className="rounded-card bg-brass/10 border border-brass/30 p-4 flex items-center gap-3">
@@ -111,34 +204,19 @@ function DevisFormContent() {
                   className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
                 >
                   <option value="">Sélectionner un client...</option>
-                  {clientsList.map((c) => (
+                  {clients.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.nom}
+                      {c.contact_name || c.company_name}
                     </option>
                   ))}
                 </select>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {clientsRecents.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setClientId(c.id)}
-                      className={`rounded-full border px-2.5 py-1 text-[11.5px] ${
-                        clientId === c.id
-                          ? "border-brass bg-brass/10 text-brass"
-                          : "border-ink-200 text-ink-600 hover:border-brass/50"
-                      }`}
-                    >
-                      {c.nom}
-                    </button>
-                  ))}
-                </div>
               </div>
               <div>
                 <label className="mb-1.5 block text-[12.5px] text-ink-600">Valide jusqu'au</label>
                 <input
                   type="date"
-                  defaultValue="2026-05-12"
+                  value={validiteJusquau}
+                  onChange={(e) => setValiditeJusquau(e.target.value)}
                   className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
                 />
               </div>
@@ -227,15 +305,19 @@ function DevisFormContent() {
             </div>
             <button
               type="button"
-              className="w-full rounded-md border border-ink-200 py-2.5 text-[13px] font-medium text-ink-700 hover:border-brass/50"
+              disabled={submitting}
+              onClick={() => handleSubmit("Brouillon")}
+              className="w-full rounded-md border border-ink-200 py-2.5 text-[13px] font-medium text-ink-700 hover:border-brass/50 disabled:opacity-50"
             >
-              Enregistrer comme brouillon
+              {submitting ? <Loader2 className="mx-auto animate-spin" size={16} /> : "Enregistrer comme brouillon"}
             </button>
             <button
               type="button"
-              className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
+              disabled={submitting}
+              onClick={() => handleSubmit("Envoyée")}
+              className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800 disabled:opacity-50"
             >
-              Créer et envoyer
+              {submitting ? <Loader2 className="mx-auto animate-spin" size={16} /> : "Créer et envoyer"}
             </button>
           </div>
         </div>

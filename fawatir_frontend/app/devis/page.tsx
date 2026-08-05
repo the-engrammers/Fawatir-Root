@@ -7,6 +7,7 @@ import { Plus, ScanLine, MoreHorizontal, FileScan, Loader2 } from "lucide-react"
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
 import ScannerModal from "@/components/ScannerModal";
+import { fetchAPI } from "@/lib/api";
 
 const statutFilters = ["Toutes", "Brouillon", "Envoyée", "Accepté", "Refusé", "Expiré", "Converti"];
 
@@ -15,16 +16,21 @@ function DevisContent() {
   const activeStatut = searchParams.get("statut") ?? "Toutes";
   const [devisList, setDevisList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchDevis = async () => {
+      setError("");
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${apiUrl}/api/quotations/`);
+        const res = await fetchAPI("api/quotations/");
+        if (!res.ok) {
+          setError("Impossible de charger les devis");
+          setIsLoading(false);
+          return;
+        }
         const data = await res.json();
         const list = Array.isArray(data) ? data : (data.results || []);
-        
-        // Map backend fields to frontend format
+
         const formattedList = list.map((d: any) => ({
           id: d.id,
           numero: d.quotation_number || "-",
@@ -35,7 +41,7 @@ function DevisContent() {
         }));
         setDevisList(formattedList);
       } catch (err) {
-        console.error("Error fetching devis", err);
+        setError("Erreur de connexion au serveur");
       } finally {
         setIsLoading(false);
       }
@@ -61,8 +67,7 @@ function DevisContent() {
           <button
             onClick={async () => {
               if (confirm("Voulez-vous vraiment vider toute la liste des devis ?")) {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                await fetch(`${apiUrl}/api/quotations/clear/`, { method: "DELETE" });
+                await fetchAPI("api/quotations/clear/", { method: "DELETE" });
                 window.location.reload();
               }
             }}
@@ -108,6 +113,12 @@ function DevisContent() {
             className="w-64 rounded-full border border-ink-200/50 bg-white/50 px-4 py-2 text-[13px] placeholder:text-ink-400 focus:border-brass/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brass/10 transition-all"
           />
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+            {error}
+          </div>
+        )}
 
         <table className="w-full text-[13px]">
           <thead>
