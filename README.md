@@ -130,3 +130,11 @@ docker compose logs -f ollama
 docker compose down -v
 
 ```
+
+## 🛠️ Current Status & Integration Notes
+
+* **Backend-Frontend Connection**: Successfully configured the dynamic environment variables (NEXT_PUBLIC_API_URL) to allow seamless communication between Next.js and the Django backend inside Codespaces.
+* **API Routing Fixes**: Resolved the double /api/api/ path mapping error in the routing configuration to ensure endpoints like /api/products/ return valid responses.
+* **Database & Migrations**: Verified that core models and database migrations are running successfully on the backend.
+* **AI Chat Widget Endpoint**: The frontend chat component (AIChat.tsx) still needs its hardcoded local URL (http://localhost:8000/api/ai/chat/) updated to use the dynamic environment variable so the chatbot can communicate with the backend.
+* **Form Submissions**: UI form inputs (such as creating a quote or client data) require full validation checks (like required fields and dates) to ensure click events successfully trigger backend write requests.git add README.md
