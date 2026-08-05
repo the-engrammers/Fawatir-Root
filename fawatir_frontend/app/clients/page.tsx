@@ -5,15 +5,17 @@ import Link from "next/link";
 import { Plus, MoreHorizontal, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import AddClientModal from "@/components/AddClientModal";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
+import { fetchAPI } from "@/lib/api";
 
 export default function ClientsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  
+
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [metadataKeys, setMetadataKeys] = useState<string[]>([]);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -23,22 +25,27 @@ export default function ClientsPage() {
   }, []);
 
   const fetchClients = async () => {
+    setError("");
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/clients/`);
+      const res = await fetchAPI("api/clients/");
+      if (!res.ok) {
+        setError("Impossible de charger les clients");
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.results || [];
       setClients(list);
-      
+
       const keys = new Set<string>();
       list.forEach((c: any) => {
-        if (c.metadata && typeof c.metadata === 'object') {
+        if (c.metadata && typeof c.metadata === "object") {
           Object.keys(c.metadata).forEach((key) => keys.add(key));
         }
       });
       setMetadataKeys(Array.from(keys));
     } catch (err) {
-      console.error("Error fetching clients", err);
+      setError("Erreur de connexion au serveur");
     } finally {
       setLoading(false);
     }
@@ -61,8 +68,7 @@ export default function ClientsPage() {
           <button
             onClick={async () => {
               if (confirm("Voulez-vous vraiment vider toute la liste des clients ?")) {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                await fetch(`${apiUrl}/api/clients/clear/`, { method: "DELETE" });
+                await fetchAPI("api/clients/clear/", { method: "DELETE" });
                 fetchClients();
               }
             }}
@@ -70,7 +76,7 @@ export default function ClientsPage() {
           >
             Vider
           </button>
-          <button 
+          <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-2 rounded-md bg-paper border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:bg-ink-50"
           >
@@ -91,6 +97,12 @@ export default function ClientsPage() {
           placeholder="Rechercher des clients..."
           className="mb-4 w-72 rounded-md border border-ink-200 bg-paper px-3 py-1.5 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
         />
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+            {error}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-10 flex-1">
@@ -133,13 +145,13 @@ export default function ClientsPage() {
                         <td className="py-3 px-2 text-ink-700">{c.company_name}</td>
                         <td className="py-3 px-2 text-ink-500">{c.email}</td>
                         <td className="figure py-3 px-2 text-ink-500">{c.phone || c.mobile}</td>
-                        
+
                         {metadataKeys.map(key => (
                           <td key={key} className="py-3 px-2 text-ink-500">
                             {c.metadata && c.metadata[key] ? c.metadata[key] : '-'}
                           </td>
                         ))}
-                        
+
                         <td className="py-3 px-2 text-right">
                           <button className="rounded-md p-1.5 text-ink-400 opacity-0 hover:bg-ink-900/[0.04] hover:text-ink-700 group-hover:opacity-100">
                             <MoreHorizontal size={16} />
@@ -185,12 +197,12 @@ export default function ClientsPage() {
         setModalOpen(false);
         fetchClients();
       }} />}
-      
-      <SpreadsheetImportModal 
-        isOpen={isImportModalOpen} 
+
+      <SpreadsheetImportModal
+        isOpen={isImportModalOpen}
         onClose={() => {
           setIsImportModalOpen(false);
-          fetchClients(); 
+          fetchClients();
         }}
         expectedType="clients"
       />

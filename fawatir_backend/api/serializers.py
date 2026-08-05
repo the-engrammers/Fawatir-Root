@@ -197,11 +197,16 @@ class BankReconciliationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class QuotationSerializer(serializers.ModelSerializer):
-    client_name = serializers.CharField(source='client.company_name', read_only=True)
+    client_name = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Quotation
         fields = '__all__'
+
+    def get_client_name(self, obj):
+        if obj.client:
+            return obj.client.company_name or obj.client.contact_name or "Client inconnu"
+        return "Client inconnu"
 
 class QuotationItemSerializer(serializers.ModelSerializer):
     class Meta:

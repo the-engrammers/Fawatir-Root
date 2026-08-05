@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import Topbar from "@/components/Topbar";
-import AssistantWidget from "@/components/AssistantWidget";
+import AuthHydrator from "@/components/AuthHydrator";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Fatourati | Tableau de bord",
@@ -29,21 +28,12 @@ export default function RootLayout({
         `}} />
       </head>
       <body className="font-sans text-ink-900 bg-[#FAFAFA] min-h-screen selection:bg-brass selection:text-white antialiased overflow-hidden relative">
-        {/* Spatial Background Elements */}
+        <AuthHydrator />
         <div className="fixed inset-0 z-0 bg-spatial-bg opacity-70 pointer-events-none"></div>
         <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-brass/5 blur-[120px] pointer-events-none"></div>
         <div className="fixed bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pink-500/5 blur-[120px] pointer-events-none"></div>
 
-        <div className="flex h-screen relative z-10 p-3 lg:p-4 gap-4">
-          <Sidebar />
-          <main className="flex-1 flex flex-col h-full rounded-[32px] bg-white/40 shadow-spatial backdrop-blur-[60px] border border-white/60 overflow-hidden relative">
-            <Topbar />
-            <div className="flex-1 p-6 lg:p-8 overflow-y-auto custom-scrollbar relative z-10">
-              {children}
-            </div>
-          </main>
-        </div>
-        <AssistantWidget />
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

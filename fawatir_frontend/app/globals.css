@@ -62,3 +62,18 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+@media print {
+  aside,
+  header,
+  nav,
+  button {
+    display: none !important;
+  }
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  body {
+    background: white !important;
+  }
+}

@@ -3,13 +3,17 @@
 import { Plus, MoreHorizontal, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
+import AddSupplierModal from "@/components/AddSupplierModal";
+import { fetchAPI } from "@/lib/api";
 
 export default function FournisseursPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [metadataKeys, setMetadataKeys] = useState<string[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -19,23 +23,27 @@ export default function FournisseursPage() {
   }, []);
 
   const fetchSuppliers = async () => {
+    setError("");
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/suppliers/`);
+      const res = await fetchAPI("api/suppliers/");
+      if (!res.ok) {
+        setError("Impossible de charger les fournisseurs");
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.results || [];
       setSuppliers(list);
-      
-      // Extract all unique metadata keys across all suppliers
+
       const keys = new Set<string>();
       list.forEach((sup: any) => {
-        if (sup.metadata && typeof sup.metadata === 'object') {
+        if (sup.metadata && typeof sup.metadata === "object") {
           Object.keys(sup.metadata).forEach((key) => keys.add(key));
         }
       });
       setMetadataKeys(Array.from(keys));
     } catch (err) {
-      console.error("Error fetching suppliers", err);
+      setError("Erreur de connexion au serveur");
     } finally {
       setLoading(false);
     }
@@ -60,8 +68,7 @@ export default function FournisseursPage() {
           <button
             onClick={async () => {
               if (confirm("Voulez-vous vraiment vider toute la liste des fournisseurs ?")) {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                await fetch(`${apiUrl}/api/suppliers/clear/`, { method: "DELETE" });
+                await fetchAPI("api/suppliers/clear/", { method: "DELETE" });
                 fetchSuppliers();
               }
             }}
@@ -69,13 +76,16 @@ export default function FournisseursPage() {
           >
             Vider
           </button>
-          <button 
+          <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-2 rounded-md bg-paper border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:bg-ink-50"
           >
             Importer
           </button>
-          <button className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
+          >
             <Plus size={15} /> Ajouter un fournisseur
           </button>
         </div>
@@ -87,7 +97,13 @@ export default function FournisseursPage() {
           placeholder="Rechercher des fournisseurs..."
           className="mb-4 w-72 rounded-md border border-ink-200 bg-paper px-3 py-1.5 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
         />
-        
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+            {error}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-10 flex-1">
             <Loader2 className="animate-spin text-ink-300" size={24} />
@@ -124,13 +140,13 @@ export default function FournisseursPage() {
                         <td className="py-3 px-2 text-ink-700">{f.contact_name}</td>
                         <td className="py-3 px-2 text-ink-500">{f.email}</td>
                         <td className="figure py-3 px-2 text-ink-500">{f.phone || f.mobile}</td>
-                        
+
                         {metadataKeys.map(key => (
                           <td key={key} className="py-3 px-2 text-ink-500">
                             {f.metadata && f.metadata[key] ? f.metadata[key] : '-'}
                           </td>
                         ))}
-                        
+
                         <td className="py-3 px-2 text-right">
                           <button className="rounded-md p-1.5 text-ink-400 opacity-0 hover:bg-ink-900/[0.04] hover:text-ink-700 group-hover:opacity-100">
                             <MoreHorizontal size={16} />
@@ -142,7 +158,7 @@ export default function FournisseursPage() {
                 </tbody>
               </table>
             </div>
-            
+
             {/* Pagination Controls */}
             <div className="flex items-center justify-between border-t border-ink-200/60 pt-4 mt-4">
               <span className="text-[13px] text-ink-500">
@@ -172,14 +188,23 @@ export default function FournisseursPage() {
         )}
       </div>
 
-      <SpreadsheetImportModal 
-        isOpen={isImportModalOpen} 
+      <SpreadsheetImportModal
+        isOpen={isImportModalOpen}
         onClose={() => {
           setIsImportModalOpen(false);
-          fetchSuppliers(); // refresh data after import
+          fetchSuppliers();
         }}
         expectedType="suppliers"
       />
+
+      {isAddModalOpen && (
+        <AddSupplierModal
+          onClose={() => {
+            setIsAddModalOpen(false);
+            fetchSuppliers();
+          }}
+        />
+      )}
     </div>
   );
 }
