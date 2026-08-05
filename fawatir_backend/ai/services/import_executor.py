@@ -33,7 +33,6 @@ def execute_import(company, data_type, normalized_rows):
                     country=row.get('country', ''),
                     credit_limit=row.get('credit_limit') or 0,
                     notes=row.get('notes', ''),
-                    metadata=row.get('metadata') or {},
                 )
                 created_count += 1
             
@@ -58,7 +57,6 @@ def execute_import(company, data_type, normalized_rows):
                     postal_code=row.get('postal_code', ''),
                     country=row.get('country', ''),
                     notes=row.get('notes', ''),
-                    metadata=row.get('metadata') or {},
                 )
                 created_count += 1
 
@@ -85,7 +83,7 @@ def execute_import(company, data_type, normalized_rows):
                 if status_val in ['inactif', 'inactive', 'out of stock', 'rupture', 'non']:
                     is_active = False
 
-                from api.models import Inventory, Category, SupplierProduct
+                from api.models import Inventory, Category, Supplier, SupplierProduct
 
                 # Get or create category if provided
                 category_obj = None
@@ -108,7 +106,6 @@ def execute_import(company, data_type, normalized_rows):
                     selling_price=selling_price,
                     is_active=is_active,
                     track_inventory=True,
-                    metadata=row.get('metadata') or {},
                 )
 
                 # Map supplier if provided

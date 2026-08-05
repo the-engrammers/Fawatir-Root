@@ -134,8 +134,6 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProductSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)
-
     class Meta:
         model = models.Product
         fields = '__all__'
@@ -196,17 +194,11 @@ class BankReconciliationSerializer(serializers.ModelSerializer):
         model = models.BankReconciliation
         fields = '__all__'
 
+# Quotation
 class QuotationSerializer(serializers.ModelSerializer):
-    client_name = serializers.SerializerMethodField()
-
     class Meta:
         model = models.Quotation
         fields = '__all__'
-
-    def get_client_name(self, obj):
-        if obj.client:
-            return obj.client.company_name or obj.client.contact_name or "Client inconnu"
-        return "Client inconnu"
 
 class QuotationItemSerializer(serializers.ModelSerializer):
     class Meta:

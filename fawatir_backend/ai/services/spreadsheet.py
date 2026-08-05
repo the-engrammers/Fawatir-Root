@@ -19,7 +19,7 @@ TARGET_SCHEMAS = {
     "inventory": ["product_name", "variant_name", "quantity", "reserved_quantity", "available_quantity", "reorder_level", "warehouse_location"],
 }
 
-MAX_PROMPT_ROWS = 3
+MAX_PROMPT_ROWS = 10
 
 MAPPING_PROMPT_TEMPLATE = """You are an expert data architect responsible for migrating messy, unpredictable user CSV/Excel files into a strict relational database schema. 
 
@@ -36,13 +36,13 @@ Here are the exact schemas of our database for each data type.
 - Sample Data: {sample_rows}
 
 ### RULES
-3. Guess the data_type (stock, clients, suppliers, invoices, inventory, or other).
-4. Analyze both the Incoming Headers AND the Sample Data. **Trust the Header names primarily**. The Header is usually the best indicator of what the column represents (e.g., a header named "RC" maps to 'rc', even if the sample data just looks like random numbers).
-5. Use the Sample Data to confirm the header, or to figure out what a column is if the header is generic (like "Column 1" or "Data").
-6. You may ONLY map to one of the exact column names available in the <schemas> list for the detected data type.
-8. If the Source Header logically matches a Target Column (even if the wording is slightly different, like "Nom" -> "contact_name" or "company_name", "Téléphone" -> "phone", "Ville" -> "city"), map it! Be lenient and intelligent.
-9. If the Source Header has absolutely NO logical equivalent in the target schema (e.g. "Genre", "Date de naissance", "Allergies" for a B2B client schema), you MUST output "UNMAPPED".
-10. Provide a short 2-3 sentence analysis of the entire dataset.
+1. Guess the data_type (products, clients, suppliers, invoices, inventory, or other).
+2. Analyze both the Incoming Headers AND the Sample Data. **Trust the Header names primarily**. The Header is usually the best indicator of what the column represents (e.g., a header named "RC" maps to 'rc', even if the sample data just looks like random numbers).
+3. Use the Sample Data to confirm the header, or to figure out what a column is if the header is generic (like "Column 1" or "Data").
+4. You may ONLY map to one of the exact column names available in the <schemas> list for the detected data type.
+5. If the Header matches a target column well, map it and assign a high confidence score (> 0.90).
+6. If the Source Header and Sample Data do not logically match ANY of the Target Columns, you MUST output "UNMAPPED" for the mapped_column. Do not force a bad fit.
+7. Provide a short 2-3 sentence analysis of the entire dataset.
 
 Output strictly in the requested JSON format."""
 
@@ -54,7 +54,7 @@ class ColumnMapping(BaseModel):
     reasoning: str = Field(description="A brief, 1-sentence explanation of why this mapping was chosen based on the header and sample data.")
 
 class MappingResponse(BaseModel):
-    data_type: Literal['stock', 'suppliers', 'clients', 'inventory', 'invoices', 'other'] = Field(description="Classification")
+    data_type: Literal['stock', 'products', 'suppliers', 'clients', 'inventory', 'invoices', 'other'] = Field(description="Classification")
     columns: list[ColumnMapping]
     analysis: str = Field(description="A short, intelligent human-like summary (2-3 sentences) of what this dataset represents, what the data is about, and any obvious insights.")
 
@@ -157,125 +157,73 @@ def _fallback_columns(headers):
 def propose_mapping(headers: list[str], sample_rows: list[dict], expected_type: str = None) -> dict:
     """
     Calls Gemini to intelligently map spreadsheet headers to Fawatir schemas.
+    If expected_type is provided, it forces the AI to map it to that type.
     """
-    import os
-    import json
-    import google.generativeai as genai
+    if not settings.GEMINI_API_KEY:
+        # Fallback to simple slugification if API key is not configured
+        return {'data_type': 'other', 'columns': _fallback_columns(headers)}
 
+    genai.configure(api_key=settings.GEMINI_API_KEY, transport="rest")
+    model = genai.GenerativeModel('gemini-flash-lite-latest')
+
+    # If expected_type is provided, we only pass that schema to the AI
+    # to prevent it from guessing wrong or taking the generic 'other' path
     if expected_type and expected_type in TARGET_SCHEMAS:
         schemas_to_pass = {expected_type: TARGET_SCHEMAS[expected_type]}
     else:
         schemas_to_pass = TARGET_SCHEMAS
 
-    api_key = os.getenv('GEMINI_API_KEY')
-    if not api_key or api_key == 'votre_cle_api_gemini_ici':
-        print("Invalid or missing Gemini API key. Using fallback.")
-        return {
-            'data_type': expected_type or 'other',
-            'analysis': 'Analyse impossible : Clé API Gemini manquante.',
-            'columns': _fallback_columns(headers)
-        }
-
-    genai.configure(api_key=api_key)
-    
     prompt = MAPPING_PROMPT_TEMPLATE.format(
         schemas=json.dumps(schemas_to_pass, indent=2),
         headers=json.dumps(headers, ensure_ascii=False),
         sample_rows=json.dumps(sample_rows[:MAX_PROMPT_ROWS], ensure_ascii=False, default=str),
     )
 
-    models_to_try = [
-        "gemini-3.5-flash-lite",
-        "gemini-3-flash-preview",
-        "gemini-flash-lite-latest",
-        "gemini-3.1-flash-lite-preview",
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash-lite",
-        "gemini-pro-latest",
-        "gemini-2.0-flash",
-        "gemini-2.5-flash",
-    ]
-
-    parsed = None
-    last_error = None
-
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    response_mime_type="application/json",
-                )
+    try:
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=MappingResponse,
+                temperature=0.0,
             )
-            response_text = response.text.strip()
-            parsed = json.loads(response_text)
-            print(f"--- SUCCESS WITH MODEL: {model_name} ---")
-            print(json.dumps(parsed, indent=2))
-            break  # Stop trying if successful
-        except Exception as e:
-            print(f"Failed with model {model_name}: {str(e)}")
-            last_error = str(e)
-            continue
-
-    if not parsed:
-        print("All models failed. Last error:", last_error)
-        return {
-            'data_type': expected_type or 'other',
-            'analysis': 'L\'IA est actuellement indisponible (Quota Google dépassé). Veuillez mapper vos colonnes manuellement ci-dessous.',
-            'columns': _fallback_columns(headers)
-        }
+        )
+        response_text = response.text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        parsed = json.loads(response_text)
+        print("--- LLM GENERATED JSON ---")
+        print(json.dumps(parsed, indent=2))
+        print("--------------------------")
+    except json.JSONDecodeError as e:
+        print("JSON Decode Error:", e)
+        parsed = None
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print("Model Response Error:", e)
+        # Any API error (Quota, NotFound, Network) MUST be surfaced to the UI
+        # so the user knows why it failed, rather than pretending the AI thinks everything is UNMAPPED.
+        raise SpreadsheetError(f"AI API Error: {str(e)}")
 
     data_type = parsed.get('data_type') if isinstance(parsed, dict) else None
-    columns = parsed.get('columns') or parsed.get('mappings') if isinstance(parsed, dict) else None
+    columns = parsed.get('columns') if isinstance(parsed, dict) else None
     analysis = parsed.get('analysis') if isinstance(parsed, dict) else None
 
-    # Handle the case where the model returns a dictionary of mappings instead of a list of objects
-    # It might be in 'mapping', 'mappings', or 'columns'
-    dict_mapping = None
-    if isinstance(columns, dict):
-        dict_mapping = columns
-    elif not columns and isinstance(parsed, dict) and isinstance(parsed.get('mapping'), dict):
-        dict_mapping = parsed.get('mapping')
-        
-    if dict_mapping:
-        columns = []
-        for header in headers:
-            mapped = dict_mapping.get(header) or 'UNMAPPED'
-            if isinstance(mapped, dict):  # In case it's a nested dict
-                mapped = mapped.get('mapped_column') or mapped.get('target') or 'UNMAPPED'
-            columns.append({
-                'source_header': header,
-                'mapped_column': str(mapped),
-                'confidence_score': 0.9,
-                'reasoning': ''
-            })
-
-    # Guarantee uniqueness and completeness of mapped columns (excluding UNMAPPED)
+    # Guarantee uniqueness of mapped columns (excluding UNMAPPED)
     if isinstance(columns, list):
         seen = set()
         clean_columns = []
-        
-        # Create a lookup for AI's mapped columns by source header
-        ai_mappings = {}
         for col in columns:
             if not isinstance(col, dict):
                 continue
-            source = col.get('source_header') or col.get('source')
-            if source:
-                ai_mappings[source] = col
-                
-        for header in headers:
-            col = ai_mappings.get(header)
-            
-            if col:
-                mapped_col = col.get('mapped_column') or col.get('target')
-                confidence = col.get('confidence_score', 0.9)
-                reasoning = col.get('reasoning', '')
-            else:
-                mapped_col = 'UNMAPPED'
-                confidence = 0.0
-                reasoning = 'Not mapped by AI'
+            mapped_col = col.get('mapped_column')
             
             if mapped_col and mapped_col != 'UNMAPPED':
                 mapped_col = re.sub(r'[^a-z0-9_]', '_', str(mapped_col).lower()).strip('_')
@@ -290,10 +238,10 @@ def propose_mapping(headers: list[str], sample_rows: list[dict], expected_type: 
                 mapped_col = 'UNMAPPED'
             
             clean_columns.append({
-                'source_header': header,
+                'source_header': col.get('source_header'),
                 'mapped_column': mapped_col,
-                'confidence_score': confidence,
-                'reasoning': reasoning
+                'confidence_score': col.get('confidence_score', 0.0),
+                'reasoning': col.get('reasoning', '')
             })
         columns = clean_columns
 
@@ -301,28 +249,20 @@ def propose_mapping(headers: list[str], sample_rows: list[dict], expected_type: 
         columns = _fallback_columns(headers)
 
     return {
-        'data_type': expected_type or data_type or 'other',
+        'data_type': data_type or 'other',
         'analysis': analysis or 'No analysis generated.',
         'columns': columns
     }
 
 
 def apply_mapping(rows, column_mapping):
-    """Renames every row's keys per column_mapping; columns with UNMAPPED are collected in metadata."""
+    """Renames every row's keys per column_mapping; columns with UNMAPPED are dropped."""
     normalized = []
     for row in rows:
         new_row = {}
-        metadata = {}
         for col in column_mapping:
             mapped_col = col.get('mapped_column')
-            source_val = row.get(col['source_header'])
-            
             if mapped_col and mapped_col != 'UNMAPPED':
-                new_row[mapped_col] = source_val
-            else:
-                if source_val is not None and source_val != '':
-                    metadata[col['source_header']] = source_val
-        
-        new_row['metadata'] = metadata
+                new_row[mapped_col] = row.get(col['source_header'])
         normalized.append(new_row)
     return normalized
