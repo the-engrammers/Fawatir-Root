@@ -1,28 +1,27 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV TESSDATA_PREFIX=/usr/share/tessdata/
+# Prevent Python from writing .pyc files & enable stdout buffering
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-# Install system binaries: Tesseract OCR, language packs, and C-compilers for python packages
-RUN apk add --no-cache \
+# Install system dependencies (including build tools for sqlite/postgres/ocr if needed)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
     tesseract-ocr \
-    tesseract-ocr-data-eng \
-    tesseract-ocr-data-ara \
-    tesseract-ocr-data-fra \
-    gcc \
-    musl-dev \
-    python3-dev \
-    libffi-dev \
-    g++
+    && rm -rf /var/lib/apt/lists/*
 
+# Install python dependencies
 COPY requirements.txt /app/
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy project files
 COPY . /app/
 
 EXPOSE 8000
 
+# Run migrations and start server
 CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
