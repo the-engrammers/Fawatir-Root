@@ -18,7 +18,7 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ./fawatir_frontend
       dockerfile: Dockerfile.frontend
     container_name: fawatir_frontend
     ports:
