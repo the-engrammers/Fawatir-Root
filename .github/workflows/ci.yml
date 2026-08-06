@@ -29,7 +29,7 @@ jobs:
       - name: Test Build Next.js Frontend Image
         uses: docker/build-push-action@v6
         with:
-          context: ./fawatir_frontend
+          context: .
           file: ./Dockerfile.frontend
           push: false
           cache-from: type=gha
