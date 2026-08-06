@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import Topbar from "@/components/Topbar";
-import AssistantWidget from "@/components/AssistantWidget";
+import ClientLayoutWrapper from "@/components/ClientLayoutWrapper";
 
 export const metadata: Metadata = {
   title: "Fatourati | Tableau de bord",
@@ -34,16 +32,9 @@ export default function RootLayout({
         <div className="fixed -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/10 blur-[140px] pointer-events-none" />
         <div className="fixed -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/10 blur-[140px] pointer-events-none" />
 
-        <div className="flex h-screen relative z-10 p-2 sm:p-3 lg:p-4 gap-3 lg:gap-4">
-          <Sidebar />
-          <main className="flex-1 flex flex-col h-full rounded-2xl bg-slate-950/80 backdrop-blur-2xl border border-slate-800/80 shadow-2xl overflow-hidden relative">
-            <Topbar />
-            <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto custom-scrollbar relative z-10 bg-gradient-to-b from-slate-950/50 to-slate-900/30">
-              {children}
-            </div>
-          </main>
-        </div>
-        <AssistantWidget />
+        <ClientLayoutWrapper>
+          {children}
+        </ClientLayoutWrapper>
       </body>
     </html>
   );
