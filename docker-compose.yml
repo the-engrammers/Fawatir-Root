@@ -3,7 +3,7 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: .
+      context: ./fawatir_frontend
       dockerfile: Dockerfile.frontend
     ports:
       - "3000:3000"
