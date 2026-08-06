@@ -1,10 +1,10 @@
-# version: '3.8'
+version: '3.8'
 
 services:
   frontend:
     build:
-      context: ./fawatir_frontend
-      dockerfile: ../Dockerfile.frontend
+      context: .
+      dockerfile: Dockerfile.frontend
     ports:
       - "3000:3000"
     environment:
@@ -32,18 +32,10 @@ services:
     image: ollama/ollama:latest
     ports:
       - "11434:11434"
-    entrypoint: ["/bin/sh", "-c"]
-    command: "ollama serve & sleep 15 && ollama pull llama3 && tail -f /dev/null"
-
-  #ollama:
-  #  image: ollama/ollama:latest
-  #  ports:
-  #    - "11434:11434"
-  #  entrypoint: ["/bin/sh", "-c"]
-  #  volumes:
-  #    - ollama_models:/root/.ollama
-  #  command: >
-  #    sh -c "ollama serve & sleep 5 && ollama pull qwen2.5:3b-instruct && wait"
+    volumes:
+      - ollama_models:/root/.ollama
+    command: >
+      sh -c "ollama serve & sleep 5 && ollama pull qwen2.5:3b-instruct && wait"
 
 volumes:
   ollama_models:
