@@ -15,7 +15,7 @@ from api.models import Company
 
 from ai.models import Document, SpreadsheetImport
 from ai.services.forecast import InsufficientHistoryError, forecast_cashflow
-from ai.services.ocr import OCRExtractionError, extract_invoice
+from ai.services.ocr import OCRExtractionError, _extract_amounts_by_pattern, extract_invoice
 from ai.services.spreadsheet import (
     SpreadsheetError,
     apply_mapping,
