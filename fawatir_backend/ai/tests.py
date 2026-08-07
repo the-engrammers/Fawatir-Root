@@ -1,16 +1,21 @@
 import io
 import json
 import math
+import sys
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
-from PIL import Image
+# --- CRITICAL FIX FOR CI ---
+# Fake the pytesseract module before importing anything else.
+# This prevents CI crashes if pytesseract isn't in requirements.txt,
+# and allows us to mock it safely in the tests below.
+sys.modules['pytesseract'] = MagicMock()
 
 import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
-from api.models import Company
+from django.test import TestCase, override_settings
+from PIL import Image
 
 from ai.models import Document, SpreadsheetImport
 from ai.services.forecast import InsufficientHistoryError, forecast_cashflow
@@ -21,6 +26,7 @@ from ai.services.spreadsheet import (
     parse_spreadsheet,
     propose_mapping,
 )
+from api.models import Company
 
 
 def _tiny_png_bytes():
@@ -56,9 +62,9 @@ CONSISTENT_PAYLOAD = {
 
 
 class ExtractInvoiceTests(TestCase):
-    # We patch the functions where they are used to avoid import errors
+    # Patch the global pytesseract instead of the local module attribute
     @patch('ai.services.ocr.requests.post')
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_consistent_invoice_does_not_need_review(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL\nFacture F-2026-001\nTotal TTC 120.00'
         mock_post.return_value = _fake_ollama_response(json.dumps(CONSISTENT_PAYLOAD))
@@ -71,7 +77,7 @@ class ExtractInvoiceTests(TestCase):
         self.assertEqual(result['extracted_data']['doc_type'], 'invoice')
 
     @patch('ai.services.ocr.requests.post')
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_arithmetic_mismatch_flags_for_review(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL\nFacture F-2026-001'
         payload = dict(CONSISTENT_PAYLOAD)
@@ -83,7 +89,7 @@ class ExtractInvoiceTests(TestCase):
         self.assertLess(result['field_confidence']['montant_ttc'], 0.7)
 
     @patch('ai.services.ocr.requests.post')
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_missing_field_flags_for_review(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL, montant illisible'
         payload = dict(CONSISTENT_PAYLOAD)
@@ -95,21 +101,21 @@ class ExtractInvoiceTests(TestCase):
         self.assertEqual(result['field_confidence']['numero'], 0.0)
 
     @patch('ai.services.ocr.requests.post')
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_invalid_json_raises_extraction_error(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'some ocr text'
         mock_post.return_value = _fake_ollama_response('this is not json')
         with self.assertRaises(OCRExtractionError):
             extract_invoice(_tiny_png_bytes(), 'image/jpeg')
 
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_no_text_detected_raises(self, mock_ocr):
         mock_ocr.return_value = '   '
         with self.assertRaises(OCRExtractionError):
             extract_invoice(_tiny_png_bytes(), 'image/jpeg')
 
     @patch('ai.services.ocr.requests.post')
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_ollama_unreachable_raises(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL'
         import requests
@@ -122,7 +128,7 @@ class ExtractInvoiceTests(TestCase):
             extract_invoice(b'%PDF-fake', 'application/pdf')
 
     @patch('ai.services.ocr.requests.post')
-    @patch('ai.services.ocr.image_to_string')
+    @patch('pytesseract.image_to_string')
     def test_pattern_match_overrides_wrong_llm_amount(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'Subtotal 145.00\nSales Tax 6.25% 9.06\nTOTAL $154.06'
         payload = dict(CONSISTENT_PAYLOAD)
@@ -209,6 +215,7 @@ class ApplyMappingTests(TestCase):
         self.assertEqual(result, [{'product_name': 'Vis'}])
 
 
+@override_settings(GEMINI_API_KEY='dummy-key-to-prevent-fallback')
 class ProposeMappingTests(TestCase):
     @patch('google.generativeai.GenerativeModel.generate_content')
     def test_valid_model_response_is_used_as_is(self, mock_gemini):
@@ -240,6 +247,7 @@ class ProposeMappingTests(TestCase):
         self.assertEqual(result['data_type'], 'other')
 
 
+@override_settings(GEMINI_API_KEY='dummy-key-to-prevent-fallback')
 class SpreadsheetImportViewTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name='Test Co', email='test@example.com')
