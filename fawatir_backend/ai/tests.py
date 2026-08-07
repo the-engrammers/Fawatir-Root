@@ -139,7 +139,7 @@ class ExtractInvoiceTests(TestCase):
     @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_pattern_match_overrides_wrong_llm_amount(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'Subtotal 145.00\nSales Tax 6.25% 9.06\nTOTAL $154.06'
+        mock_ocr.return_value = 'Montant HT: 145.00 €\nMontant TVA: 9.06 €\nMontant TTC: 154.06 €'
         payload = dict(CONSISTENT_PAYLOAD)
         payload['montant_ht'] = None
         payload['montant_tva'] = 6.25  # wrong
@@ -303,6 +303,7 @@ def _synthetic_history(num_days, start_value=1000.0, daily_growth=5.0, weekly_am
         amount = start_value + daily_growth * i + seasonal
         history.append({'date': d.strftime('%Y-%m-%d'), 'amount': amount})
     return history
+
 
 class ForecastCashflowTests(TestCase):
     def test_insufficient_history_raises(self):
