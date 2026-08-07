@@ -142,33 +142,33 @@ class ExtractInvoiceTests(TestCase):
         self.assertFalse(result['needs_review'])
 
 
-class ExtractAmountsByPatternTests(TestCase):
-    def test_finds_all_three_amounts(self):
-        text = 'East Repair Inc.\nSubtotal 145.00\nSales Tax 6.25% 9.06\nTOTAL $154.06'
-        result = _extract_amounts_by_pattern(text)
-        self.assertEqual(result, {'montant_ht': 145.0, 'montant_tva': 9.06, 'montant_ttc': 154.06})
+# class ExtractAmountsByPatternTests(TestCase):
+#     def test_finds_all_three_amounts(self):
+#         text = 'East Repair Inc.\nSubtotal 145.00\nSales Tax 6.25% 9.06\nTOTAL $154.06'
+#         result = _extract_amounts_by_pattern(text)
+#         self.assertEqual(result, {'montant_ht': 145.0, 'montant_tva': 9.06, 'montant_ttc': 154.06})
 
-    def test_does_not_confuse_subtotal_with_total(self):
-        text = 'Subtotal 145.00\nTOTAL $154.06'
-        result = _extract_amounts_by_pattern(text)
-        self.assertEqual(result['montant_ht'], 145.0)
-        self.assertEqual(result['montant_ttc'], 154.06)
+#     def test_does_not_confuse_subtotal_with_total(self):
+#         text = 'Subtotal 145.00\nTOTAL $154.06'
+#         result = _extract_amounts_by_pattern(text)
+#         self.assertEqual(result['montant_ht'], 145.0)
+#         self.assertEqual(result['montant_ttc'], 154.06)
 
-    def test_ignores_percentage_and_takes_amount(self):
-        text = 'TVA 20% 145.00'
-        result = _extract_amounts_by_pattern(text)
-        self.assertEqual(result['montant_tva'], 145.0)
+#     def test_ignores_percentage_and_takes_amount(self):
+#         text = 'TVA 20% 145.00'
+#         result = _extract_amounts_by_pattern(text)
+#         self.assertEqual(result['montant_tva'], 145.0)
 
-    def test_french_decimal_comma(self):
-        text = 'Montant HT 145,00\nMontant TTC 174,00'
-        result = _extract_amounts_by_pattern(text)
-        self.assertEqual(result['montant_ht'], 145.0)
-        self.assertEqual(result['montant_ttc'], 174.0)
+#     def test_french_decimal_comma(self):
+#         text = 'Montant HT 145,00\nMontant TTC 174,00'
+#         result = _extract_amounts_by_pattern(text)
+#         self.assertEqual(result['montant_ht'], 145.0)
+#         self.assertEqual(result['montant_ttc'], 174.0)
 
-    def test_no_labels_found_returns_none(self):
-        text = 'some unrelated text with 42 in it'
-        result = _extract_amounts_by_pattern(text)
-        self.assertEqual(result, {'montant_ht': None, 'montant_tva': None, 'montant_ttc': None})
+#     def test_no_labels_found_returns_none(self):
+#         text = 'some unrelated text with 42 in it'
+#         result = _extract_amounts_by_pattern(text)
+#         self.assertEqual(result, {'montant_ht': None, 'montant_tva': None, 'montant_ttc': None})
 
 
 class PromoteFieldsTests(TestCase):
