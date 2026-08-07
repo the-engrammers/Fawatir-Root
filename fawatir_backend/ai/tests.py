@@ -6,10 +6,8 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-# --- CRITICAL FIX FOR CI ---
 # Fake the pytesseract module before importing anything else.
-# This prevents CI crashes if pytesseract isn't in requirements.txt,
-# and allows us to mock it safely in the tests below.
+# This prevents CI crashes if pytesseract isn't in requirements.txt.
 sys.modules['pytesseract'] = MagicMock()
 
 import openpyxl
@@ -62,8 +60,8 @@ CONSISTENT_PAYLOAD = {
 
 
 class ExtractInvoiceTests(TestCase):
-    # Patch the global pytesseract instead of the local module attribute
-    @patch('ai.services.ocr.requests.post')
+    # Patch globally instead of by module namespace
+    @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_consistent_invoice_does_not_need_review(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL\nFacture F-2026-001\nTotal TTC 120.00'
@@ -76,7 +74,7 @@ class ExtractInvoiceTests(TestCase):
         self.assertEqual(result['extracted_data']['montant_ttc'], 120.0)
         self.assertEqual(result['extracted_data']['doc_type'], 'invoice')
 
-    @patch('ai.services.ocr.requests.post')
+    @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_arithmetic_mismatch_flags_for_review(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL\nFacture F-2026-001'
@@ -88,7 +86,7 @@ class ExtractInvoiceTests(TestCase):
         self.assertTrue(result['needs_review'])
         self.assertLess(result['field_confidence']['montant_ttc'], 0.7)
 
-    @patch('ai.services.ocr.requests.post')
+    @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_missing_field_flags_for_review(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL, montant illisible'
@@ -100,7 +98,7 @@ class ExtractInvoiceTests(TestCase):
         self.assertTrue(result['needs_review'])
         self.assertEqual(result['field_confidence']['numero'], 0.0)
 
-    @patch('ai.services.ocr.requests.post')
+    @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_invalid_json_raises_extraction_error(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'some ocr text'
@@ -114,7 +112,7 @@ class ExtractInvoiceTests(TestCase):
         with self.assertRaises(OCRExtractionError):
             extract_invoice(_tiny_png_bytes(), 'image/jpeg')
 
-    @patch('ai.services.ocr.requests.post')
+    @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_ollama_unreachable_raises(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'ACME SARL'
@@ -127,7 +125,7 @@ class ExtractInvoiceTests(TestCase):
         with self.assertRaises(OCRExtractionError):
             extract_invoice(b'%PDF-fake', 'application/pdf')
 
-    @patch('ai.services.ocr.requests.post')
+    @patch('requests.post')
     @patch('pytesseract.image_to_string')
     def test_pattern_match_overrides_wrong_llm_amount(self, mock_ocr, mock_post):
         mock_ocr.return_value = 'Subtotal 145.00\nSales Tax 6.25% 9.06\nTOTAL $154.06'
