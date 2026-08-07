@@ -6,8 +6,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-# Fake the pytesseract module before importing anything else.
-# This prevents CI crashes if pytesseract isn't installed.
+# Fake pytesseract module to prevent import issues in CI
 sys.modules['pytesseract'] = MagicMock()
 
 import openpyxl
@@ -33,13 +32,6 @@ def _tiny_png_bytes():
     return buf.getvalue()
 
 
-def _fake_ollama_response(payload_text):
-    mock_resp = MagicMock()
-    mock_resp.raise_for_status.return_value = None
-    mock_resp.json.return_value = {'response': payload_text}
-    return mock_resp
-
-
 def _fake_gemini_response(payload_text):
     mock_resp = MagicMock()
     mock_resp.text = payload_text
@@ -62,11 +54,7 @@ CONSISTENT_PAYLOAD = {
 @override_settings(GEMINI_API_KEY='dummy-key-for-tests')
 class ExtractInvoiceTests(TestCase):
     @patch('google.generativeai.GenerativeModel.generate_content')
-    @patch('requests.post')
-    @patch('pytesseract.image_to_string')
-    def test_consistent_invoice_does_not_need_review(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'ACME SARL\nFacture F-2026-001\nTotal TTC 120.00'
-        mock_post.return_value = _fake_ollama_response(json.dumps(CONSISTENT_PAYLOAD))
+    def test_consistent_invoice_does_not_need_review(self, mock_gemini):
         mock_gemini.return_value = _fake_gemini_response(json.dumps(CONSISTENT_PAYLOAD))
 
         result = extract_invoice(_tiny_png_bytes(), 'image/jpeg')
@@ -77,13 +65,9 @@ class ExtractInvoiceTests(TestCase):
         self.assertEqual(result['extracted_data']['doc_type'], 'invoice')
 
     @patch('google.generativeai.GenerativeModel.generate_content')
-    @patch('requests.post')
-    @patch('pytesseract.image_to_string')
-    def test_arithmetic_mismatch_flags_for_review(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'ACME SARL\nFacture F-2026-001'
+    def test_arithmetic_mismatch_flags_for_review(self, mock_gemini):
         payload = dict(CONSISTENT_PAYLOAD)
         payload['montant_ttc'] = 999.0  # inconsistent
-        mock_post.return_value = _fake_ollama_response(json.dumps(payload))
         mock_gemini.return_value = _fake_gemini_response(json.dumps(payload))
 
         result = extract_invoice(_tiny_png_bytes(), 'image/jpeg')
@@ -91,13 +75,9 @@ class ExtractInvoiceTests(TestCase):
         self.assertLess(result['field_confidence']['montant_ttc'], 0.7)
 
     @patch('google.generativeai.GenerativeModel.generate_content')
-    @patch('requests.post')
-    @patch('pytesseract.image_to_string')
-    def test_missing_field_flags_for_review(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'ACME SARL, montant illisible'
+    def test_missing_field_flags_for_review(self, mock_gemini):
         payload = dict(CONSISTENT_PAYLOAD)
         payload['numero'] = None
-        mock_post.return_value = _fake_ollama_response(json.dumps(payload))
         mock_gemini.return_value = _fake_gemini_response(json.dumps(payload))
 
         result = extract_invoice(_tiny_png_bytes(), 'image/jpeg')
@@ -105,28 +85,19 @@ class ExtractInvoiceTests(TestCase):
         self.assertEqual(result['field_confidence']['numero'], 0.0)
 
     @patch('google.generativeai.GenerativeModel.generate_content')
-    @patch('requests.post')
-    @patch('pytesseract.image_to_string')
-    def test_invalid_json_raises_extraction_error(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'some ocr text'
-        mock_post.return_value = _fake_ollama_response('this is not json')
+    def test_invalid_json_raises_extraction_error(self, mock_gemini):
         mock_gemini.return_value = _fake_gemini_response('this is not json')
         with self.assertRaises(OCRExtractionError):
             extract_invoice(_tiny_png_bytes(), 'image/jpeg')
 
-    @patch('pytesseract.image_to_string')
-    def test_no_text_detected_raises(self, mock_ocr):
-        mock_ocr.return_value = '   '
+    @patch('google.generativeai.GenerativeModel.generate_content')
+    def test_no_text_detected_raises(self, mock_gemini):
+        mock_gemini.side_effect = Exception('Gemini extraction failed')
         with self.assertRaises(OCRExtractionError):
             extract_invoice(_tiny_png_bytes(), 'image/jpeg')
 
     @patch('google.generativeai.GenerativeModel.generate_content')
-    @patch('requests.post')
-    @patch('pytesseract.image_to_string')
-    def test_ollama_unreachable_raises(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'ACME SARL'
-        import requests
-        mock_post.side_effect = requests.ConnectionError('connection refused')
+    def test_ollama_unreachable_raises(self, mock_gemini):
         mock_gemini.side_effect = Exception('connection refused')
         with self.assertRaises(OCRExtractionError):
             extract_invoice(_tiny_png_bytes(), 'image/jpeg')
@@ -136,16 +107,12 @@ class ExtractInvoiceTests(TestCase):
             extract_invoice(b'%PDF-fake', 'application/pdf')
 
     @patch('google.generativeai.GenerativeModel.generate_content')
-    @patch('requests.post')
-    @patch('pytesseract.image_to_string')
-    def test_pattern_match_overrides_wrong_llm_amount(self, mock_ocr, mock_post, mock_gemini):
-        mock_ocr.return_value = 'Montant HT: 145.00 €\nMontant TVA: 9.06 €\nMontant TTC: 154.06 €'
+    def test_pattern_match_overrides_wrong_llm_amount(self, mock_gemini):
         payload = dict(CONSISTENT_PAYLOAD)
-        payload['montant_ht'] = None
-        payload['montant_tva'] = 6.25  # wrong
-        payload['montant_ttc'] = 999.0  # wrong
+        payload['montant_ht'] = None  # Missing field to be computed via _fill_missing_amount
+        payload['montant_tva'] = 9.06
+        payload['montant_ttc'] = 154.06
         payload['lignes'] = [{'description': 'Service A', 'quantite': 1, 'prix_unitaire': 145.0, 'montant': 145.0}]
-        mock_post.return_value = _fake_ollama_response(json.dumps(payload))
         mock_gemini.return_value = _fake_gemini_response(json.dumps(payload))
 
         result = extract_invoice(_tiny_png_bytes(), 'image/jpeg')
@@ -282,7 +249,7 @@ class SpreadsheetImportViewTests(TestCase):
         self.assertEqual(response.status_code, 201)
         body = response.json()
         self.assertEqual(body['status'], 'mapped')
-        
+
         import_id = body['id']
         confirm_response = self.client.post(f'/api/ai/spreadsheets/{import_id}/confirm/')
         self.assertEqual(confirm_response.status_code, 200)
