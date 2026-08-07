@@ -165,8 +165,18 @@ export default function FacturesPage() {
                           Télécharger PDF
                         </button>
                         <button
-                          onClick={() => {
-                            setList(prev => prev.map(item => item.id === f.id ? { ...item, statut: "Payée" } : item));
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/invoices/${f.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'Payée' })
+                              });
+                            } catch (e) {}
+                            if (typeof window !== "undefined") {
+                              window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+                            }
+                            fetchInvoices();
                             setActionMenuOpen(null);
                           }}
                           className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-emerald-400 hover:bg-emerald-500/10 font-medium"

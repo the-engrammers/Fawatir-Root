@@ -34,7 +34,7 @@ function DevisContent() {
         client: d.client_name || "Client inconnu",
         montant: parseFloat(d.total_amount) || 0,
         statut: d.status || "Brouillon",
-        validiteJusquau: d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : "-",
+        validiteJusquau: d.date ? new Date(d.date).toLocaleDateString('fr-FR') : "-",
       }));
       setDevisList(formattedList);
     } catch (err) {

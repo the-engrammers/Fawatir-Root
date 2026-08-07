@@ -215,11 +215,21 @@ export default function StocksPage() {
                           {actionMenuOpen === p.id && (
                             <div className="absolute right-2 top-10 z-20 w-44 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   const newQtyStr = prompt("Ajuster la quantité en stock :", String(p.quantity || 0));
                                   if (newQtyStr !== null) {
                                     const newQty = parseInt(newQtyStr) || 0;
-                                    setProducts(prev => prev.map(item => item.id === p.id ? { ...item, quantity: newQty } : item));
+                                    try {
+                                      await fetch(`/api/products/${p.id}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ quantity: newQty })
+                                      });
+                                    } catch (err) {}
+                                    if (typeof window !== "undefined") {
+                                      window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                                    }
+                                    fetchProducts();
                                   }
                                   setActionMenuOpen(null);
                                 }}

@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { 
   Download, Calendar, TrendingUp, TrendingDown, DollarSign, PieChart, 
   BarChart3, ArrowUpRight, FileText, Sparkles, Printer, CheckCircle2, 
   AlertTriangle, Eye, RefreshCw, ChevronRight, ShieldCheck, Filter, MoreHorizontal,
-  X, Copy, FileSpreadsheet, Send
+  X, Copy, FileSpreadsheet, Send, Loader2
 } from "lucide-react";
-import { revenuMensuel, topClients, revenuParCategorie, kpis } from "@/lib/mock-data";
+import { revenuMensuel as mockRevenuMensuel, topClients as mockTopClients, revenuParCategorie as mockRevenuParCategorie, kpis as mockKpis } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 export default function RapportsPage() {
@@ -18,18 +18,45 @@ export default function RapportsPage() {
   const [selectedClientDetail, setSelectedClientDetail] = useState<any | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [clientsData, setClientsData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Extended monthly data with growth & invoice counts
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/invoices").then(res => res.json()),
+      fetch("/api/clients").then(res => res.json())
+    ]).then(([invs, clis]) => {
+      setInvoices(invs);
+      setClientsData(clis);
+      setIsLoading(false);
+    }).catch(() => setIsLoading(false));
+  }, []);
+
+  const kpis = useMemo(() => {
+    if (invoices.length === 0) return mockKpis;
+    const paidInvoices = invoices.filter(i => i.status === "Payée" || i.statut === "Payée");
+    const totalRev = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    return {
+      revenuTotal: totalRev,
+      facturesPayeesCount: paidInvoices.length,
+      facturesTotalCount: invoices.length,
+      tauxRecouvrement: invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0,
+      factureMoyenne: paidInvoices.length ? Math.round(totalRev / paidInvoices.length) : 0,
+    };
+  }, [invoices]);
+
+  const revenuParCategorie = mockRevenuParCategorie;
+
   const extendedMonthly = [
     { mois: "Janvier", revenu: 120000, croissance: "+8.5%", factures: 12, panierMoyen: 10000, statut: "Clôturé" },
     { mois: "Février", revenu: 145000, croissance: "+20.8%", factures: 14, panierMoyen: 10357, statut: "Clôturé" },
     { mois: "Mars", revenu: 130000, croissance: "-10.3%", factures: 11, panierMoyen: 11818, statut: "Clôturé" },
     { mois: "Avril", revenu: 160000, croissance: "+23.0%", factures: 15, panierMoyen: 10666, statut: "Clôturé" },
     { mois: "Mai", revenu: 190000, croissance: "+18.7%", factures: 18, panierMoyen: 10555, statut: "Clôturé" },
-    { mois: "Juin", revenu: 210000, croissance: "+10.5%", factures: 20, panierMoyen: 10500, statut: "En cours" },
+    { mois: "Juin", revenu: kpis.revenuTotal, croissance: "+10.5%", factures: kpis.facturesTotalCount, panierMoyen: kpis.factureMoyenne, statut: "En cours" },
   ];
 
-  // Extended client risk analysis table data
   const extendedClients = [
     { id: "c1", nom: "Atlas Tech", revenu: 120000, part: "26.7%", recouvrement: "98%", enRetard: 0, risque: "Faible", statutRisk: "success" },
     { id: "c2", nom: "OCP Group", revenu: 95000, part: "21.1%", recouvrement: "100%", enRetard: 0, risque: "Faible", statutRisk: "success" },

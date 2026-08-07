@@ -15,7 +15,9 @@ export interface SpreadsheetSession {
   created_at: number;
 }
 
-const sessionsMap = new Map<string, SpreadsheetSession>();
+const g = global as any;
+g.spreadsheetSessionsMap = g.spreadsheetSessionsMap || new Map<string, SpreadsheetSession>();
+const sessionsMap: Map<string, SpreadsheetSession> = g.spreadsheetSessionsMap;
 
 export const createSpreadsheetSession = (
   id: string,

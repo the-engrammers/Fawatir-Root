@@ -43,106 +43,67 @@ export async function POST(req: Request) {
     const storeInvoices = getInvoices();
 
     // Consolidated Clients
-    const allClients = [
-      ...storeClients.map((c) => ({
-        id: c.id,
-        nom: c.company_name || c.contact_name || "Client",
-        entreprise: c.company_name,
-        contact: c.contact_name,
-        email: c.email || "Non renseigné",
-        tel: c.phone || "Non renseigné",
-        ville: c.city || "Maroc",
-      })),
-      ...clientsFull.map((c) => ({
-        id: c.id,
-        nom: c.nom,
-        entreprise: c.entreprise,
-        contact: c.nom,
-        email: c.email,
-        tel: c.telephone,
-        ville: c.adresse,
-      })),
-    ];
+    const allClients = storeClients.map((c) => ({
+      id: c.id,
+      nom: c.company_name || c.contact_name || "Client",
+      entreprise: c.company_name,
+      contact: c.contact_name || "Inconnu",
+      tel: c.phone || "Non renseigné",
+      ville: c.city || "Maroc",
+    }));
 
     // Consolidated Suppliers
-    const allSuppliers = [
-      ...storeSuppliers.map((s) => ({
-        id: s.id,
-        nom: s.company_name,
-        contact: s.contact_name,
-        email: s.email,
-        tel: s.phone,
-        ville: s.city,
-      })),
-      ...fournisseursList.map((f) => ({
-        id: f.id,
-        nom: f.entreprise || f.nom,
-        contact: f.nom,
-        email: f.email,
-        tel: f.telephone,
-        ville: "Maroc",
-      })),
-    ];
+    const allSuppliers = storeSuppliers.map((s) => ({
+      id: s.id,
+      nom: s.company_name || s.contact_name || "Fournisseur",
+      entreprise: s.company_name,
+      contact: s.contact_name || "Inconnu",
+      tel: s.phone || "Non renseigné",
+      ville: s.city || "Maroc",
+    }));
 
-    // Consolidated Products / Stock
-    const allProducts = [
-      ...storeProducts.map((p) => ({
-        id: p.id,
-        nom: p.name,
-        sku: p.sku,
-        prix: p.selling_price,
-        stock: p.quantity,
-        categorie: p.category_name,
-      })),
-      ...produitsList.map((p) => ({
-        id: p.id,
-        nom: p.nom,
-        sku: p.sku,
-        prix: p.prix,
-        stock: p.stock !== undefined ? p.stock : "Non suivi",
-        categorie: p.categorie,
-      })),
-    ];
+    // Consolidated Products
+    const allProducts = storeProducts.map((p) => ({
+      id: p.id,
+      nom: p.name,
+      sku: p.sku,
+      prix: p.selling_price,
+      stock: p.quantity !== undefined ? p.quantity : "Non suivi",
+      categorie: p.category_name,
+    }));
 
     // Consolidated Invoices
-    const allInvoices = [
-      ...storeInvoices.map((i) => ({
-        numero: i.invoice_number,
-        client: i.client_name,
-        montant: i.total_amount,
-        statut: i.status,
-        date: i.date,
-      })),
-      ...facturesList.map((i) => ({
-        numero: i.numero,
-        client: i.client,
-        montant: i.montant,
-        statut: i.statut,
-        date: i.dateEmission,
-      })),
-    ];
+    const allInvoices = storeInvoices.map((i) => ({
+      numero: i.invoice_number,
+      client: i.client_name,
+      montant: i.total_amount,
+      statut: i.status,
+      date: i.date,
+    }));
 
     // Consolidated Quotations
-    const allQuotations = [
-      ...storeQuotations.map((q) => ({
-        numero: q.quotation_number,
-        client: q.client_name,
-        montant: q.total_amount,
-        statut: q.status,
-        date: q.date,
-      })),
-      ...devisList.map((d) => ({
-        numero: d.numero,
-        client: d.client,
-        montant: d.montant,
-        statut: d.statut,
-        date: d.validiteJusquau,
-      })),
-    ];
+    const allQuotations = storeQuotations.map((q) => ({
+      numero: q.quotation_number,
+      client: q.client_name,
+      montant: q.total_amount,
+      statut: q.status,
+      date: q.date,
+    }));
+
+    // Dynamic KPIs
+    const totalRevenue = allInvoices.filter(i => i.statut === "Payée").reduce((sum, i) => sum + i.montant, 0);
+    const paidInvoicesCount = allInvoices.filter(i => i.statut === "Payée").length;
+    const allInvoicesCount = allInvoices.length;
+    const dynamicKpis = {
+      revenuTotal: totalRevenue,
+      facturesPayeesCount: paidInvoicesCount,
+      facturesTotalCount: allInvoicesCount,
+      tauxRecouvrement: allInvoicesCount > 0 ? Math.round((paidInvoicesCount / allInvoicesCount) * 100) : 0,
+      factureMoyenne: paidInvoicesCount > 0 ? Math.round(totalRevenue / paidInvoicesCount) : 0,
+    };
 
     const dbContext = {
-      kpis,
-      indicateurs,
+      kpis: dynamicKpis,
       clientsCount: allClients.length,
       clients: allClients,
       fournisseursCount: allSuppliers.length,
@@ -153,18 +114,10 @@ export async function POST(req: Request) {
       factures: allInvoices,
       devisCount: allQuotations.length,
       devis: allQuotations,
-      depensesCount: depensesList.length,
-      depenses: depensesList,
-      bonsCommandeCount: bonsCommandeList.length,
-      bons_de_commande: bonsCommandeList,
-      avoirs: avoirsList,
-      employes: employesList.map((e) => ({
-        nom: `${e.prenom} ${e.nom}`,
-        poste: e.poste,
-        departement: e.departement,
-        salaireBase: e.salaireBase,
-        statut: e.statut,
-      })),
+      depensesCount: 0,
+      depenses: [],
+      employesCount: 0,
+      employes: []
     };
 
     // Check for AI Intent to Create Data dynamically
@@ -222,7 +175,7 @@ INSTRUCTIONS :
 5. Si la question porte sur un élément introuvable dans la base, indique clairement ce qui est présent et propose de l'ajouter.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-2.5-flash",
           contents: prompt,
           config: {
             systemInstruction,
@@ -248,7 +201,7 @@ INSTRUCTIONS :
 
     } else if (lowerPrompt.includes("facture") || lowerPrompt.includes("chiffre") || lowerPrompt.includes("vente")) {
       const unpaid = dbContext.factures.filter(f => f.statut !== "Payée");
-      reply = `### 📊 Synthèse des Factures\n\n- **Total des factures :** ${dbContext.facturesCount}\n- **Chiffre d'affaires total :** ${kpis.revenuTotal.toLocaleString("fr-FR")} MAD\n- **Factures payées :** ${kpis.facturesPayeesCount} / ${kpis.facturesTotalCount}\n\n**Dernières factures non réglées :**\n` +
+      reply = `### 📊 Synthèse des Factures\n\n- **Total des factures :** ${dbContext.facturesCount}\n- **Chiffre d'affaires total :** ${dbContext.kpis.revenuTotal.toLocaleString("fr-FR")} MAD\n- **Factures payées :** ${dbContext.kpis.facturesPayeesCount} / ${dbContext.kpis.facturesTotalCount}\n\n**Dernières factures non réglées :**\n` +
         unpaid.slice(0, 3).map(f => `- **${f.numero}** - ${f.client} : **${f.montant} MAD** (${f.statut})`).join("\n") +
         `\n\n👉 Consulter toutes les [Factures](/factures).`;
 
@@ -265,14 +218,14 @@ INSTRUCTIONS :
         `\n\n👉 Gérez ou créez un nouveau [Devis](/devis).`;
 
     } else if (lowerPrompt.includes("dépense") || lowerPrompt.includes("charge") || lowerPrompt.includes("fournisseur")) {
-      const totalDep = dbContext.depenses.reduce((s, d) => s + d.montant, 0);
+      const totalDep = dbContext.depenses.reduce((s, d) => s + (d as any).montant, 0);
       reply = `### 💸 Suivi des Dépenses & Fournisseurs\n\n- **Nombre de fournisseurs :** ${dbContext.fournisseursCount}\n- **Total des dépenses enregistrées :** ${totalDep.toLocaleString("fr-FR")} MAD\n\n**Dernières dépenses :**\n` +
-        dbContext.depenses.slice(0, 3).map(d => `- **${d.id}** (${d.fournisseur}) - ${d.categorie} : **${d.montant} MAD** [${d.statut}]`).join("\n") +
+        dbContext.depenses.slice(0, 3).map(d => `- **${(d as any).id}** (${(d as any).fournisseur}) - ${(d as any).categorie} : **${(d as any).montant} MAD** [${(d as any).statut}]`).join("\n") +
         `\n\n👉 Voir les [Dépenses](/depenses) ou [Fournisseurs](/fournisseurs).`;
 
     } else if (lowerPrompt.includes("employé") || lowerPrompt.includes("paie") || lowerPrompt.includes("équipe")) {
       reply = `### 👥 Gestion de l'Équipe & Paie (${dbContext.employes.length} employés actifs)\n\n` +
-        dbContext.employes.map(e => `- **${e.nom}** (${e.poste} - ${e.departement}) : Salaire brut **${e.salaireBase} MAD**`).join("\n") +
+        dbContext.employes.map(e => `- **${(e as any).nom}** (${(e as any).poste} - ${(e as any).departement}) : Salaire brut **${(e as any).salaireBase} MAD**`).join("\n") +
         `\n\nConsulter le module [Bulletins de paie](/bulletins-de-paie).`;
 
     } else if (lowerPrompt.includes("whatsapp")) {
@@ -283,7 +236,7 @@ INSTRUCTIONS :
         `Voici un aperçu de vos données actuelles :\n` +
         `- 👥 **Clients :** ${dbContext.clientsCount} enregistrés\n` +
         `- 📦 **Articles / Stocks :** ${dbContext.produitsCount} références\n` +
-        `- 📊 **Factures :** ${dbContext.facturesCount} émises (${kpis.facturesPayeesCount} payées)\n` +
+        `- 📊 **Factures :** ${dbContext.facturesCount} émises (${dbContext.kpis.facturesPayeesCount} payées)\n` +
         `- 💸 **Dépenses :** ${dbContext.depensesCount} charges suivies\n\n` +
         `Comment puis-je vous aider ? Vous pouvez me demander de rechercher un client, vérifier un stock, ou calculer votre chiffre d'affaires !`;
     }

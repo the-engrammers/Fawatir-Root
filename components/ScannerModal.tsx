@@ -61,13 +61,13 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
       
       let companyId = null;
-      const compRes = await fetch(`${apiUrl}/api/companies/`);
+      const compRes = await fetch(`/api/companies/`);
       const compData = await compRes.json();
       const compList = Array.isArray(compData) ? compData : (compData.results || []);
       if (compList.length > 0) {
         companyId = compList[0].id;
       } else {
-        const createRes = await fetch(`${apiUrl}/api/companies/`, {
+        const createRes = await fetch(`/api/companies/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
@@ -81,7 +81,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       formData.append("company", companyId);
       formData.append("doc_type", targetType === "devis" ? "other" : "invoice");
       
-      const response = await fetch(`${apiUrl}/api/ai/documents/`, {
+      const response = await fetch(`/api/ai/documents/`, {
         method: "POST",
         body: formData,
       });
@@ -123,12 +123,12 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
       
       let companyId = null;
-      const compRes = await fetch(`${apiUrl}/api/companies/`);
+      const compRes = await fetch(`/api/companies`);
       const compData = await compRes.json();
       const compList = Array.isArray(compData) ? compData : (compData.results || []);
       if (compList.length > 0) companyId = compList[0].id;
       else {
-        const createRes = await fetch(`${apiUrl}/api/companies/`, {
+        const createRes = await fetch(`/api/companies`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
         });
@@ -138,14 +138,14 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       
       let clientId = null;
       const clientName = extractedData.fournisseur || extractedData.client || "Client Inconnu";
-      const clientsRes = await fetch(`${apiUrl}/api/clients/?company=${companyId}`);
+      const clientsRes = await fetch(`/api/clients?company=${companyId}`);
       const clientsData = await clientsRes.json();
       const clientsList = Array.isArray(clientsData) ? clientsData : (clientsData.results || []);
       const existingClient = clientsList.find((c: any) => c.company_name === clientName);
       if (existingClient) {
         clientId = existingClient.id;
       } else {
-        const createClientRes = await fetch(`${apiUrl}/api/clients/`, {
+        const createClientRes = await fetch(`/api/clients`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ company: companyId, company_name: clientName, customer_code: `CL-${Math.floor(Math.random()*10000)}` })
         });
@@ -153,12 +153,15 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
         clientId = createdClient.id;
       }
       
-      const endpoint = targetType === "devis" ? "/api/quotations/" : "/api/invoices/";
+      const endpoint = targetType === "devis" ? "/api/quotations" : "/api/invoices";
       const payload: any = {
         company: companyId,
         client: clientId,
+        client_name: clientName, // FIX: Pass the actual extracted name to the DB
         status: "Brouillon",
         total_amount: extractedData.montant_ttc || 0,
+        date: extractedData.date || new Date().toISOString().split("T")[0],
+        lignes: extractedData.lignes || []
       };
       if (targetType === "devis") {
         payload.quotation_number = extractedData.numero_facture || extractedData.numero || `DEV-${Math.floor(Math.random()*10000)}`;
@@ -166,7 +169,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
         payload.invoice_number = extractedData.numero_facture || extractedData.numero || `FAC-${Math.floor(Math.random()*10000)}`;
       }
       
-      const saveRes = await fetch(`${apiUrl}${endpoint}`, {
+      const saveRes = await fetch(`${endpoint}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -183,14 +186,14 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
           const desc = ligne.description || "Article";
           let productId = null;
           try {
-            const prodRes = await fetch(`${apiUrl}/api/products/?search=${encodeURIComponent(desc)}`);
+            const prodRes = await fetch(`/api/products?search=${encodeURIComponent(desc)}`);
             const prodData = await prodRes.json();
             const prodList = Array.isArray(prodData) ? prodData : (prodData.results || []);
             const existingProd = prodList.find((p: any) => p.name === desc);
             if (existingProd) {
               productId = existingProd.id;
             } else {
-              const createProdRes = await fetch(`${apiUrl}/api/products/`, {
+              const createProdRes = await fetch(`/api/products`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ company: companyId, name: desc, selling_price: ligne.prix_unitaire || 0 })
               });
@@ -198,7 +201,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
               productId = createdProd.id;
             }
             
-            const itemEndpoint = targetType === "devis" ? "/api/quotation-items/" : "/api/invoice-items/";
+            const itemEndpoint = targetType === "devis" ? "/api/quotation-items" : "/api/invoice-items";
             const itemPayload: any = {
               product: productId,
               description: desc,
@@ -212,7 +215,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
               itemPayload.invoice = savedId;
             }
             
-            await fetch(`${apiUrl}${itemEndpoint}`, {
+            await fetch(`${itemEndpoint}`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(itemPayload)
             });
@@ -225,7 +228,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       setSuccessMessage(`${targetType === "devis" ? "Devis" : "Facture"} enregistré avec succès !`);
       setTimeout(() => {
         handleClose();
-        router.refresh();
+        window.dispatchEvent(new CustomEvent("dataUpdated"));
       }, 1200);
     } catch (err: any) {
       setError("Erreur de sauvegarde: " + err.message);

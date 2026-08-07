@@ -92,14 +92,44 @@ export default function PosPage() {
     setCart((prev) => prev.filter((l) => l.produitId !== produitId));
   }
 
-  function encaisser() {
-    setReceipt({
-      transactionId: `TXN-${Date.now().toString().slice(-9)}`,
-      total,
-      rendu: Math.max(0, montantRemis - total),
-      lignes: cart,
-    });
-    setCheckoutOpen(false);
+  async function encaisser() {
+    try {
+      const transactionId = `TXN-${Date.now().toString().slice(-9)}`;
+      
+      // Save as a paid invoice in the database
+      const invoiceLignes = cart.map(l => ({
+        description: l.nom,
+        quantite: l.qte,
+        prix_unitaire: l.prix
+      }));
+
+      await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoice_number: transactionId,
+          client_name: 'Client Comptoir',
+          status: 'Payée',
+          total_amount: total,
+          date: new Date().toISOString().split("T")[0],
+          lignes: invoiceLignes
+        })
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+      }
+
+      setReceipt({
+        transactionId,
+        total,
+        rendu: Math.max(0, montantRemis - total),
+        lignes: cart,
+      });
+      setCheckoutOpen(false);
+    } catch (err) {
+      console.error("Erreur d'encaissement:", err);
+    }
   }
 
   function nouvelleVente() {

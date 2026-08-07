@@ -1,5 +1,5 @@
 // In-memory data store for Fatourati API routes
-
+const g = global as any;
 export interface Company {
   id: string;
   name: string;
@@ -69,11 +69,12 @@ export interface Invoice {
   date?: string;
 }
 
-const companiesStore: Company[] = [
+g.companiesStore = g.companiesStore || [
   { id: "comp-1", name: "Fawatir Demo", email: "demo@fawatir.ma" }
 ];
+const companiesStore: Company[] = g.companiesStore;
 
-let clientsStore: Client[] = [
+g.clientsStore = g.clientsStore || [
   {
     id: "cli-1",
     customer_code: "CL-1001",
@@ -95,8 +96,9 @@ let clientsStore: Client[] = [
     country: "Maroc"
   }
 ];
+let clientsStore: Client[] = g.clientsStore;
 
-let suppliersStore: Supplier[] = [
+g.suppliersStore = g.suppliersStore || [
   {
     id: "sup-1",
     supplier_code: "FR-2001",
@@ -108,8 +110,9 @@ let suppliersStore: Supplier[] = [
     country: "Maroc"
   }
 ];
+let suppliersStore: Supplier[] = g.suppliersStore;
 
-let productsStore: Product[] = [
+g.productsStore = g.productsStore || [
   {
     id: "prod-1",
     sku: "PRD-001",
@@ -135,8 +138,9 @@ let productsStore: Product[] = [
     is_active: true
   }
 ];
+let productsStore: Product[] = g.productsStore;
 
-let quotationsStore: Quotation[] = [
+g.quotationsStore = g.quotationsStore || [
   {
     id: "dev-1",
     quotation_number: "DEV-2024-001",
@@ -154,8 +158,9 @@ let quotationsStore: Quotation[] = [
     date: "2024-08-03"
   }
 ];
+let quotationsStore: Quotation[] = g.quotationsStore;
 
-let invoicesStore: Invoice[] = [
+g.invoicesStore = g.invoicesStore || [
   {
     id: "fac-1",
     invoice_number: "FAC-2024-001",
@@ -165,6 +170,7 @@ let invoicesStore: Invoice[] = [
     date: "2024-07-28"
   }
 ];
+let invoicesStore: Invoice[] = g.invoicesStore;
 
 let idCounter = 1;
 const generateUniqueId = (prefix: string) => `${prefix}-${Date.now()}-${idCounter++}-${Math.random().toString(36).substring(2, 6)}`;
@@ -198,9 +204,10 @@ export const addClient = (cli: Partial<Client>): Client => {
   return newCli;
 };
 export const deleteClient = (id: string) => {
-  clientsStore = clientsStore.filter(c => c.id !== id);
+  const idx = clientsStore.findIndex(c => c.id === id);
+  if (idx !== -1) clientsStore.splice(idx, 1);
 };
-export const clearClients = () => { clientsStore = []; };
+export const clearClients = () => { clientsStore.length = 0; };
 
 export const getSuppliers = () => suppliersStore;
 export const getSupplierById = (id: string) => suppliersStore.find(s => s.id === id);
@@ -220,9 +227,10 @@ export const addSupplier = (sup: Partial<Supplier>): Supplier => {
   return newSup;
 };
 export const deleteSupplier = (id: string) => {
-  suppliersStore = suppliersStore.filter(s => s.id !== id);
+  const idx = suppliersStore.findIndex(s => s.id === id);
+  if (idx !== -1) suppliersStore.splice(idx, 1);
 };
-export const clearSuppliers = () => { suppliersStore = []; };
+export const clearSuppliers = () => { suppliersStore.length = 0; };
 
 export const getProducts = () => productsStore;
 export const getProductById = (id: string) => productsStore.find(p => p.id === id);
@@ -243,45 +251,65 @@ export const addProduct = (p: Partial<Product>): Product => {
   productsStore.push(newProd);
   return newProd;
 };
-export const deleteProduct = (id: string) => {
-  productsStore = productsStore.filter(p => p.id !== id);
+export const updateProduct = (id: string, patch: Partial<Product>) => {
+  const prod = productsStore.find(p => p.id === id);
+  if (prod) Object.assign(prod, patch);
+  return prod;
 };
-export const clearProducts = () => { productsStore = []; };
+export const deleteProduct = (id: string) => {
+  const idx = productsStore.findIndex(p => p.id === id);
+  if (idx !== -1) productsStore.splice(idx, 1);
+};
+export const clearProducts = () => { productsStore.length = 0; };
 
 export const getQuotations = () => quotationsStore;
 export const getQuotationById = (id: string) => quotationsStore.find(q => q.id === id);
-export const addQuotation = (q: Partial<Quotation>): Quotation => {
-  const newQ: Quotation = {
+export const addQuotation = (q: Partial<Quotation> & { lignes?: any[] }): Quotation => {
+  const newQ: Quotation & { lignes?: any[] } = {
     id: generateUniqueId("dev"),
     quotation_number: q.quotation_number || `DEV-${Math.floor(1000 + Math.random() * 9000)}`,
     client_name: q.client_name || "Client",
     status: q.status || "Brouillon",
     total_amount: Number(q.total_amount) || 0,
-    date: new Date().toISOString().split("T")[0]
+    date: q.date || new Date().toISOString().split("T")[0],
+    lignes: q.lignes || []
   };
   quotationsStore.push(newQ);
   return newQ;
 };
 export const deleteQuotation = (id: string) => {
-  quotationsStore = quotationsStore.filter(q => q.id !== id);
+  const idx = quotationsStore.findIndex(q => q.id === id);
+  if (idx !== -1) quotationsStore.splice(idx, 1);
 };
-export const clearQuotations = () => { quotationsStore = []; };
+export const updateQuotation = (id: string, patch: Partial<Quotation>) => {
+  const q = quotationsStore.find(q => q.id === id);
+  if (q) Object.assign(q, patch);
+  return q;
+};
+export const clearQuotations = () => { quotationsStore.length = 0; };
 
 export const getInvoices = () => invoicesStore;
 export const getInvoiceById = (id: string) => invoicesStore.find(i => i.id === id);
-export const addInvoice = (inv: Partial<Invoice>): Invoice => {
-  const newInv: Invoice = {
+export const addInvoice = (inv: Partial<Invoice> & { lignes?: any[] }): Invoice => {
+  const newInv: Invoice & { lignes?: any[] } = {
     id: generateUniqueId("fac"),
     invoice_number: inv.invoice_number || `FAC-${Math.floor(1000 + Math.random() * 9000)}`,
     client_name: inv.client_name || "Client",
     status: inv.status || "Brouillon",
     total_amount: Number(inv.total_amount) || 0,
-    date: new Date().toISOString().split("T")[0]
+    date: inv.date || new Date().toISOString().split("T")[0],
+    lignes: inv.lignes || []
   };
   invoicesStore.push(newInv);
   return newInv;
 };
-export const deleteInvoice = (id: string) => {
-  invoicesStore = invoicesStore.filter(i => i.id !== id);
+export const updateInvoice = (id: string, patch: Partial<Invoice>) => {
+  const inv = invoicesStore.find(i => i.id === id);
+  if (inv) Object.assign(inv, patch);
+  return inv;
 };
-export const clearInvoices = () => { invoicesStore = []; };
+export const deleteInvoice = (id: string) => {
+  const idx = invoicesStore.findIndex(i => i.id === id);
+  if (idx !== -1) invoicesStore.splice(idx, 1);
+};
+export const clearInvoices = () => { invoicesStore.length = 0; };
