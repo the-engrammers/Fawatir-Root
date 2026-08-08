@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { UserPlus, X, Shield, Search, MoreHorizontal, Check, HelpCircle } from "lucide-react";
-import { equipeList } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { UserPlus, X, Shield, Search, MoreHorizontal, Check, HelpCircle, Loader2 } from "lucide-react";
 
 const ROLE_PERMISSIONS: Record<string, string> = {
   Administrateur: "Accès complet: Création, validation, suppression et gestion des paramètres & utilisateurs.",
@@ -12,7 +11,8 @@ const ROLE_PERMISSIONS: Record<string, string> = {
 };
 
 export default function EquipePage() {
-  const [list, setList] = useState<any[]>(equipeList);
+  const [list, setList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
@@ -20,22 +20,52 @@ export default function EquipePage() {
   const [search, setSearch] = useState("");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
-  const handleInvite = (e: React.FormEvent) => {
+  const fetchEquipe = async () => {
+    try {
+      const res = await fetch(`/api/equipe?t=${Date.now()}`);
+      const data = await res.json();
+      setList(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEquipe();
+    const handleUpdate = () => fetchEquipe();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
+  }, []);
+
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nom || !email) return;
 
     const newMember = {
-      id: `eq-${Date.now()}`,
       nom,
       email,
       role,
       statut: "Invité" as const,
     };
 
-    setList([newMember, ...list]);
-    setIsModalOpen(false);
-    setNom("");
-    setEmail("");
+    try {
+      fetch('/api/equipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMember)
+      }).then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "equipe" } }));
+        }
+      });
+      setIsModalOpen(false);
+      setNom("");
+      setEmail("");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleRoleChange = (memberId: string, newRole: string) => {

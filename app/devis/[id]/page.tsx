@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Pencil, Download, RefreshCw } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
-import { devisList } from "@/lib/mock-data";
+import { getQuotationById } from "@/lib/mock-data-store";
 
 export default function DevisDetailPage({ params }: { params: { id: string } }) {
-  const devis = devisList.find((d) => d.id === params.id);
+  const devis = getQuotationById(params.id);
   if (!devis) notFound();
 
-  const sousTotal = devis.lignes.reduce((s, l) => s + l.qte * l.prix, 0);
+  const lignes = devis.lignes || [];
+  const sousTotal = lignes.reduce((s: any, l: any) => s + (l.quantite || l.qte || 1) * (l.prix_unitaire || l.prix || 0), 0);
   const taxe = sousTotal * 0.2;
   const total = sousTotal + taxe;
 
@@ -26,11 +27,11 @@ export default function DevisDetailPage({ params }: { params: { id: string } }) 
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-[20px] font-semibold text-ink-900">
-                {devis.numero}
+                {devis.quotation_number}
               </h1>
-              <StatusChip tone={statusTone(devis.statut)}>{devis.statut}</StatusChip>
+              <StatusChip tone={statusTone(devis.status)}>{devis.status}</StatusChip>
             </div>
-            <p className="text-[12.5px] text-ink-400">Valide jusqu'au {devis.validiteJusquau}</p>
+            <p className="text-[12.5px] text-ink-400">Valide jusqu'au {devis.date}</p>
           </div>
         </div>
 
@@ -38,9 +39,13 @@ export default function DevisDetailPage({ params }: { params: { id: string } }) 
           <button className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
             <Pencil size={14} /> Modifier
           </button>
-          <button className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
+          <Link
+            href={`/devis/${devis.id}/print`}
+            target="_blank"
+            className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50"
+          >
             <Download size={14} /> PDF
-          </button>
+          </Link>
           {devis.statut !== "Converti" && (
             <button className="flex items-center gap-1.5 rounded-md bg-brass px-3 py-2 text-[13px] font-medium text-white hover:bg-brass-dark">
               <RefreshCw size={14} /> Convertir en facture
@@ -52,11 +57,11 @@ export default function DevisDetailPage({ params }: { params: { id: string } }) 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="ledger-card">
           <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Client</p>
-          <p className="mt-1 text-[15px] font-medium text-ink-900">{devis.client}</p>
+          <p className="mt-1 text-[15px] font-medium text-ink-900">{devis.client_name}</p>
         </div>
         <div className="ledger-card">
           <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Validité</p>
-          <p className="mt-1 text-[15px] font-medium text-ink-900">{devis.validiteJusquau}</p>
+          <p className="mt-1 text-[15px] font-medium text-ink-900">{devis.date}</p>
         </div>
         <div className="ledger-card">
           <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Total</p>
@@ -79,17 +84,21 @@ export default function DevisDetailPage({ params }: { params: { id: string } }) 
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-200/60">
-            {devis.lignes.map((l, idx) => (
-              <tr key={idx}>
-                <td className="py-2.5 text-ink-400">{idx + 1}</td>
-                <td className="py-2.5 text-ink-700">{l.article}</td>
-                <td className="figure py-2.5 text-right text-ink-700">{l.qte}</td>
-                <td className="figure py-2.5 text-right text-ink-700">{mad(l.prix)}</td>
-                <td className="figure py-2.5 text-right font-medium text-ink-900">
-                  {mad(l.qte * l.prix)}
-                </td>
-              </tr>
-            ))}
+            {lignes.map((l: any, idx: number) => {
+              const qte = l.quantite || l.qte || 1;
+              const prix = l.prix_unitaire || l.prix || 0;
+              return (
+                <tr key={idx}>
+                  <td className="py-2.5 text-ink-400">{idx + 1}</td>
+                  <td className="py-2.5 text-ink-700">{l.description || l.article || "Article inconnu"}</td>
+                  <td className="figure py-2.5 text-right text-ink-700">{qte}</td>
+                  <td className="figure py-2.5 text-right text-ink-700">{mad(prix)}</td>
+                  <td className="figure py-2.5 text-right font-medium text-ink-900">
+                    {mad(qte * prix)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         <div className="ml-auto mt-3 w-full max-w-xs space-y-1.5 text-[13px]">

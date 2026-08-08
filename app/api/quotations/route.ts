@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getQuotations, addQuotation } from '@/lib/mock-data-store';
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   return NextResponse.json(getQuotations());
 }

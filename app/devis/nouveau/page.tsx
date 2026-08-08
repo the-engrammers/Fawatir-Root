@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Plus, Trash2, Loader2, Sparkles, Check } from "lucide-react";
-import { clientsRecents, clientsList, produitsList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 type Ligne = { id: number; article: string; qte: number; prix: number };
@@ -17,6 +16,14 @@ function DevisFormContent() {
 
   const [clientId, setClientId] = useState("");
   const [taxePct, setTaxePct] = useState(20);
+  const [clients, setClients] = useState<any[]>([]);
+  const [produits, setProduits] = useState<any[]>([]);
+  
+  useEffect(() => {
+    fetch('/api/clients').then(r => r.json()).then(data => setClients(Array.isArray(data) ? data : (data.results || [])));
+    fetch('/api/products').then(r => r.json()).then(data => setProduits(Array.isArray(data) ? data : (data.results || [])));
+  }, []);
+
   const [lignes, setLignes] = useState<Ligne[]>([{ id: 1, article: "", qte: 1, prix: 0 }]);
   const [isLoadingOcr, setIsLoadingOcr] = useState(false);
   const [ocrMessage, setOcrMessage] = useState<string | null>(null);
@@ -73,6 +80,40 @@ function DevisFormContent() {
     setLignes((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
   }
 
+  const handleSave = async (status: string) => {
+    setIsSubmitting(true);
+    try {
+      const selectedClient = clients.find(c => c.id === clientId);
+      const devisData = {
+        numero: `DEV-00${Math.floor(Math.random() * 1000)}`,
+        client: clientId,
+        client_name: selectedClient ? (selectedClient.company_name || selectedClient.nom) : "Client Inconnu",
+        statut: status,
+        montant: total,
+        date: new Date().toISOString(),
+        validiteJusquau: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        lignes,
+      };
+      
+      // Fetch in background to not block UI
+      fetch('/api/quotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(devisData)
+      }).then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
+        }
+      });
+      
+      setSaveSuccess(true);
+      router.push("/devis");
+    } catch (err) {
+      console.error(err);
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div className="flex items-center gap-3">
@@ -108,34 +149,19 @@ function DevisFormContent() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-[12.5px] text-ink-600">Client</label>
-                <select
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
-                >
-                  <option value="">Sélectionner un client...</option>
-                  {clientsList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {clientsRecents.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setClientId(c.id)}
-                      className={`rounded-full border px-2.5 py-1 text-[11.5px] ${
-                        clientId === c.id
-                          ? "border-brass bg-brass/10 text-brass"
-                          : "border-ink-200 text-ink-600 hover:border-brass/50"
-                      }`}
-                    >
-                      {c.nom}
-                    </button>
-                  ))}
-                </div>
+                  <select
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    className="w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
+                  >
+                    <option value="">-- Choisir un client existant --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.company_name || c.nom}
+                      </option>
+                    ))}
+                  </select>
+
               </div>
               <div>
                 <label className="mb-1.5 block text-[12.5px] text-ink-600">Valide jusqu'au</label>
@@ -170,20 +196,20 @@ function DevisFormContent() {
                   <label className="mb-1 block text-[11px] text-ink-500 font-medium">Sélectionner un produit du catalogue</label>
                   <select
                     onChange={(e) => {
-                      const selectedProd = produitsList.find(p => p.id === e.target.value);
+                      const selectedProd = produits.find((p: any) => p.id === e.target.value);
                       if (selectedProd) {
                         updateLigne(l.id, {
-                          article: selectedProd.nom,
-                          prix: selectedProd.prix
+                          article: selectedProd.name || selectedProd.nom,
+                          prix: selectedProd.selling_price || selectedProd.prix
                         });
                       }
                     }}
                     className="w-full rounded-md border border-ink-200 bg-white px-2 py-1.5 text-[12px] mb-1.5 focus:border-brass/60 focus:outline-none"
                   >
                     <option value="">-- Choisir dans le catalogue --</option>
-                    {produitsList.map(p => (
+                    {produits.map((p: any) => (
                       <option key={p.id} value={p.id}>
-                        {p.nom} ({mad(p.prix)})
+                        {p.name || p.nom} ({mad(p.selling_price || p.prix)})
                       </option>
                     ))}
                   </select>
@@ -256,13 +282,7 @@ function DevisFormContent() {
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => {
-                setIsSubmitting(true);
-                setSaveSuccess(true);
-                setTimeout(() => {
-                  router.push("/devis");
-                }, 800);
-              }}
+              onClick={() => handleSave("Brouillon")}
               className="w-full rounded-md border border-ink-200 py-2.5 text-[13px] font-medium text-ink-700 hover:border-brass/50 flex items-center justify-center gap-2"
             >
               {saveSuccess ? <Check size={16} className="text-green-600" /> : null}
@@ -271,13 +291,7 @@ function DevisFormContent() {
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => {
-                setIsSubmitting(true);
-                setSaveSuccess(true);
-                setTimeout(() => {
-                  router.push("/devis");
-                }, 800);
-              }}
+              onClick={() => handleSave("Envoyée")}
               className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800 flex items-center justify-center gap-2"
             >
               {saveSuccess ? <Check size={16} /> : null}

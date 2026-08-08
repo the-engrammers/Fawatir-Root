@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import Modal from "./Modal";
 import FormAlert from "./FormAlert";
 
-export default function AddSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
+export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) {
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,34 +18,36 @@ export default function AddSupplierModal({ onClose, onSuccess }: { onClose: () =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim()) {
-      setError("Le nom de l'entreprise est obligatoire.");
+    if (!companyName) {
+      setError("Le nom de l'entreprise est obligatoire");
       return;
     }
-
+    
     setIsSubmitting(true);
     setError(null);
 
+    const payload = {
+      company_name: companyName,
+      contact_name: contactName,
+      email,
+      phone,
+      city,
+      country,
+      metadata: ice ? { ICE: ice } : {}
+    };
+
+    // Optimistic background fetch
     try {
-      const res = await fetch("/api/suppliers", {
+      fetch("/api/suppliers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: companyName,
-          contact_name: contactName,
-          email,
-          phone,
-          city,
-          country,
-          metadata: ice ? { ICE: ice } : {},
-        }),
+        body: JSON.stringify(payload)
+      }).then((res) => {
+        if (res.ok && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
+        }
       });
-
-      if (!res.ok) throw new Error("Échec de la création du fournisseur");
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
-      }
+      
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
@@ -56,7 +58,7 @@ export default function AddSupplierModal({ onClose, onSuccess }: { onClose: () =
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Ajouter un Fournisseur">
+    <Modal isOpen={isOpen} onClose={onClose} title="Ajouter un Fournisseur">
       <FormAlert error={error} onClose={() => setError(null)} title="Erreur de formulaire" />
 
       <form onSubmit={handleSubmit} className="space-y-4">

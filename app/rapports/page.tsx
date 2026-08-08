@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { 
   Download, Calendar, TrendingUp, TrendingDown, DollarSign, PieChart, 
   BarChart3, ArrowUpRight, FileText, Sparkles, Printer, CheckCircle2, 
   AlertTriangle, Eye, RefreshCw, ChevronRight, ShieldCheck, Filter, MoreHorizontal,
-  X, Copy, FileSpreadsheet, Send
+  X, Copy, FileSpreadsheet, Send, Loader2
 } from "lucide-react";
-import { revenuMensuel, topClients, revenuParCategorie, kpis } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 export default function RapportsPage() {
@@ -18,25 +17,98 @@ export default function RapportsPage() {
   const [selectedClientDetail, setSelectedClientDetail] = useState<any | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [clientsData, setClientsData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Extended monthly data with growth & invoice counts
-  const extendedMonthly = [
-    { mois: "Janvier", revenu: 120000, croissance: "+8.5%", factures: 12, panierMoyen: 10000, statut: "Clôturé" },
-    { mois: "Février", revenu: 145000, croissance: "+20.8%", factures: 14, panierMoyen: 10357, statut: "Clôturé" },
-    { mois: "Mars", revenu: 130000, croissance: "-10.3%", factures: 11, panierMoyen: 11818, statut: "Clôturé" },
-    { mois: "Avril", revenu: 160000, croissance: "+23.0%", factures: 15, panierMoyen: 10666, statut: "Clôturé" },
-    { mois: "Mai", revenu: 190000, croissance: "+18.7%", factures: 18, panierMoyen: 10555, statut: "Clôturé" },
-    { mois: "Juin", revenu: 210000, croissance: "+10.5%", factures: 20, panierMoyen: 10500, statut: "En cours" },
+  useEffect(() => {
+    const loadData = () => {
+      Promise.all([
+        fetch(`/api/invoices?t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/clients?t=${Date.now()}`).then(res => res.json())
+      ]).then(([invs, clis]) => {
+        setInvoices(invs);
+        setClientsData(clis);
+        setIsLoading(false);
+      }).catch(() => setIsLoading(false));
+    };
+    loadData();
+    const handleDataUpdate = () => loadData();
+    window.addEventListener("dataUpdated", handleDataUpdate);
+    return () => window.removeEventListener("dataUpdated", handleDataUpdate);
+  }, []);
+
+  const kpis = useMemo(() => {
+    const paidInvoices = invoices.filter(i => i.status === "Payée" || i.statut === "Payée");
+    const unpaidInvoices = invoices.filter(i => i.status !== "Payée" && i.statut !== "Payée");
+    const totalRev = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    const creancesAttente = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    return {
+      revenuTotal: totalRev,
+      facturesPayeesCount: paidInvoices.length,
+      facturesTotalCount: invoices.length,
+      tauxRecouvrement: invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0,
+      factureMoyenne: paidInvoices.length ? Math.round(totalRev / paidInvoices.length) : 0,
+      creancesAttente,
+    };
+  }, [invoices]);
+
+  const clients = clientsData;
+
+  const revenuParCategorie = [
+    { categorie: "Services IT", montant: 0, pct: 0 },
+    { categorie: "Licences Logiciel", montant: 0, pct: 0 },
+    { categorie: "Consulting", montant: 0, pct: 0 },
+    { categorie: "Matériel", montant: 0, pct: 0 },
   ];
 
-  // Extended client risk analysis table data
-  const extendedClients = [
-    { id: "c1", nom: "Atlas Tech", revenu: 120000, part: "26.7%", recouvrement: "98%", enRetard: 0, risque: "Faible", statutRisk: "success" },
-    { id: "c2", nom: "OCP Group", revenu: 95000, part: "21.1%", recouvrement: "100%", enRetard: 0, risque: "Faible", statutRisk: "success" },
-    { id: "c3", nom: "Tanger Med", revenu: 90000, part: "20.0%", recouvrement: "85%", enRetard: 13500, risque: "Modéré", statutRisk: "warning" },
-    { id: "c4", nom: "Inwi Pro", revenu: 80000, part: "17.8%", recouvrement: "92%", enRetard: 6400, risque: "Faible", statutRisk: "success" },
-    { id: "c5", nom: "Maroc Telecom", revenu: 65000, part: "14.4%", recouvrement: "70%", enRetard: 19500, risque: "Élevé", statutRisk: "danger" },
-  ];
+  const extendedMonthly = useMemo(() => {
+    if (invoices.length === 0) return [];
+    const monthlyData: Record<string, any> = {};
+    invoices.forEach(inv => {
+      const date = new Date(inv.date || new Date());
+      const month = date.toLocaleString('fr-FR', { month: 'long' });
+      if (!monthlyData[month]) {
+        monthlyData[month] = { mois: month.charAt(0).toUpperCase() + month.slice(1), revenu: 0, factures: 0 };
+      }
+      if (inv.status === "Payée" || inv.statut === "Payée") {
+        monthlyData[month].revenu += (inv.total_amount || inv.montant || 0);
+      }
+      monthlyData[month].factures += 1;
+    });
+    
+    return Object.values(monthlyData).map((m: any) => ({
+      ...m,
+      croissance: "+0%", // Simplified for now
+      panierMoyen: m.revenu / m.factures || 0,
+      statut: "Clôturé"
+    }));
+  }, [invoices]);
+
+  const extendedClients = useMemo(() => {
+    if (invoices.length === 0) return [];
+    const clientData: Record<string, any> = {};
+    invoices.forEach(inv => {
+      const cName = inv.client_name || inv.client || "Client Inconnu";
+      if (!clientData[cName]) clientData[cName] = { nom: cName, revenu: 0, total: 0, enRetard: 0 };
+      const amount = (inv.total_amount || inv.montant || 0);
+      clientData[cName].total += amount;
+      if (inv.status === "Payée" || inv.statut === "Payée") clientData[cName].revenu += amount;
+      if (inv.status === "En retard" || inv.statut === "En retard") clientData[cName].enRetard += amount;
+    });
+
+    const totalRev = kpis.revenuTotal;
+    return Object.values(clientData).map((c: any) => ({
+      id: c.nom,
+      nom: c.nom,
+      revenu: c.revenu,
+      part: totalRev ? ((c.revenu / totalRev) * 100).toFixed(1) + "%" : "0%",
+      recouvrement: c.total ? Math.round((c.revenu / c.total) * 100) + "%" : "0%",
+      enRetard: c.enRetard,
+      risque: c.enRetard > 0 ? "Élevé" : "Faible",
+      statutRisk: c.enRetard > 0 ? "danger" : "success"
+    }));
+  }, [invoices, kpis.revenuTotal]);
 
   const exportCSV = () => {
     let rawText = "";
@@ -93,18 +165,18 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
 • TVA collectée (20%) : ${mad(kpis.revenuTotal * 0.2)}
 
 2. TENDANCES ET DYNAMIQUE DE CROISSANCE
-• Progression soutenue portée par les mois de Mai (${mad(190000)}) et Juin (${mad(210000)}).
-• L'activité "Développement sur mesure" et "Services Cloud" représente 73% du chiffre d'affaires total.
+• Croissance stable calculée selon les encaissements récents.
+• La prestation de service représente la majorité de votre facturation.
 
 3. RISQUE DE CONCENTRATION & CLIENTS
-• Top 3 clients (Atlas Tech, OCP, Tanger Med) pèsent 67.8% du CA total.
-• Recommandation : Diversifier le portefeuille pour limiter le risque de dépendance économique.
-• Montant des impayés à suivre en priorité : ${mad(19500)} chez Maroc Telecom.
+• La fidélisation des ${clients.length} clients enregistrés est cruciale pour le CA total.
+• Recommandation : Continuer la prospection pour limiter la dépendance économique.
+• Montant total des impayés et encours à suivre en priorité : ${mad(kpis.creancesAttente)}.
 
 4. RECOMMANDATIONS STRATÉGIQUES IA
-✔ Optimisation de la Trésorerie : Automatiser les relances à J+7 pour maintenir le taux de recouvrement au-dessus de 90%.
-✔ Stratégie Tarifaire : Augmenter les abonnements récurrents (SaaS / Maintenance) pour stabiliser le revenu mensuel récurrent (MRR).
-✔ Conformité Fiscale : Prévoir la déclaration trimestrielle de TVA avant la date limite légale (TVA Nette due : ${mad(kpis.revenuTotal * 0.2 - 18400)}).
+✔ Optimisation de la Trésorerie : Automatiser les relances pour maintenir le taux de recouvrement.
+✔ Stratégie Tarifaire : Sécuriser des abonnements récurrents.
+✔ Conformité Fiscale : Préparer la trésorerie pour la déclaration de TVA (Estimée : ${mad(kpis.revenuTotal * 0.2)}).
 `;
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -745,21 +817,21 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
                   3. RISQUE CLIENT & ANALYSE DE RECOUVREMENT
                 </h3>
                 <p className="text-[12px] text-slate-700 leading-relaxed">
-                  Le portefeuille client fait apparaître une concentration importante : les 3 premiers comptes (<strong>Atlas Tech</strong>, <strong>OCP Group</strong> et <strong>Tanger Med</strong>) génèrent à eux seuls <strong>67.8%</strong> du chiffre d'affaires global.
+                  Votre base est constituée de <strong>{clients.length}</strong> clients actifs qui génèrent le chiffre d'affaires global.
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 text-[12px]">
                   <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-lg space-y-1">
-                    <span className="font-bold text-amber-900 block">⚠ Point d'Attention — Dépendance Client :</span>
+                    <span className="font-bold text-amber-900 block">⚠ Point d'Attention — Concentration :</span>
                     <p className="text-slate-700">
-                      Un départ de l'un des deux principaux clients réduirait le chiffre d'affaires de près d'un quart. Il est conseillé de lancer une campagne d'acquisition ciblée.
+                      Vérifiez régulièrement qu'aucun client ne dépasse 30% de votre chiffre d'affaires total pour limiter le risque de dépendance.
                     </p>
                   </div>
 
                   <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-lg space-y-1">
                     <span className="font-bold text-emerald-900 block">✔ Discipline de Paiement :</span>
                     <p className="text-slate-700">
-                      Le taux de recouvrement global de <strong>91.2%</strong> atteste de la rigueur de relance. Les retards de paiement sont limités à <strong>39 400 MAD</strong>.
+                      Le taux de recouvrement global de <strong>{kpis.tauxRecouvrement}%</strong> atteste de l'efficacité de vos facturations. Vos créances en attente sont de <strong>{mad(kpis.creancesAttente)}</strong>.
                     </p>
                   </div>
                 </div>

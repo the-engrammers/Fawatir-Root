@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, ChevronDown, Download } from "lucide-react";
-import { bulletinsList, employesList } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { Settings, ChevronDown, Download, Loader2 } from "lucide-react";
 import { mad } from "@/lib/format";
 
 const CNSS_PCT = 4.48;
@@ -11,13 +10,13 @@ const AMO_PCT = 2.26;
 const TAUX_IR = 20; // simplified single-bracket display matching the cartography's example
 
 function computeBulletin(salaireBase: number, personnesACharge: number) {
-  const salaireBrut = salaireBase;
+  const salaireBrut = salaireBase || 0;
   const cnssBase = Math.min(salaireBrut, CNSS_PLAFOND);
   const cnss = cnssBase * (CNSS_PCT / 100);
   const amo = salaireBrut * (AMO_PCT / 100);
   const fraisPro = salaireBrut * 0.191;
   const baseImposableIR = salaireBrut - cnss - amo - fraisPro;
-  const deductionPersonnes = personnesACharge * (360 / 12);
+  const deductionPersonnes = (personnesACharge || 0) * (360 / 12);
   const ir = Math.max(0, baseImposableIR * (TAUX_IR / 100) - deductionPersonnes);
   const totalRetenues = cnss + amo + ir;
   const netAPayer = salaireBrut - totalRetenues;
@@ -26,13 +25,43 @@ function computeBulletin(salaireBase: number, personnesACharge: number) {
 }
 
 export default function BulletinsPaiePage() {
+  const [employesList, setEmployesList] = useState<any[]>([]);
+  const [bulletinsList, setBulletinsList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selected, setSelected] = useState<string | null>(bulletinsList[0]?.id ?? null);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const [empRes, bulRes] = await Promise.all([
+        fetch(`/api/employes?t=${Date.now()}`),
+        fetch(`/api/bulletins?t=${Date.now()}`)
+      ]);
+      const empData = await empRes.json();
+      const bulData = await bulRes.json();
+      
+      setEmployesList(empData);
+      setBulletinsList(bulData);
+      if (bulData.length > 0 && !selected) setSelected(bulData[0].id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const handleUpdate = () => fetchData();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
+  }, []);
 
   const rows = bulletinsList.map((b) => {
-    const emp = employesList.find((e) => e.id === b.employeId)!;
-    return { ...b, emp, calc: computeBulletin(emp.salaireBase, emp.personnesACharge) };
+    const emp = employesList.find((e) => e.id === b.employeId) || { prenom: "Inconnu", nom: "", salaire_base: 0, personnesACharge: 0 };
+    return { ...b, emp, calc: computeBulletin(emp.salaire_base, emp.personnesACharge) };
   });
 
   const selectedRow = rows.find((r) => r.id === selected);
@@ -86,8 +115,10 @@ export default function BulletinsPaiePage() {
       )}
 
       <div className="ledger-card !p-4">
-        {rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-14 text-center">
+        {isLoading ? (
+          <div className="flex justify-center p-12"><Loader2 className="animate-spin text-ink-300" size={32} /></div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
             <p className="text-[13.5px] font-medium text-ink-700">Aucun bulletin de paie</p>
             <p className="text-[12px] text-ink-400">
               Créez des bulletins ou générez un mois complet pour tous les employés actifs

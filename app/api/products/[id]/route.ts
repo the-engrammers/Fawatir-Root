@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getProductById, deleteProduct } from '@/lib/mock-data-store';
+import { getProductById, deleteProduct, updateProduct } from '@/lib/mock-data-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,4 +12,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   deleteProduct(params.id);
   return NextResponse.json({ message: "Produit supprimé avec succès" });
+}
+
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const body = await req.json();
+    const prod = updateProduct(params.id, body);
+    if (!prod) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    return NextResponse.json(prod);
+  } catch (error) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 }

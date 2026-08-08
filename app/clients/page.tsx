@@ -6,6 +6,7 @@ import { Plus, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, MessageSquare
 import AddClientModal from "@/components/AddClientModal";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
 import WhatsAppSendModal from "@/components/WhatsAppSendModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function ClientsPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,6 +23,13 @@ export default function ClientsPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     fetchClients();
@@ -78,14 +86,19 @@ export default function ClientsPage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={async () => {
-              if (confirm("Voulez-vous vraiment vider toute la liste des clients ?")) {
-                await fetch("/api/clients/clear", { method: "DELETE" });
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
+            onClick={() => {
+              setConfirmConfig({
+                isOpen: true,
+                title: "Vider les clients",
+                message: "Voulez-vous vraiment vider toute la liste des clients ? Cette action est irréversible.",
+                onConfirm: async () => {
+                  await fetch("/api/clients/clear", { method: "DELETE" });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
+                  }
+                  fetchClients();
                 }
-                fetchClients();
-              }
+              });
             }}
             className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-[12.5px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
           >
@@ -204,17 +217,22 @@ export default function ClientsPage() {
                                 Contacter sur WhatsApp
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Supprimer le client ${c.company_name || c.contact_name} ?`)) {
-                                    try {
-                                      await fetch(`/api/clients/${c.id}`, { method: "DELETE" });
-                                    } catch (err) {}
-                                    if (typeof window !== "undefined") {
-                                      window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
+                                onClick={() => {
+                                  setConfirmConfig({
+                                    isOpen: true,
+                                    title: `Supprimer le client ${c.company_name || c.contact_name}`,
+                                    message: "Voulez-vous vraiment supprimer ce client ? Cette action est irréversible.",
+                                    onConfirm: async () => {
+                                      try {
+                                        await fetch(`/api/clients/${c.id}`, { method: "DELETE" });
+                                      } catch (err) {}
+                                      if (typeof window !== "undefined") {
+                                        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
+                                      }
+                                      fetchClients();
                                     }
-                                    fetchClients();
-                                    setActionMenuOpen(null);
-                                  }
+                                  });
+                                  setActionMenuOpen(null);
                                 }}
                                 className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"
                               >
@@ -290,6 +308,14 @@ export default function ClientsPage() {
           amount={0}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+      />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import ProductForm from "@/components/ProductForm";
-import { produitsList } from "@/lib/mock-data";
+import { getProductById } from "@/lib/mock-data-store";
 
 export default function ModifierProduitPage({ params }: { params: { id: string } }) {
-  const produit = produitsList.find((p) => p.id === params.id);
+  const produit = getProductById(params.id);
   if (!produit) notFound();
 
   return <ProductForm mode="edit" produit={produit} />;

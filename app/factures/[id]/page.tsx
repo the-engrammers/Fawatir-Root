@@ -1,24 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Pencil, Download, CheckCircle2, MessageSquare, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, Pencil, Download, CheckCircle2, MessageSquare, MoreHorizontal, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
-import { facturesList, clientsFull } from "@/lib/mock-data";
 import WhatsAppSendModal from "@/components/WhatsAppSendModal";
 
 export default function FactureDetailPage({ params }: { params: { id: string } }) {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
-  const facture = facturesList.find((f) => f.id === params.id);
-  if (!facture) notFound();
+  const [facture, setFacture] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const clientInfo = clientsFull.find((c) => c.nom === facture.client || c.id === facture.clientId);
+  useEffect(() => {
+    const loadFacture = () => {
+      fetch(`/api/invoices?t=${Date.now()}`)
+        .then(res => res.json())
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.results || []);
+          const found = list.find((f: any) => f.id === params.id);
+          setFacture(found);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+    loadFacture();
+    const handleUpdate = () => loadFacture();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
+  }, [params.id]);
 
-  const sousTotal = facture.lignes.reduce((sum, l) => sum + l.qte * l.prix, 0);
-  const remiseAmount = sousTotal * (facture.remise / 100);
-  const taxe = (sousTotal - remiseAmount) * (facture.taxePct / 100);
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
+  if (!facture) return <div className="p-12 text-center text-white">Facture introuvable (404)</div>;
+
+  const clientInfo = { telephone: facture.phone || "" }; // Fallback
+
+  const lignes = facture.lignes || [];
+  const sousTotal = lignes.reduce((sum: any, l: any) => sum + (l.quantite || l.qte || 1) * (l.prix_unitaire || l.prix || 0), 0);
+  const remiseAmount = 0; // Remise is not yet natively supported in Scanner
+  const taxe = sousTotal * 0.2; // Default 20%
   const total = sousTotal - remiseAmount + taxe;
 
   return (
@@ -34,11 +55,11 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-[22px] font-bold text-white tracking-tight">
-                {facture.numero}
+                {facture.invoice_number}
               </h1>
-              <StatusChip tone={statusTone(facture.statut)}>{facture.statut}</StatusChip>
+              <StatusChip tone={statusTone(facture.status)}>{facture.status}</StatusChip>
             </div>
-            <p className="text-[12.5px] text-slate-400">Créée le {facture.dateEmission}</p>
+            <p className="text-[12.5px] text-slate-400">Créée le {facture.date}</p>
           </div>
         </div>
 
@@ -49,19 +70,20 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
           >
             <MessageSquare size={15} /> Envoyer WhatsApp
           </button>
-          <button
-            onClick={() => window.print()}
+          <Link
+            href={`/factures/${facture.id || params.id}/print`}
+            target="_blank"
             className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all"
           >
             <Download size={15} /> Télécharger PDF
-          </button>
+          </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="ledger-card">
           <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-400">Client</p>
-          <p className="mt-1 text-[15px] font-bold text-white">{facture.client}</p>
+          <p className="mt-1 text-[15px] font-bold text-white">{facture.client_name}</p>
           {clientInfo?.telephone && (
             <p className="text-[12px] text-emerald-400 font-mono mt-0.5">📞 {clientInfo.telephone}</p>
           )}
@@ -70,11 +92,11 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
           <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-400">Dates</p>
           <div className="mt-1 flex justify-between text-[13px] text-slate-300">
             <span>Émise :</span>
-            <span className="font-semibold text-white">{facture.dateEmission}</span>
+            <span className="font-semibold text-white">{facture.date}</span>
           </div>
           <div className="flex justify-between text-[13px] text-slate-300">
             <span>Échéance :</span>
-            <span className="font-semibold text-white">{facture.dateEcheance}</span>
+            <span className="font-semibold text-white">À réception</span>
           </div>
         </div>
         <div className="ledger-card">
@@ -108,17 +130,21 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
-            {facture.lignes.map((l, idx) => (
-              <tr key={idx}>
-                <td className="py-2.5 text-slate-500 font-mono">{idx + 1}</td>
-                <td className="py-2.5 text-slate-200 font-semibold">{l.article}</td>
-                <td className="figure py-2.5 text-right text-slate-300">{l.qte}</td>
-                <td className="figure py-2.5 text-right text-slate-300">{mad(l.prix)}</td>
-                <td className="figure py-2.5 text-right font-bold text-white">
-                  {mad(l.qte * l.prix)}
-                </td>
-              </tr>
-            ))}
+            {lignes.map((l: any, idx: number) => {
+              const qte = l.quantite || l.qte || 1;
+              const prix = l.prix_unitaire || l.prix || 0;
+              return (
+                <tr key={idx}>
+                  <td className="py-2.5 text-slate-500 font-mono">{idx + 1}</td>
+                  <td className="py-2.5 text-slate-200 font-semibold">{l.description || l.article || "Article inconnu"}</td>
+                  <td className="figure py-2.5 text-right text-slate-300">{qte}</td>
+                  <td className="figure py-2.5 text-right text-slate-300">{mad(prix)}</td>
+                  <td className="figure py-2.5 text-right font-bold text-white">
+                    {mad(qte * prix)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -128,10 +154,10 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
             <span className="figure font-mono">{mad(sousTotal)}</span>
           </div>
           <div className="flex justify-between text-slate-400">
-            <span>TVA ({facture.taxePct}%)</span>
+            <span>TVA (20%)</span>
             <span className="figure font-mono">{mad(taxe)}</span>
           </div>
-          {facture.remise > 0 && (
+          {remiseAmount > 0 && (
             <div className="flex justify-between text-slate-400">
               <span>Remise</span>
               <span className="figure font-mono">-{mad(remiseAmount)}</span>
@@ -148,12 +174,12 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
       <WhatsAppSendModal
         isOpen={showWhatsApp}
         onClose={() => setShowWhatsApp(false)}
-        documentType={facture.statut === "En retard" ? "relance" : "facture"}
-        recipientName={facture.client}
+        documentType={facture.status === "En retard" ? "relance" : "facture"}
+        recipientName={facture.client_name || "Client"}
         recipientPhone={clientInfo?.telephone || ""}
-        documentNumber={facture.numero}
+        documentNumber={facture.invoice_number}
         amount={total}
-        dueDate={facture.dateEcheance}
+        dueDate={"À réception"}
       />
     </div>
   );

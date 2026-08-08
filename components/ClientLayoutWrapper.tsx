@@ -11,9 +11,9 @@ const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
 
 export default function ClientLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname.endsWith("/print");
 
-  // If it's a public path (like login/register), don't show the dashboard shell.
+  // If it's a public path or a print page, don't show the dashboard shell.
   if (isPublic) {
     return (
       <div className="flex-1 w-full h-screen overflow-y-auto">

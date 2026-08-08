@@ -1,12 +1,41 @@
+"use client";
+
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Pencil } from "lucide-react";
-import { produitsList } from "@/lib/mock-data";
+import { ChevronLeft, Pencil, Loader2 } from "lucide-react";
 import { mad } from "@/lib/format";
+import { useState, useEffect } from "react";
 
 export default function FicheProduitPage({ params }: { params: { id: string } }) {
-  const produit = produitsList.find((p) => p.id === params.id);
-  if (!produit) notFound();
+  const [produit, setProduit] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/products`)
+      .then(res => res.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || []);
+        const p = list.find((item: any) => item.id === params.id);
+        if (p) {
+          setProduit({
+            ...p,
+            nom: p.name,
+            categorie: p.category,
+            statut: p.status,
+            unite: p.unit,
+            prix: p.selling_price,
+            suivreStock: p.track_inventory,
+            stock: p.quantity || 0,
+            variantes: []
+          });
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [params.id]);
+
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
+  if (!produit) return <div className="p-12 text-center text-white">Produit introuvable (404)</div>;
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-5">
@@ -91,7 +120,7 @@ export default function FicheProduitPage({ params }: { params: { id: string } })
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200/60">
-              {produit.variantes.map((v) => (
+              {produit.variantes.map((v: any) => (
                 <tr key={v.sku}>
                   <td className="py-2.5 text-ink-700">{v.nom}</td>
                   <td className="figure py-2.5 text-ink-500">{v.sku}</td>

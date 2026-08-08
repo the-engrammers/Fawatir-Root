@@ -3,7 +3,29 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ImagePlus, Plus, Trash2 } from "lucide-react";
-import type { Produit, Variante } from "@/lib/mock-data";
+type Variante = { nom: string; sku?: string; prix?: number; stock?: number };
+type Produit = {
+  id: string;
+  nom?: string;
+  name?: string;
+  description?: string;
+  image?: string;
+  categorie?: string;
+  category_name?: string;
+  prixBase?: number;
+  prix?: number;
+  selling_price?: number;
+  sku?: string;
+  unite?: string;
+  unit?: string;
+  suivreStock?: boolean;
+  track_inventory?: boolean;
+  qteStock?: number;
+  quantity?: number;
+  alerteStock?: number;
+  fournisseur?: string;
+  variantes?: Variante[];
+};
 
 export default function ProductForm({
   mode,
@@ -73,7 +95,7 @@ export default function ProductForm({
             <label className="mb-1.5 block text-[12.5px] text-ink-600">Prix</label>
             <input
               type="number"
-              defaultValue={produit?.prix}
+              defaultValue={produit?.prix || produit?.prixBase || produit?.selling_price || 0}
               placeholder="0.00"
               className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />
@@ -81,7 +103,7 @@ export default function ProductForm({
           <div>
             <label className="mb-1.5 block text-[12.5px] text-ink-600">SKU</label>
             <input
-              defaultValue={produit?.sku}
+              defaultValue={produit?.sku || ""}
               placeholder="PRO-001"
               className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />

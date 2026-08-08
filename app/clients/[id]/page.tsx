@@ -1,38 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Share2, Pencil, Mail, Phone, MapPin, Building2, Hash } from "lucide-react";
+import { ChevronLeft, Share2, Pencil, Mail, Phone, MapPin, Building2, Hash, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
-import { clientsFull, facturesList, devisList } from "@/lib/mock-data";
 
 export default function ClientFichePage({ params }: { params: { id: string } }) {
-  const staticClient = clientsFull.find((c) => c.id === params.id);
-  const client = staticClient || {
-    id: params.id,
-    nom: `Client #${params.id}`,
-    entreprise: "Entreprise partenaire",
-    email: "contact@client.ma",
-    telephone: "+212 600 000 000",
-    adresse: "Casablanca, Maroc",
-    dateClient: "2026",
-    fiscal: { ICE: "000123456789", IF: "123456" }
-  };
+  const [client, setClient] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
   const [tab, setTab] = useState<"factures" | "devis">("factures");
   const [shareOpen, setShareOpen] = useState(false);
 
+  useEffect(() => {
+    fetch(`/api/clients`)
+      .then(res => res.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || []);
+        const found = list.find((c: any) => c.id === params.id);
+        setClient(found);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [params.id]);
+
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
+  if (!client) return <div className="p-12 text-center text-white">Client introuvable (404)</div>;
+
   // client is always available
 
-  const clientFactures = facturesList.filter((f) => f.clientId === client.id);
-  const clientDevis = devisList.filter((d) => d.client === client.nom);
-  const revenuTotal = clientFactures
-    .filter((f) => f.statut === "Payée")
-    .reduce((s, f) => s + f.montant, 0);
-  const enAttente = clientFactures
-    .filter((f) => f.statut === "Envoyée" || f.statut === "En retard")
-    .reduce((s, f) => s + f.montant, 0);
+  // In a real app, these would be fetched via API too
+  const clientFactures: any[] = [];
+  const clientDevis: any[] = [];
+  const revenuTotal = 0;
+  const enAttente = 0;
+  
+  const clientNameDisplay = client.company_name || client.contact_name || client.nom || "Client";
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-5">
@@ -43,12 +48,12 @@ export default function ClientFichePage({ params }: { params: { id: string } }) 
       <div className="ledger-card flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brass/15 text-[16px] font-medium text-brass">
-            {client.nom.charAt(0)}
+            {clientNameDisplay.charAt(0)}
           </span>
           <div>
-            <p className="text-[16px] font-medium text-ink-900">{client.nom}</p>
+            <p className="text-[16px] font-medium text-ink-900">{clientNameDisplay}</p>
             <p className="text-[12.5px] text-ink-400">
-              {client.entreprise} · Client depuis {client.dateClient}
+              {client.customer_code || client.entreprise} · Client depuis {client.dateClient || new Date().getFullYear()}
             </p>
           </div>
         </div>
@@ -67,12 +72,15 @@ export default function ClientFichePage({ params }: { params: { id: string } }) 
 
       <div className="ledger-card grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Coord icon={Mail} label="E-mail" value={client.email} />
-        <Coord icon={Phone} label="Téléphone" value={client.telephone} />
-        <Coord icon={MapPin} label="Adresse" value={client.adresse} />
-        <Coord icon={Building2} label="Entreprise" value={client.entreprise} />
-        {Object.entries(client.fiscal).map(([label, value]) => (
-          <Coord key={label} icon={Hash} label={label} value={value} />
-        ))}
+        <Coord icon={Phone} label="Téléphone" value={client.phone || client.telephone} />
+        <Coord icon={MapPin} label="Adresse/Ville" value={client.city || client.adresse} />
+        <Coord icon={Building2} label="Entreprise" value={client.company_name || client.entreprise} />
+        {Object.entries(client.metadata || client.fiscal || {}).map(([label, value]) => {
+          if (typeof value === "string" || typeof value === "number") {
+            return <Coord key={label} icon={Hash} label={label.toUpperCase()} value={String(value)} />;
+          }
+          return null;
+        })}
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

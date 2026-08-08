@@ -1,4 +1,10 @@
+﻿import fs from 'fs';
+import path from 'path';
+
+const DATA_FILE = path.join(process.cwd(), 'data.json');
+
 // In-memory data store for Fatourati API routes
+const g = global as any;
 
 export interface Company {
   id: string;
@@ -47,15 +53,30 @@ export interface Product {
   metadata?: Record<string, any>;
 }
 
+export interface InvoiceItem {
+  id: string;
+  invoice?: string;
+  product?: string;
+  quantity: number;
+  unit_price?: number;
+  discount?: number;
+  tax_rate?: number;
+  metadata?: Record<string, any>;
+}
+
 export interface Quotation {
   id: string;
   company?: string;
   client?: string;
-  quotation_number: string;
   client_name?: string;
+  quotation_number: string;
+  date: string;
+  valid_until?: string;
+  total_amount: string | number;
   status: string;
-  total_amount: number;
-  date?: string;
+  statut?: string;
+  lignes?: any[];
+  metadata?: Record<string, any>;
 }
 
 export interface Invoice {
@@ -67,107 +88,96 @@ export interface Invoice {
   status: string;
   total_amount: number;
   date?: string;
+  phone?: string;
 }
 
-const companiesStore: Company[] = [
-  { id: "comp-1", name: "Fawatir Demo", email: "demo@fawatir.ma" }
-];
+export interface Employee {
+  id: string;
+  prenom: string;
+  nom: string;
+  cin: string;
+  cnss?: string;
+  poste?: string;
+  departement?: string;
+  salaire_base: number;
+  statut: string;
+}
 
-let clientsStore: Client[] = [
-  {
-    id: "cli-1",
-    customer_code: "CL-1001",
-    company_name: "Atlas Tech SARL",
-    contact_name: "Youssef Bennani",
-    email: "youssef@atlastra.ma",
-    phone: "+212 661 123456",
-    city: "Casablanca",
-    country: "Maroc"
-  },
-  {
-    id: "cli-2",
-    customer_code: "CL-1002",
-    company_name: "Maroc Import Expo",
-    contact_name: "Sara Alami",
-    email: "sara@marocimport.ma",
-    phone: "+212 662 987654",
-    city: "Rabat",
-    country: "Maroc"
-  }
-];
+g.companiesStore = g.companiesStore || [];
+const companiesStore: Company[] = g.companiesStore;
 
-let suppliersStore: Supplier[] = [
-  {
-    id: "sup-1",
-    supplier_code: "FR-2001",
-    company_name: "Papeterie du Sud",
-    contact_name: "Karim Tazi",
-    email: "contact@papeteriedusud.ma",
-    phone: "+212 522 334455",
-    city: "Casablanca",
-    country: "Maroc"
-  }
-];
+g.clientsStore = g.clientsStore || [];
+let clientsStore: Client[] = g.clientsStore;
 
-let productsStore: Product[] = [
-  {
-    id: "prod-1",
-    sku: "PRD-001",
-    name: "Licence Logiciel ERP Pro",
-    description: "Abonnement annuel ERP Fatourati",
-    selling_price: 4500,
-    quantity: 25,
-    unit: "unité",
-    category_name: "Services",
-    track_inventory: true,
-    is_active: true
-  },
-  {
-    id: "prod-2",
-    sku: "PRD-002",
-    name: "Imprimante Thermique Ticket POS",
-    description: "Imprimante POS USB/Ethernet 80mm",
-    selling_price: 1200,
-    quantity: 10,
-    unit: "unité",
-    category_name: "Matériel",
-    track_inventory: true,
-    is_active: true
-  }
-];
+g.suppliersStore = g.suppliersStore || [];
+let suppliersStore: Supplier[] = g.suppliersStore;
 
-let quotationsStore: Quotation[] = [
-  {
-    id: "dev-1",
-    quotation_number: "DEV-2024-001",
-    client_name: "Atlas Tech SARL",
-    status: "Envoyé",
-    total_amount: 15700,
-    date: "2024-08-01"
-  },
-  {
-    id: "dev-2",
-    quotation_number: "DEV-2024-002",
-    client_name: "Maroc Import Expo",
-    status: "Brouillon",
-    total_amount: 4500,
-    date: "2024-08-03"
-  }
-];
+g.productsStore = g.productsStore || [];
+let productsStore: Product[] = g.productsStore;
 
-let invoicesStore: Invoice[] = [
-  {
-    id: "fac-1",
-    invoice_number: "FAC-2024-001",
-    client_name: "Atlas Tech SARL",
-    status: "Payée",
-    total_amount: 15700,
-    date: "2024-07-28"
-  }
-];
+g.quotationsStore = g.quotationsStore || [];
+let quotationsStore: Quotation[] = g.quotationsStore;
+
+g.invoicesStore = g.invoicesStore || [];
+let invoicesStore: Invoice[] = g.invoicesStore;
 
 let idCounter = 1;
 const generateUniqueId = (prefix: string) => `${prefix}-${Date.now()}-${idCounter++}-${Math.random().toString(36).substring(2, 6)}`;
+
+const syncRef = (target: any[], source: any[]) => {
+  if (target) {
+    target.length = 0;
+    target.push(...source);
+  }
+};
+
+export const loadData = () => {
+  if (g.__dataLoaded) return;
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+      if (data.companiesStore) syncRef(g.companiesStore, data.companiesStore);
+      if (data.clientsStore) syncRef(g.clientsStore, data.clientsStore);
+      if (data.suppliersStore) syncRef(g.suppliersStore, data.suppliersStore);
+      if (data.productsStore) syncRef(g.productsStore, data.productsStore);
+      if (data.quotationsStore) syncRef(g.quotationsStore, data.quotationsStore);
+      if (data.invoicesStore) syncRef(g.invoicesStore, data.invoicesStore);
+      if (data.employeesStore) syncRef(g.employeesStore, data.employeesStore);
+      if (data.avoirsStore) syncRef(g.avoirsStore, data.avoirsStore);
+      if (data.depensesStore) syncRef(g.depensesStore, data.depensesStore);
+      if (data.bulletinsStore) syncRef(g.bulletinsStore, data.bulletinsStore);
+      if (data.bonsCommandeStore) syncRef(g.bonsCommandeStore, data.bonsCommandeStore);
+      if (data.equipeStore) syncRef(g.equipeStore, data.equipeStore);
+    }
+  } catch (err) {
+    console.error("Error loading data.json", err);
+  }
+  g.__dataLoaded = true;
+};
+
+export const saveData = () => {
+  try {
+    const data = {
+      companiesStore: g.companiesStore || [],
+      clientsStore: g.clientsStore || [],
+      suppliersStore: g.suppliersStore || [],
+      productsStore: g.productsStore || [],
+      quotationsStore: g.quotationsStore || [],
+      invoicesStore: g.invoicesStore || [],
+      employeesStore: g.employeesStore || [],
+      avoirsStore: g.avoirsStore || [],
+      depensesStore: g.depensesStore || [],
+      bulletinsStore: g.bulletinsStore || [],
+      bonsCommandeStore: g.bonsCommandeStore || [],
+      equipeStore: g.equipeStore || [],
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error("Error writing data.json", err);
+  }
+};
+
+loadData();
 
 export const getCompanies = () => companiesStore;
 export const addCompany = (c: Partial<Company>): Company => {
@@ -176,7 +186,7 @@ export const addCompany = (c: Partial<Company>): Company => {
     name: c.name || "Fawatir Enterprise",
     email: c.email || "contact@fawatir.ma"
   };
-  companiesStore.push(newComp);
+  companiesStore.push(newComp); saveData();
   return newComp;
 };
 
@@ -194,13 +204,19 @@ export const addClient = (cli: Partial<Client>): Client => {
     country: cli.country || "Maroc",
     metadata: cli.metadata || {}
   };
-  clientsStore.push(newCli);
+  clientsStore.push(newCli); saveData();
   return newCli;
 };
-export const deleteClient = (id: string) => {
-  clientsStore = clientsStore.filter(c => c.id !== id);
+export const updateClient = (id: string, patch: Partial<Client>) => {
+  const cli = clientsStore.find(c => c.id === id);
+  if (cli) Object.assign(cli, patch); saveData();
+  return cli;
 };
-export const clearClients = () => { clientsStore = []; };
+export const deleteClient = (id: string) => {
+  const idx = clientsStore.findIndex(c => c.id === id);
+  if (idx !== -1) clientsStore.splice(idx, 1); saveData();
+};
+export const clearClients = () => { clientsStore.length = 0; saveData(); };
 
 export const getSuppliers = () => suppliersStore;
 export const getSupplierById = (id: string) => suppliersStore.find(s => s.id === id);
@@ -216,13 +232,14 @@ export const addSupplier = (sup: Partial<Supplier>): Supplier => {
     country: sup.country || "Maroc",
     metadata: sup.metadata || {}
   };
-  suppliersStore.push(newSup);
+  suppliersStore.push(newSup); saveData();
   return newSup;
 };
 export const deleteSupplier = (id: string) => {
-  suppliersStore = suppliersStore.filter(s => s.id !== id);
+  const idx = suppliersStore.findIndex(s => s.id === id);
+  if (idx !== -1) suppliersStore.splice(idx, 1); saveData();
 };
-export const clearSuppliers = () => { suppliersStore = []; };
+export const clearSuppliers = () => { suppliersStore.length = 0; saveData(); };
 
 export const getProducts = () => productsStore;
 export const getProductById = (id: string) => productsStore.find(p => p.id === id);
@@ -234,54 +251,124 @@ export const addProduct = (p: Partial<Product>): Product => {
     description: p.description || "",
     selling_price: Number(p.selling_price) || 0,
     quantity: p.quantity !== undefined ? Number(p.quantity) : 10,
-    unit: p.unit || "unité",
-    category_name: p.category_name || "Général",
+    unit: p.unit || "unite",
+    category_name: p.category_name || "General",
     track_inventory: p.track_inventory !== undefined ? p.track_inventory : true,
     is_active: p.is_active !== undefined ? p.is_active : true,
     metadata: p.metadata || {}
   };
-  productsStore.push(newProd);
+  productsStore.push(newProd); saveData();
   return newProd;
 };
-export const deleteProduct = (id: string) => {
-  productsStore = productsStore.filter(p => p.id !== id);
+export const updateProduct = (id: string, patch: Partial<Product>) => {
+  const prod = productsStore.find(p => p.id === id);
+  if (prod) Object.assign(prod, patch); saveData();
+  return prod;
 };
-export const clearProducts = () => { productsStore = []; };
+export const deleteProduct = (id: string) => {
+  const idx = productsStore.findIndex(p => p.id === id);
+  if (idx !== -1) productsStore.splice(idx, 1); saveData();
+};
+export const clearProducts = () => { productsStore.length = 0; saveData(); };
 
 export const getQuotations = () => quotationsStore;
 export const getQuotationById = (id: string) => quotationsStore.find(q => q.id === id);
-export const addQuotation = (q: Partial<Quotation>): Quotation => {
-  const newQ: Quotation = {
+export const addQuotation = (q: Partial<Quotation> & { lignes?: any[] }): Quotation => {
+  const newQ: Quotation & { lignes?: any[] } = {
     id: generateUniqueId("dev"),
     quotation_number: q.quotation_number || `DEV-${Math.floor(1000 + Math.random() * 9000)}`,
-    client_name: q.client_name || "Client",
+    client_name: (q as any).client_name || "Client",
     status: q.status || "Brouillon",
-    total_amount: Number(q.total_amount) || 0,
-    date: new Date().toISOString().split("T")[0]
+    total_amount: String(Number(q.total_amount) || 0),
+    date: q.date || new Date().toISOString().split("T")[0],
+    lignes: q.lignes || []
   };
-  quotationsStore.push(newQ);
+  quotationsStore.push(newQ); saveData();
   return newQ;
 };
-export const deleteQuotation = (id: string) => {
-  quotationsStore = quotationsStore.filter(q => q.id !== id);
+export const deleteQuotation = (id: string): boolean => {
+  const idx = quotationsStore.findIndex(q => q.id === id);
+  if (idx !== -1) {
+    quotationsStore.splice(idx, 1); saveData();
+    return true;
+  }
+  return false;
 };
-export const clearQuotations = () => { quotationsStore = []; };
+export const updateQuotation = (id: string, patch: Partial<Quotation>) => {
+  const q = quotationsStore.find(q => q.id === id);
+  if (q) Object.assign(q, patch); saveData();
+  return q;
+};
+export const clearQuotations = () => { quotationsStore.length = 0; saveData(); };
 
 export const getInvoices = () => invoicesStore;
 export const getInvoiceById = (id: string) => invoicesStore.find(i => i.id === id);
-export const addInvoice = (inv: Partial<Invoice>): Invoice => {
-  const newInv: Invoice = {
+export const addInvoice = (inv: Partial<Invoice> & { lignes?: any[] }): Invoice => {
+  const newInv: Invoice & { lignes?: any[] } = {
     id: generateUniqueId("fac"),
     invoice_number: inv.invoice_number || `FAC-${Math.floor(1000 + Math.random() * 9000)}`,
     client_name: inv.client_name || "Client",
     status: inv.status || "Brouillon",
     total_amount: Number(inv.total_amount) || 0,
-    date: new Date().toISOString().split("T")[0]
+    date: inv.date || new Date().toISOString().split("T")[0],
+    lignes: inv.lignes || []
   };
-  invoicesStore.push(newInv);
+  invoicesStore.push(newInv); saveData();
   return newInv;
 };
-export const deleteInvoice = (id: string) => {
-  invoicesStore = invoicesStore.filter(i => i.id !== id);
+export const updateInvoice = (id: string, patch: Partial<Invoice>) => {
+  const inv = invoicesStore.find(i => i.id === id);
+  if (inv) Object.assign(inv, patch); saveData();
+  return inv;
 };
-export const clearInvoices = () => { invoicesStore = []; };
+export const deleteInvoice = (id: string) => {
+  const idx = invoicesStore.findIndex(i => i.id === id);
+  if (idx !== -1) invoicesStore.splice(idx, 1); saveData();
+};
+export const clearInvoices = () => { invoicesStore.length = 0; saveData(); };
+
+// EMPLOYEES
+g.employeesStore = g.employeesStore || [];
+const employeesStore: Employee[] = g.employeesStore;
+
+export const getEmployees = (): Employee[] => [...employeesStore].reverse();
+export const addEmployee = (emp: Partial<Employee>): Employee => {
+  const newEmp = { ...emp, id: `EMP-${Date.now().toString().slice(-6)}` } as Employee;
+  employeesStore.push(newEmp); saveData();
+  return newEmp;
+};
+export const deleteEmployee = (id: string): boolean => {
+  const idx = employeesStore.findIndex(e => e.id === id);
+  if (idx !== -1) { employeesStore.splice(idx, 1); saveData(); return true; }
+  return false;
+};
+
+// AVOIRS
+g.avoirsStore = g.avoirsStore || [];
+const avoirsStore: any[] = g.avoirsStore;
+export const getAvoirs = () => [...avoirsStore].reverse();
+export const addAvoir = (avoir: any) => { avoir.id = `AV-${Date.now()}`; avoirsStore.push(avoir); saveData(); return avoir; };
+
+// DEPENSES
+g.depensesStore = g.depensesStore || [];
+const depensesStore: any[] = g.depensesStore;
+export const getDepenses = () => [...depensesStore].reverse();
+export const addDepense = (dep: any) => { dep.id = `DEP-${Date.now()}`; depensesStore.push(dep); saveData(); return dep; };
+
+// BULLETINS DE PAIE
+g.bulletinsStore = g.bulletinsStore || [];
+const bulletinsStore: any[] = g.bulletinsStore;
+export const getBulletins = () => [...bulletinsStore].reverse();
+export const addBulletin = (bul: any) => { bul.id = `BUL-${Date.now()}`; bulletinsStore.push(bul); saveData(); return bul; };
+
+// BONS DE COMMANDE
+g.bonsCommandeStore = g.bonsCommandeStore || [];
+const bonsCommandeStore: any[] = g.bonsCommandeStore;
+export const getBonsCommande = () => [...bonsCommandeStore].reverse();
+export const addBonCommande = (bc: any) => { bc.id = `BC-${Date.now()}`; bonsCommandeStore.push(bc); saveData(); return bc; };
+
+// EQUIPE
+g.equipeStore = g.equipeStore || [];
+const equipeStore: any[] = g.equipeStore;
+export const getEquipe = () => [...equipeStore].reverse();
+export const addEquipe = (eq: any) => { eq.id = `EQ-${Date.now()}`; equipeStore.push(eq); saveData(); return eq; };

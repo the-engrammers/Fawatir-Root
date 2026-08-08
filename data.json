@@ -1,0 +1,367 @@
+{
+  "companiesStore": [
+    {
+      "id": "comp-1786201601553-1-4zia",
+      "name": "Fawatir Demo",
+      "email": "demo@fawatir.ma"
+    }
+  ],
+  "clientsStore": [
+    {
+      "id": "cli-1786111280959-1-x81n",
+      "customer_code": "CLI-001",
+      "company_name": "Atlas Dynamics SA",
+      "contact_name": "Karim El Fassi",
+      "email": "k.elfassi@atlasdynamics.com",
+      "phone": "+212 522 481 203",
+      "city": "Casablanca",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directeur IT",
+        "Adresse": "12 Rue des Palmiers",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Industrie manufacturière",
+        "Date d'inscription": "2021-03-14",
+        "Chiffre d'affaires annuel (EUR)": "185000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280964-2-h1ak",
+      "customer_code": "CLI-002",
+      "company_name": "Groupe Meridia",
+      "contact_name": "Sophie Laurent",
+      "email": "s.laurent@meridia-group.fr",
+      "phone": "+33 1 45 67 89 12",
+      "city": "Paris",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Responsable Achats",
+        "Adresse": "8 Avenue de la République",
+        "Pays": "France",
+        "Secteur d'activité": "Distribution",
+        "Date d'inscription": "2019-11-02",
+        "Chiffre d'affaires annuel (EUR)": "420000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280965-3-umxv",
+      "customer_code": "CLI-003",
+      "company_name": "NovaRetail SARL",
+      "contact_name": "Youssef Bennani",
+      "email": "y.bennani@novaretail.ma",
+      "phone": "+212 537 772 145",
+      "city": "Rabat",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "CTO",
+        "Adresse": "45 Boulevard Zerktouni",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Commerce de détail",
+        "Date d'inscription": "2022-06-20",
+        "Chiffre d'affaires annuel (EUR)": "98000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280966-4-brtf",
+      "customer_code": "CLI-004",
+      "company_name": "Cabinet Dupont & Associés",
+      "contact_name": "Marie Dubois",
+      "email": "m.dubois@dupont-associes.fr",
+      "phone": "+33 4 78 12 34 56",
+      "city": "Lyon",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Associée Gérante",
+        "Adresse": "3 Place Bellecour",
+        "Pays": "France",
+        "Secteur d'activité": "Services juridiques",
+        "Date d'inscription": "2020-01-09",
+        "Chiffre d'affaires annuel (EUR)": "64000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280970-5-npwi",
+      "customer_code": "CLI-005",
+      "company_name": "Skyline Hospitality Group",
+      "contact_name": "Ahmed Tazi",
+      "email": "a.tazi@skylinehg.com",
+      "phone": "+212 661 220 984",
+      "city": "Casablanca",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directeur des Systèmes d'Information",
+        "Adresse": "Zone Industrielle Sidi Maarouf",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Hôtellerie",
+        "Date d'inscription": "2023-02-11",
+        "Chiffre d'affaires annuel (EUR)": "132000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280972-6-lq0j",
+      "customer_code": "CLI-006",
+      "company_name": "Ferrand Industries",
+      "contact_name": "Julien Moreau",
+      "email": "j.moreau@ferrand-ind.fr",
+      "phone": "+33 3 20 45 67 89",
+      "city": "Lille",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Responsable Production",
+        "Adresse": "17 Rue des Fabriques",
+        "Pays": "France",
+        "Secteur d'activité": "Industrie textile",
+        "Date d'inscription": "2018-09-30",
+        "Chiffre d'affaires annuel (EUR)": "256000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280976-7-9btv",
+      "customer_code": "CLI-007",
+      "company_name": "Baraka Foods SA",
+      "contact_name": "Imane Chraibi",
+      "email": "i.chraibi@barakafoods.ma",
+      "phone": "+212 528 940 771",
+      "city": "Agadir",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directrice Financière",
+        "Adresse": "Route de Marrakech, Km 8",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Agroalimentaire",
+        "Date d'inscription": "2022-10-05",
+        "Chiffre d'affaires annuel (EUR)": "77000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280979-8-tbr0",
+      "customer_code": "CLI-008",
+      "company_name": "Techno Parc Solutions",
+      "contact_name": "Nicolas Petit",
+      "email": "n.petit@technoparc.fr",
+      "phone": "+33 5 56 78 90 12",
+      "city": "Bordeaux",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Chef de Projet Digital",
+        "Adresse": "22 Cours du Chapeau Rouge",
+        "Pays": "France",
+        "Secteur d'activité": "Conseil en technologies",
+        "Date d'inscription": "2021-07-18",
+        "Chiffre d'affaires annuel (EUR)": "112000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280981-9-tl7h",
+      "customer_code": "CLI-009",
+      "company_name": "Al Amana Assurance",
+      "contact_name": "Rachid Amrani",
+      "email": "r.amrani@alamana-assurance.ma",
+      "phone": "+212 522 998 442",
+      "city": "Casablanca",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directeur des Opérations",
+        "Adresse": "Twin Center, Tour Ouest",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Assurance",
+        "Date d'inscription": "2020-12-01",
+        "Chiffre d'affaires annuel (EUR)": "340000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280985-10-uyrn",
+      "customer_code": "CLI-010",
+      "company_name": "Vertex Pharma France",
+      "contact_name": "Camille Girard",
+      "email": "c.girard@vertexpharma.fr",
+      "phone": "+33 1 88 23 45 67",
+      "city": "Paris",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Responsable IT",
+        "Adresse": "56 Rue de la Santé",
+        "Pays": "France",
+        "Secteur d'activité": "Pharmaceutique",
+        "Date d'inscription": "2023-05-22",
+        "Chiffre d'affaires annuel (EUR)": "198000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280988-11-47nj",
+      "customer_code": "CLI-011",
+      "company_name": "Ocean Blue Logistics",
+      "contact_name": "Hamza Idrissi",
+      "email": "h.idrissi@oceanblue.ma",
+      "phone": "+212 539 501 288",
+      "city": "Tanger",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directeur Logistique",
+        "Adresse": "Port de Tanger Med",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Transport & Logistique",
+        "Date d'inscription": "2019-04-16",
+        "Chiffre d'affaires annuel (EUR)": "145000",
+        "Statut": "Suspendu"
+      }
+    },
+    {
+      "id": "cli-1786111280992-12-eadf",
+      "customer_code": "CLI-012",
+      "company_name": "Groupe Renaissance Media",
+      "contact_name": "Laura Simon",
+      "email": "l.simon@renaissance-media.fr",
+      "phone": "+33 2 40 12 34 56",
+      "city": "Nantes",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directrice Digitale",
+        "Adresse": "9 Quai des Chantiers",
+        "Pays": "France",
+        "Secteur d'activité": "Médias",
+        "Date d'inscription": "2022-01-30",
+        "Chiffre d'affaires annuel (EUR)": "88000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280994-13-rnx9",
+      "customer_code": "CLI-013",
+      "company_name": "Cristal Bank Maroc",
+      "contact_name": "Nadia Berrada",
+      "email": "n.berrada@cristalbank.ma",
+      "phone": "+212 522 305 761",
+      "city": "Casablanca",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Responsable Sécurité Informatique",
+        "Adresse": "Boulevard Abdelmoumen",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Services bancaires",
+        "Date d'inscription": "2017-08-11",
+        "Chiffre d'affaires annuel (EUR)": "510000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786111280996-14-1mrw",
+      "customer_code": "CLI-014",
+      "company_name": "Bâtiment & Co",
+      "contact_name": "Pierre Lefevre",
+      "email": "p.lefevre@batimentco.fr",
+      "phone": "+33 6 12 45 78 90",
+      "city": "Marseille",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Gérant",
+        "Adresse": "4 Rue du Chantier",
+        "Pays": "France",
+        "Secteur d'activité": "BTP",
+        "Date d'inscription": "2023-09-01",
+        "Chiffre d'affaires annuel (EUR)": "52000",
+        "Statut": "Prospect"
+      }
+    },
+    {
+      "id": "cli-1786111280998-15-5453",
+      "customer_code": "CLI-015",
+      "company_name": "Sahara Energy Corp",
+      "contact_name": "Yassine El Amrani",
+      "email": "y.elamrani@saharaenergy.ma",
+      "phone": "+212 528 611 093",
+      "city": "Agadir",
+      "country": "Maroc",
+      "metadata": {
+        "Fonction": "Directeur Innovation",
+        "Adresse": "Zone Franche, Lot 12",
+        "Pays": "Maroc",
+        "Secteur d'activité": "Énergie renouvelable",
+        "Date d'inscription": "2021-11-27",
+        "Chiffre d'affaires annuel (EUR)": "276000",
+        "Statut": "Actif"
+      }
+    },
+    {
+      "id": "cli-1786201658571-1-f80n",
+      "customer_code": "CL-4285",
+      "company_name": "NexTech Solutions",
+      "contact_name": "",
+      "email": "",
+      "phone": "",
+      "city": "",
+      "country": "Maroc",
+      "metadata": {}
+    }
+  ],
+  "suppliersStore": [],
+  "productsStore": [
+    {
+      "id": "prod-1786201706952-1-tseu",
+      "sku": "PRD-508",
+      "name": "ServerNode X200 — Serveur rack 2U bi-processeur (x2)",
+      "description": "",
+      "selling_price": 4250,
+      "quantity": 10,
+      "unit": "unite",
+      "category_name": "General",
+      "track_inventory": true,
+      "is_active": true,
+      "metadata": {}
+    },
+    {
+      "id": "prod-1786201718388-1-slyk",
+      "sku": "PRD-208",
+      "name": "DataVault Backup 4To — Solution de sauvegarde NAS (x2)",
+      "description": "",
+      "selling_price": 690,
+      "quantity": 10,
+      "unit": "unite",
+      "category_name": "General",
+      "track_inventory": true,
+      "is_active": true,
+      "metadata": {}
+    }
+  ],
+  "quotationsStore": [
+    {
+      "id": "dev-1786201678401-1-o9bl",
+      "quotation_number": "DEV-2026-0090",
+      "client_name": "NexTech Solutions",
+      "status": "Brouillon",
+      "total_amount": "11856",
+      "date": "2026-03-27",
+      "lignes": [
+        {
+          "description": "ServerNode X200 — Serveur rack 2U bi-processeur (x2)",
+          "quantite": 2,
+          "prix_unitaire": 4250,
+          "montant": 8500
+        },
+        {
+          "description": "DataVault Backup 4To — Solution de sauvegarde NAS (x2)",
+          "quantite": 2,
+          "prix_unitaire": 690,
+          "montant": 1380
+        }
+      ]
+    }
+  ],
+  "invoicesStore": [],
+  "employeesStore": [],
+  "avoirsStore": [],
+  "depensesStore": [],
+  "bulletinsStore": [],
+  "bonsCommandeStore": [],
+  "equipeStore": []
+}

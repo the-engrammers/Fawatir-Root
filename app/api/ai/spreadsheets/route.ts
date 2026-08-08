@@ -76,7 +76,7 @@ Réponds avec un tableau JSON strict au format :
 Si un champ ne correspond à aucun champ disponible, utilise "UNMAPPED". Réponds UNIQUEMENT avec le tableau JSON brut.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-2.5-flash",
           contents: promptText
         });
 

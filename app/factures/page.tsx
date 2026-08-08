@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Plus, MoreHorizontal, MessageSquare } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
-import { facturesList, clientsFull, Facture } from "@/lib/mock-data";
 import WhatsAppSendModal from "@/components/WhatsAppSendModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const statutFilters = ["Toutes", "Brouillon", "Envoyée", "Vue", "Payée", "En retard", "Annulée"];
 
@@ -15,6 +15,14 @@ export default function FacturesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [list, setList] = useState<any[]>([]);
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   // WhatsApp Modal state
   const [selectedFactureForWhatsApp, setSelectedFactureForWhatsApp] = useState<any | null>(null);
@@ -35,7 +43,7 @@ export default function FacturesPage() {
       setList(formatted);
     } catch (err) {
       console.error("Error fetching invoices", err);
-      setList(facturesList);
+      setList([]);
     }
   };
 
@@ -64,14 +72,19 @@ export default function FacturesPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={async () => {
-              if (confirm("Voulez-vous vraiment vider toute la liste des factures ?")) {
-                await fetch("/api/invoices/clear", { method: "DELETE" });
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+            onClick={() => {
+              setConfirmConfig({
+                isOpen: true,
+                title: "Vider les factures",
+                message: "Voulez-vous vraiment vider toute la liste des factures ? Cette action est irréversible.",
+                onConfirm: async () => {
+                  await fetch("/api/invoices/clear", { method: "DELETE" });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+                  }
+                  fetchInvoices();
                 }
-                fetchInvoices();
-              }
+              });
             }}
             className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-[12.5px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
           >
@@ -155,18 +168,26 @@ export default function FacturesPage() {
                         >
                           Voir la facture
                         </Link>
-                        <button
-                          onClick={() => {
-                            window.print();
-                            setActionMenuOpen(null);
-                          }}
+                        <Link
+                          href={`/factures/${f.id}/print`}
+                          target="_blank"
                           className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-indigo-300 hover:bg-slate-800 font-medium"
                         >
                           Télécharger PDF
-                        </button>
+                        </Link>
                         <button
-                          onClick={() => {
-                            setList(prev => prev.map(item => item.id === f.id ? { ...item, statut: "Payée" } : item));
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/invoices/${f.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'Payée' })
+                              });
+                            } catch (e) {}
+                            if (typeof window !== "undefined") {
+                              window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+                            }
+                            fetchInvoices();
                             setActionMenuOpen(null);
                           }}
                           className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-emerald-400 hover:bg-emerald-500/10 font-medium"
@@ -184,17 +205,22 @@ export default function FacturesPage() {
                           Envoyer sur WhatsApp
                         </button>
                         <button
-                          onClick={async () => {
-                            if (confirm(`Supprimer la facture ${f.numero} ?`)) {
-                              try {
-                                await fetch(`/api/invoices/${f.id}`, { method: "DELETE" });
-                              } catch (err) {}
-                              if (typeof window !== "undefined") {
-                                window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+                          onClick={() => {
+                            setConfirmConfig({
+                              isOpen: true,
+                              title: `Supprimer la facture ${f.numero}`,
+                              message: "Voulez-vous vraiment supprimer cette facture ? Cette action est irréversible.",
+                              onConfirm: async () => {
+                                try {
+                                  await fetch(`/api/invoices/${f.id}`, { method: "DELETE" });
+                                } catch (err) {}
+                                if (typeof window !== "undefined") {
+                                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+                                }
+                                fetchInvoices();
                               }
-                              fetchInvoices();
-                              setActionMenuOpen(null);
-                            }
+                            });
+                            setActionMenuOpen(null);
                           }}
                           className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"
                         >
@@ -224,12 +250,20 @@ export default function FacturesPage() {
           onClose={() => setSelectedFactureForWhatsApp(null)}
           documentType={selectedFactureForWhatsApp.statut === "En retard" ? "relance" : "facture"}
           recipientName={selectedFactureForWhatsApp.client}
-          recipientPhone={clientsFull.find((c) => c.nom === selectedFactureForWhatsApp.client || c.id === selectedFactureForWhatsApp.clientId)?.telephone || ""}
+          recipientPhone={""}
           documentNumber={selectedFactureForWhatsApp.numero}
           amount={selectedFactureForWhatsApp.montant}
           dueDate={selectedFactureForWhatsApp.dateEcheance}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+      />
     </div>
   );
 }

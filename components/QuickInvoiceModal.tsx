@@ -26,19 +26,16 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
     setError(null);
 
     try {
-      if (file) {
-        // OCR Path
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-        // Get or create company ID
-        let companyId = null;
-        const compRes = await fetch(`${apiUrl}/api/companies/`);
+      // Get or create company ID
+      let companyId = null;
+      try {
+        const compRes = await fetch(`/api/companies`);
         const compData = await compRes.json();
         const compList = Array.isArray(compData) ? compData : (compData.results || []);
         if (compList.length > 0) {
           companyId = compList[0].id;
         } else {
-          const createRes = await fetch(`${apiUrl}/api/companies/`, {
+          const createRes = await fetch(`/api/companies`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
@@ -46,30 +43,100 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
           const created = await createRes.json();
           companyId = created.id;
         }
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("company", companyId); 
-
-        const response = await fetch(`${apiUrl}/api/ai/documents/`, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Erreur d'analyse: ${errorText}`);
-        }
-
-        const data = await response.json();
-        setResult(data);
-      } else {
-        // NLP Path (Future Text to Invoice)
-        console.log("Creating invoice for:", description);
-        setTimeout(() => {
-          setResult({ success: true, message: "Facture générée à partir du texte !" });
-        }, 1500);
+      } catch (err) {
+        console.warn("API de compagnies injoignable, on continue avec un ID null", err);
       }
+      
+      const formData = new FormData();
+      if (file) {
+        formData.append("file", file);
+      } else if (description.trim()) {
+        formData.append("text", description);
+      }
+      if (companyId) formData.append("company", companyId);
+      formData.append("doc_type", "invoice");
+      
+      const response = await fetch(`/api/ai/documents/`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur d'analyse: ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      // Auto-save the extracted document to the Database!
+      if (data.extracted_data) {
+        try {
+          const clientName = data.extracted_data.fournisseur || data.extracted_data.client;
+          let clientId = null;
+          let companyId = null;
+
+          // 1. Get default company
+          const compRes = await fetch(`/api/companies`);
+          const compData = await compRes.json();
+          const compList = Array.isArray(compData) ? compData : (compData.results || []);
+          if (compList.length > 0) companyId = compList[0].id;
+          
+          // 2. Check/Create Client so it shows in the Clients table
+          if (clientName && companyId) {
+            const clientsRes = await fetch(`/api/clients?company=${companyId}`);
+            const clientsData = await clientsRes.json();
+            const clientsList = Array.isArray(clientsData) ? clientsData : (clientsData.results || []);
+            const existingClient = clientsList.find((c: any) => c.company_name === clientName);
+            
+            if (existingClient) {
+              clientId = existingClient.id;
+            } else {
+              const createClientRes = await fetch(`/api/clients`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ company: companyId, company_name: clientName, customer_code: `CL-${Math.floor(Math.random()*10000)}` })
+              });
+              const createdClient = await createClientRes.json();
+              clientId = createdClient.id;
+            }
+          }
+
+          const isDevis = data.extracted_data.type === "devis";
+          const endpoint = isDevis ? "/api/quotations" : "/api/invoices";
+          const payload = isDevis ? {
+            quotation_number: data.extracted_data.numero_facture,
+            client: clientId, // Attach the real client ID!
+            client_name: clientName,
+            total_amount: data.extracted_data.montant_ttc,
+            date: data.extracted_data.date,
+            status: "Brouillon",
+            lignes: data.extracted_data.lignes || []
+          } : {
+            invoice_number: data.extracted_data.numero_facture,
+            client: clientId, // Attach the real client ID!
+            client_name: clientName,
+            total_amount: data.extracted_data.montant_ttc,
+            date: data.extracted_data.date,
+            status: "Brouillon",
+            lignes: data.extracted_data.lignes || []
+          };
+
+          await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          
+          // Dispatch event so UI updates if we are on the Devis or Factures page
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: isDevis ? "quotations" : "invoices" } }));
+            window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
+          }
+        } catch (saveErr) {
+          console.error("Failed to sync AI document to DB:", saveErr);
+        }
+      }
+
+      setResult(data);
     } catch (err: any) {
       setError(err.message || "Une erreur est survenue lors du traitement");
     } finally {
@@ -84,6 +151,13 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
     setError(null);
   };
 
+  const handleCloseAndReload = () => {
+    handleReset();
+    onClose();
+    // Force a reload so all the tables (Factures/Devis) fetch the new DB data instantly
+    window.location.reload();
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={() => { handleReset(); onClose(); }} title="Créer une Facture Rapide">
       <div className="flex flex-col gap-4">
@@ -94,14 +168,14 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 mb-4 shadow-sm ring-4 ring-emerald-500/20">
               <CheckCircle2 size={32} />
             </div>
-            <h4 className="text-base font-bold text-slate-100 mb-2">Facture extraite avec succès !</h4>
+            <h4 className="text-base font-bold text-slate-100 mb-2">Document extrait avec succès !</h4>
             <p className="text-xs text-slate-400 mb-6 max-w-[280px]">
               {result.extracted_data 
-                ? `Fournisseur: ${result.fournisseur || "Inconnu"} - Montant: ${result.montant_ttc || 0} MAD`
+                ? `Type: ${result.extracted_data.type === 'devis' ? 'Devis' : 'Facture'} - Fournisseur: ${result.extracted_data.fournisseur || "Inconnu"} - Montant: ${result.extracted_data.montant_ttc || 0} MAD`
                 : result.message}
             </p>
             <button
-              onClick={() => { handleReset(); onClose(); }}
+              onClick={handleCloseAndReload}
               className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/25 active:scale-95"
             >
               Fermer et consulter
