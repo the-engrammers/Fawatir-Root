@@ -1,15 +1,14 @@
 import io
 import json
 import re
-from typing import Optional
+import datetime
+from typing import Optional, Literal
 
 import pandas as pd
 from django.conf import settings
 import google.generativeai as genai
 from pydantic import BaseModel, Field
 
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
 
 TARGET_SCHEMAS = {
     "stock": ["product_name", "description", "sku", "barcode", "brand", "unit", "purchase_price", "selling_price", "tax_rate", "minimum_stock", "weight", "stock_quantity", "warehouse_location", "category_name", "supplier_name", "status"],
@@ -37,33 +36,32 @@ Here are the exact schemas of our database for each data type.
 
 ### RULES
 1. Guess the data_type (products, clients, suppliers, invoices, inventory, or other).
-2. Analyze both the Incoming Headers AND the Sample Data. **Trust the Header names primarily**. The Header is usually the best indicator of what the column represents (e.g., a header named "RC" maps to 'rc', even if the sample data just looks like random numbers).
-3. Use the Sample Data to confirm the header, or to figure out what a column is if the header is generic (like "Column 1" or "Data").
+2. Analyze both the Incoming Headers AND the Sample Data. **Trust the Header names primarily**.
+3. Use the Sample Data to confirm the header, or to figure out what a column is if the header is generic.
 4. You may ONLY map to one of the exact column names available in the <schemas> list for the detected data type.
 5. If the Header matches a target column well, map it and assign a high confidence score (> 0.90).
-6. If the Source Header and Sample Data do not logically match ANY of the Target Columns, you MUST output "UNMAPPED" for the mapped_column. Do not force a bad fit.
+6. If the Source Header and Sample Data do not logically match ANY of the Target Columns, you MUST output null or "UNMAPPED" for the field_name. Do not force a bad fit.
 7. Provide a short 2-3 sentence analysis of the entire dataset.
 
 Output strictly in the requested JSON format."""
 
 
 class ColumnMapping(BaseModel):
-    source_header: str = Field(description="The original header name provided in the user's file.")
-    mapped_column: str = Field(description="The exact database column this maps to. MUST be one of the target schema fields or 'UNMAPPED'.")
+    source_column: str = Field(description="The original header name provided in the user's file.")
+    field_name: str = Field(description="The exact database column this maps to. MUST be one of the target schema fields or 'UNMAPPED'.")
+    label: str = Field(description="A human-readable label for this column (usually just the source column).")
     confidence_score: float = Field(description="A score from 0.0 to 1.0 indicating how confident you are in this mapping.")
     reasoning: str = Field(description="A brief, 1-sentence explanation of why this mapping was chosen based on the header and sample data.")
 
 class MappingResponse(BaseModel):
     data_type: Literal['stock', 'products', 'suppliers', 'clients', 'inventory', 'invoices', 'other'] = Field(description="Classification")
     columns: list[ColumnMapping]
-    analysis: str = Field(description="A short, intelligent human-like summary (2-3 sentences) of what this dataset represents, what the data is about, and any obvious insights.")
+    analysis: str = Field(description="A short, intelligent human-like summary of what this dataset represents.")
 
 
 class SpreadsheetError(Exception):
     pass
 
-
-import datetime
 
 def _to_native(value):
     """Converts a pandas/numpy scalar to a plain JSON-serializable Python value."""
@@ -133,6 +131,10 @@ def parse_spreadsheet(file_bytes):
         {header: _to_native(value) for header, value in zip(headers, record)}
         for record in df.itertuples(index=False, name=None)
     ]
+    
+    if not rows:
+        raise SpreadsheetError("The uploaded spreadsheet is empty.")
+        
     return headers, rows
 
 
@@ -146,8 +148,9 @@ def _fallback_columns(headers):
     columns = []
     for header in headers:
         columns.append({
-            'source_header': header, 
-            'mapped_column': 'UNMAPPED', 
+            'source_column': header, 
+            'field_name': _slugify(header),  # Fallback maps to slugified header
+            'label': header,
             'confidence_score': 0.0,
             'reasoning': 'System fallback due to processing error.'
         })
@@ -160,14 +163,11 @@ def propose_mapping(headers: list[str], sample_rows: list[dict], expected_type: 
     If expected_type is provided, it forces the AI to map it to that type.
     """
     if not settings.GEMINI_API_KEY:
-        # Fallback to simple slugification if API key is not configured
         return {'data_type': 'other', 'columns': _fallback_columns(headers)}
 
     genai.configure(api_key=settings.GEMINI_API_KEY, transport="rest")
     model = genai.GenerativeModel('gemini-flash-lite-latest')
 
-    # If expected_type is provided, we only pass that schema to the AI
-    # to prevent it from guessing wrong or taking the generic 'other' path
     if expected_type and expected_type in TARGET_SCHEMAS:
         schemas_to_pass = {expected_type: TARGET_SCHEMAS[expected_type]}
     else:
@@ -195,51 +195,44 @@ def propose_mapping(headers: list[str], sample_rows: list[dict], expected_type: 
             response_text = response_text[3:]
         if response_text.endswith("```"):
             response_text = response_text[:-3]
-        response_text = response_text.strip()
-        
-        parsed = json.loads(response_text)
-        print("--- LLM GENERATED JSON ---")
-        print(json.dumps(parsed, indent=2))
-        print("--------------------------")
-    except json.JSONDecodeError as e:
-        print("JSON Decode Error:", e)
-        parsed = None
+            
+        parsed = json.loads(response_text.strip())
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print("Model Response Error:", e)
-        # Any API error (Quota, NotFound, Network) MUST be surfaced to the UI
-        # so the user knows why it failed, rather than pretending the AI thinks everything is UNMAPPED.
-        raise SpreadsheetError(f"AI API Error: {str(e)}")
+        # If model crashes or returns invalid JSON, gracefully fallback
+        # or bubble up error if it's an API failure. For now, fallback to safe structural mapping
+        return {'data_type': 'other', 'columns': _fallback_columns(headers), 'analysis': f'Fallback used due to AI Error: {str(e)}'}
 
-    data_type = parsed.get('data_type') if isinstance(parsed, dict) else None
+    data_type = parsed.get('data_type') if isinstance(parsed, dict) else 'other'
     columns = parsed.get('columns') if isinstance(parsed, dict) else None
-    analysis = parsed.get('analysis') if isinstance(parsed, dict) else None
+    analysis = parsed.get('analysis') if isinstance(parsed, dict) else 'No analysis generated.'
 
-    # Guarantee uniqueness of mapped columns (excluding UNMAPPED)
+    # Guarantee uniqueness of mapped columns (excluding UNMAPPED/None)
     if isinstance(columns, list):
         seen = set()
         clean_columns = []
         for col in columns:
             if not isinstance(col, dict):
                 continue
-            mapped_col = col.get('mapped_column')
+                
+            field_name = col.get('field_name')
+            source_col = col.get('source_column') or col.get('source_header')
             
-            if mapped_col and mapped_col != 'UNMAPPED':
-                mapped_col = re.sub(r'[^a-z0-9_]', '_', str(mapped_col).lower()).strip('_')
-                if mapped_col:
-                    original_mapped = mapped_col
+            if field_name and str(field_name).upper() != 'UNMAPPED':
+                field_name = re.sub(r'[^a-z0-9_]', '_', str(field_name).lower()).strip('_')
+                if field_name:
+                    original_mapped = field_name
                     counter = 2
-                    while mapped_col in seen:
-                        mapped_col = f'{original_mapped}_{counter}'
+                    while field_name in seen:
+                        field_name = f'{original_mapped}_{counter}'
                         counter += 1
-                    seen.add(mapped_col)
+                    seen.add(field_name)
             else:
-                mapped_col = 'UNMAPPED'
+                field_name = None
             
             clean_columns.append({
-                'source_header': col.get('source_header'),
-                'mapped_column': mapped_col,
+                'source_column': source_col,
+                'field_name': field_name,
+                'label': col.get('label') or source_col,
                 'confidence_score': col.get('confidence_score', 0.0),
                 'reasoning': col.get('reasoning', '')
             })
@@ -249,20 +242,22 @@ def propose_mapping(headers: list[str], sample_rows: list[dict], expected_type: 
         columns = _fallback_columns(headers)
 
     return {
-        'data_type': data_type or 'other',
-        'analysis': analysis or 'No analysis generated.',
+        'data_type': data_type,
+        'analysis': analysis,
         'columns': columns
     }
 
 
 def apply_mapping(rows, column_mapping):
-    """Renames every row's keys per column_mapping; columns with UNMAPPED are dropped."""
+    """Renames every row's keys per column_mapping; unmapped columns are dropped."""
     normalized = []
     for row in rows:
         new_row = {}
         for col in column_mapping:
-            mapped_col = col.get('mapped_column')
-            if mapped_col and mapped_col != 'UNMAPPED':
-                new_row[mapped_col] = row.get(col['source_header'])
+            field_name = col.get('field_name')
+            if field_name and field_name != 'UNMAPPED':
+                source_col = col.get('source_column')
+                # Transfer the value from the old row using the source column name
+                new_row[field_name] = row.get(source_col)
         normalized.append(new_row)
     return normalized
