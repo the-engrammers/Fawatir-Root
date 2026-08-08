@@ -37,14 +37,8 @@ import StatusChip from "@/components/StatusChip";
 import QuickInvoiceModal from "@/components/QuickInvoiceModal";
 import ScannerModal from "@/components/ScannerModal";
 import { mad, statusTone } from "@/lib/format";
-import {
-  kpis,
-  revenuMensuel,
-  repartitionStatuts,
-  facturesRecentes,
-  meilleurClient,
-  activiteRecente,
-} from "@/lib/mock-data";
+
+import { useEffect, useMemo } from "react";
 
 export default function DashboardPage() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -54,6 +48,110 @@ export default function DashboardPage() {
   const [chartTab, setChartTab] = useState<"revenu" | "depenses" | "prevision">("revenu");
   const [period, setPeriod] = useState<"30j" | "90j" | "2026">("30j");
   
+  // Dynamic Data State
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  useEffect(() => {
+    const loadData = () => {
+      Promise.all([
+        fetch(`/api/invoices?t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/clients?t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/products?t=${Date.now()}`).then(res => res.json())
+      ]).then(([invs, clis, prods]) => {
+        setInvoices(invs);
+        setClients(clis);
+        setProducts(prods);
+        setIsLoadingData(false);
+      }).catch(err => {
+        console.error(err);
+        setIsLoadingData(false);
+      });
+    };
+
+    loadData();
+
+    // Listen for data updates to immediately refresh the dashboard
+    const handleDataUpdate = () => loadData();
+    window.addEventListener("dataUpdated", handleDataUpdate);
+    return () => window.removeEventListener("dataUpdated", handleDataUpdate);
+  }, []);
+
+  const kpis = useMemo(() => {
+    if (invoices.length === 0) return {
+      revenuTotal: 0,
+      revenuVariation: 0,
+      facturesPayeesCount: 0,
+      facturesTotalCount: 0,
+      facturesRetardCount: 0,
+      tauxRecouvrement: 0,
+      creancesAttente: 0,
+      creancesVariation: 0,
+      clientsActifs: clients.length,
+      clientsVariation: 0
+    };
+    const paidInvoices = invoices.filter(i => i.status === "Payée" || i.statut === "Payée");
+    const unpaidInvoices = invoices.filter(i => i.status !== "Payée" && i.statut !== "Payée");
+    const retardInvoices = invoices.filter(i => i.status === "En retard" || i.statut === "En retard");
+    const totalRev = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    const totalAttente = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    return {
+      revenuTotal: totalRev,
+      revenuVariation: 12.4,
+      facturesPayeesCount: paidInvoices.length,
+      facturesTotalCount: invoices.length,
+      facturesRetardCount: retardInvoices.length,
+      tauxRecouvrement: invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0,
+      creancesAttente: totalAttente,
+      creancesVariation: -2.1,
+      clientsActifs: clients.length,
+      clientsVariation: 5.2
+    };
+  }, [invoices, clients]);
+
+  const facturesRecentes = useMemo(() => {
+    if (invoices.length === 0) return [];
+    return invoices.slice(0, 5).map(inv => ({
+      id: inv.id,
+      numero: inv.invoice_number || "FAC-000",
+      client: inv.client_name || "Client",
+      montant: parseFloat(inv.total_amount) || 0,
+      statut: inv.status || "Brouillon",
+      date: inv.date || new Date().toISOString().split("T")[0]
+    }));
+  }, [invoices]);
+
+  const activiteRecente: any[] = [];
+
+  const repartitionStatuts = useMemo(() => {
+    if (invoices.length === 0) return [];
+    const stats: Record<string, { count: number; color: string }> = {
+      "Payée": { count: 0, color: "#1F8A5F" },
+      "Brouillon": { count: 0, color: "#3E5C82" },
+      "Envoyée": { count: 0, color: "#B8863B" },
+      "Vue": { count: 0, color: "#6B7280" },
+      "En retard": { count: 0, color: "#C1443A" },
+      "Annulée": { count: 0, color: "#C77C22" }
+    };
+    
+    invoices.forEach(inv => {
+      const s = inv.status || inv.statut;
+      if (stats[s]) stats[s].count++;
+    });
+
+    return Object.entries(stats)
+      .filter(([_, data]) => data.count > 0)
+      .map(([label, data]) => ({
+        label,
+        value: data.count,
+        pct: Math.round((data.count / invoices.length) * 100),
+        color: data.color
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [invoices]);
+
   // Interactive AI Terminal State
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiResponse, setAiResponse] = useState<string | null>(null);
@@ -66,22 +164,28 @@ export default function DashboardPage() {
 
     setTimeout(() => {
       setIsAiLoading(false);
-      if (cmdText.includes("Relancer") || cmdText.includes("WhatsApp") || cmdText.includes("retard") || cmdText.includes("impayé")) {
-        setAiResponse("✅ Ouverture du module de Relance WhatsApp Pro pour les 3 factures impayées (OCP Group, Royal Air Maroc, Inwi Telecom).");
+      const textLower = cmdText.toLowerCase();
+
+      if (textLower.includes("relance") || textLower.includes("whatsapp") || textLower.includes("retard") || textLower.includes("impayé")) {
+        const unpaid = invoices.filter(i => i.status !== "Payée" && (i as any).statut !== "Payée");
+        const clientNames = Array.from(new Set(unpaid.map(i => i.client_name || i.client || "Client Inconnu")));
+        const clientsText = clientNames.length > 0 ? `(${clientNames.slice(0, 3).join(", ")}${clientNames.length > 3 ? "..." : ""})` : "";
+        setAiResponse(`✅ Ouverture du module de Relance WhatsApp Pro pour les ${unpaid.length} factures impayées ${clientsText}.`);
         setIsWhatsAppOpen(true);
-      } else if (cmdText.includes("devis") || cmdText.includes("Maroc Telecom")) {
-        setAiResponse("📄 Devis #DEV-2026-088 généré : 'Prestation de Conseil IT' pour Maroc Telecom - Montant : 25 000,00 MAD HT (30 000,00 MAD TTC). Prêt à être envoyé.");
-      } else if (cmdText.includes("TVA")) {
-        setAiResponse("📊 Déclaration TVA T2 (Avril-Juin 2026) : TVA Collectée (20%) = 42 100 MAD, TVA Déductible = 14 300 MAD. Solde net à reverser = 27 800 MAD.");
+      } else if (textLower.includes("devis")) {
+        setAiResponse(`📄 L'assistant devis détecte ${clients.length} clients actifs. Veuillez utiliser le menu Devis pour générer de nouveaux documents personnalisés.`);
+      } else if (textLower.includes("tva")) {
+        const total = (kpis.revenuTotal * 0.2).toLocaleString("fr-FR");
+        setAiResponse(`📊 Estimation simplifiée : Si votre CA de ${kpis.revenuTotal.toLocaleString("fr-FR")} MAD est entièrement à 20%, la TVA collectée est d'environ ${total} MAD.`);
       } else {
-        setAiResponse(`🤖 Analyse terminée pour "${cmdText}" : Votre santé financière globale est optimale avec un flux de trésorerie positif de +142 500 MAD ce mois.`);
+        setAiResponse(`🤖 Analyse terminée pour "${cmdText}" : Votre CA encaissé actuel est de ${kpis.revenuTotal.toLocaleString("fr-FR")} MAD avec ${kpis.facturesRetardCount} facture(s) en retard.`);
       }
-    }, 700);
+    }, 200);
   };
 
   const handleGenerateReport = () => {
     setIsGenerating(true);
-    setTimeout(() => setIsGenerating(false), 1400);
+    setTimeout(() => setIsGenerating(false), 200);
   };
 
   return (
@@ -207,15 +311,15 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="font-mono text-2xl lg:text-3xl font-extrabold tracking-tight text-amber-300">
-            {mad(38500)}
+            {mad(kpis.creancesAttente || 0)}
           </p>
           <div className="mt-3 flex items-center justify-between text-[12px]">
             <span className="text-amber-400/90 font-medium flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-              3 factures en retard
+              {kpis.facturesRetardCount || 0} factures en retard
             </span>
             <button 
-              onClick={() => handleRunAiCommand("Relancer les 3 factures impayées")}
+              onClick={() => handleRunAiCommand(`Relancer les ${kpis.facturesRetardCount || 0} factures impayées`)}
               className="text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
             >
               Relancer IA
@@ -233,7 +337,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="font-mono text-2xl lg:text-3xl font-extrabold tracking-tight text-white">
-            {mad(324100)}
+            {mad((kpis.revenuTotal || 0) * 0.85)} {/* Estimation dynamique */}
           </p>
           <p className="mt-3 text-[12px] text-slate-400">
             Marge opérationnelle estimée : <strong className="text-purple-300">74.2%</strong>
@@ -279,9 +383,9 @@ export default function DashboardPage() {
             <Sparkles size={13} className="text-indigo-400" /> Actions Rapides :
           </span>
           {[
-            "⚡ Relancer les 3 factures impayées par WhatsApp",
-            "📄 Créer devis de 25 000 MAD pour Maroc Telecom",
-            "📊 Analyser la déclaration de TVA T2"
+            `⚡ Relancer les ${kpis.facturesRetardCount || 0} factures impayées par WhatsApp`,
+            `📄 Préparer un devis pour un de vos ${clients.length} clients`,
+            "📊 Analyser la déclaration de TVA globale"
           ].map((chip) => (
             <button
               key={chip}
@@ -343,12 +447,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-60 w-full pt-2">
-            <InteractiveFinancialChart mode={chartTab} />
+            <InteractiveFinancialChart mode={chartTab} invoices={invoices} />
           </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-between border-t border-slate-800/80 pt-4 text-[12px] text-slate-400 gap-2">
-            <span>Moyenne mensuelle : <strong className="text-white font-mono">142 500 MAD</strong></span>
-            <span>Prévision M+1 (Août) : <strong className="text-emerald-400 font-mono">198 400 MAD</strong></span>
+            <span>Moyenne (simplifiée) : <strong className="text-white font-mono">{mad((kpis.revenuTotal || 0) / Math.max(1, (invoices.length || 1) / 5))}</strong></span>
+            <span>Prévision M+1 : <strong className="text-emerald-400 font-mono">{mad((kpis.revenuTotal || 0) * 0.2)}</strong></span>
           </div>
         </div>
 
@@ -450,25 +554,49 @@ export default function DashboardPage() {
       {/* Global Modals */}
       <QuickInvoiceModal isOpen={isInvoiceModalOpen} onClose={() => setIsInvoiceModalOpen(false)} />
       <ScannerModal isOpen={isScannerModalOpen} onClose={() => setIsScannerModalOpen(false)} targetType="factures" />
-      <WhatsAppModal isOpen={isWhatsAppOpen} onClose={() => setIsWhatsAppOpen(false)} />
+      <WhatsAppModal isOpen={isWhatsAppOpen} onClose={() => setIsWhatsAppOpen(false)} initialInvoices={invoices.filter(i => i.status !== 'Payée' && (i as any).statut !== 'Payée')} />
 
     </div>
   );
 }
 
-function InteractiveFinancialChart({ mode }: { mode: "revenu" | "depenses" | "prevision" }) {
-  const data = revenuMensuel.map((d, i) => {
-    let val = d.revenu;
-    if (mode === "depenses") val = Math.round(d.revenu * 0.38);
-    if (mode === "prevision") val = Math.round(d.revenu * (1 + (i * 0.05)));
-    return { ...d, val };
-  });
+function InteractiveFinancialChart({ mode, invoices }: { mode: "revenu" | "depenses" | "prevision", invoices: any[] }) {
+  const chartData = useMemo(() => {
+    if (invoices.length === 0) {
+      return Array.from({ length: 6 }).map((_, i) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - (5 - i));
+        return { mois: date.toLocaleString('default', { month: 'short' }), val: 0 };
+      });
+    }
 
-  const max = Math.max(...data.map((d) => d.val));
+    const monthly: Record<string, number> = {};
+    invoices.forEach(inv => {
+      if (inv.status !== "Payée" && inv.statut !== "Payée") return;
+      const date = new Date(inv.date || Date.now());
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      monthly[key] = (monthly[key] || 0) + (parseFloat(inv.total_amount || inv.montant) || 0);
+    });
+
+    const last6Months = Array.from({ length: 6 }).map((_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - (5 - i));
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const rev = monthly[key] || 0;
+      let val = rev;
+      if (mode === "depenses") val = Math.round(rev * 0.38);
+      if (mode === "prevision") val = Math.round(rev * (1 + (i * 0.05)));
+      return { mois: d.toLocaleString('fr-FR', { month: 'short' }), val };
+    });
+
+    return last6Months;
+  }, [invoices, mode]);
+
+  const max = Math.max(...chartData.map((d) => d.val), 100);
 
   return (
     <div className="flex h-full items-end gap-3 w-full">
-      {data.map((d) => (
+      {chartData.map((d) => (
         <div key={d.mois} className="group relative flex flex-1 flex-col items-center gap-2 h-full justify-end">
           <div
             className={`w-full rounded-t-lg transition-all duration-300 ${
@@ -494,7 +622,7 @@ function InteractiveFinancialChart({ mode }: { mode: "revenu" | "depenses" | "pr
   );
 }
 
-function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function WhatsAppModal({ isOpen, onClose, initialInvoices = [] }: { isOpen: boolean; onClose: () => void, initialInvoices?: any[] }) {
   const [activeTab, setActiveTab] = useState<"relance" | "config" | "historique">("relance");
   const [phoneNumber, setPhoneNumber] = useState("+212 661-889900");
   const [isConnected, setIsConnected] = useState(true);
@@ -502,46 +630,27 @@ function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
   const [sendProgress, setSendProgress] = useState<string | null>(null);
   const [globalSuccess, setGlobalSuccess] = useState(false);
 
-  const [invoices, setInvoices] = useState([
-    {
-      id: "FACT-2026-003",
-      client: "OCP Group",
-      phone: "+212 661-123456",
-      montant: 45000,
-      retard: "12 jours",
-      date: "14/07/2026",
-      selected: true,
-      status: "idle",
-      message: "Bonjour M. Benjelloun (OCP Group), sauf erreur de notre part, la facture FACT-2026-003 de 45 000 MAD émise le 14/07/2026 est arrivée à échéance. Merci de procéder au virement. Lien de règlement : https://fatourati.ma/pay/FACT-2026-003",
-    },
-    {
-      id: "FACT-2026-004",
-      client: "Royal Air Maroc",
-      phone: "+212 662-987654",
-      montant: 18500,
-      retard: "5 jours",
-      date: "20/07/2026",
-      selected: true,
-      status: "idle",
-      message: "Bonjour Service Comptabilité RAM, rappel concernant la facture FACT-2026-004 de 18 500 MAD (échéance dépassée de 5j). Merci de régulariser sous 48h. Lien : https://fatourati.ma/pay/FACT-2026-004",
-    },
-    {
-      id: "FACT-2026-007",
-      client: "Inwi Telecom",
-      phone: "+212 663-554433",
-      montant: 32000,
-      retard: "18 jours",
-      date: "05/07/2026",
-      selected: true,
-      status: "idle",
-      message: "Rappel urgent Fatourati : La facture FACT-2026-007 de 32 000 MAD pour Inwi Telecom présente 18 jours de retard. Merci de nous transmettre la preuve de virement.",
-    },
-  ]);
+  const [invoices, setInvoices] = useState<any[]>([]);
 
-  const [history, setHistory] = useState([
-    { id: "1", client: "Saham Assurance", phone: "+212 664-001122", date: "Hier à 14:30", type: "Relance N°1", status: "Lu & Payé" },
-    { id: "2", client: "Marjane Group", phone: "+212 665-332211", date: "Le 01/08/2026", type: "Envoi Facture", status: "Livré" },
-  ]);
+  useEffect(() => {
+    if (isOpen) {
+      setInvoices(
+        initialInvoices.map((inv) => ({
+          id: inv.id || String(Math.random()),
+          client: inv.client_name || inv.client || "Client Inconnu",
+          phone: inv.phone || "+212 600 000 000",
+          montant: Number(inv.total_amount || inv.montant) || 0,
+          retard: "En attente",
+          date: inv.date || new Date().toISOString().split("T")[0],
+          selected: true,
+          status: "idle",
+          message: `Bonjour (${inv.client_name || inv.client}), rappel: facture ${inv.invoice_number || inv.numero || inv.id} de ${Number(inv.total_amount || inv.montant).toLocaleString("fr-FR")} MAD est en attente.`,
+        }))
+      );
+    }
+  }, [initialInvoices, isOpen]);
+
+  const [history, setHistory] = useState<any[]>([]);
 
   if (!isOpen) return null;
 
@@ -556,7 +665,7 @@ function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
   const sendSingleWhatsAppWeb = (inv: typeof invoices[0]) => {
     const cleanPhone = inv.phone.replace(/[^0-9]/g, "");
     const encodedMsg = encodeURIComponent(inv.message);
-    window.open(`https://wa.me/${cleanPhone}?text=${encodedMsg}`, "_blank");
+    window.open(`whatsapp://send?phone=${cleanPhone}&text=${encodedMsg}`, "_self");
     setInvoices(invoices.map(item => item.id === inv.id ? { ...item, status: "sent" } : item));
     setHistory(prev => [
       { id: String(Date.now()), client: inv.client, phone: inv.phone, date: "À l'instant", type: "WhatsApp Direct", status: "Envoyé" },
@@ -572,7 +681,7 @@ function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         { id: String(Date.now()), client: inv.client, phone: inv.phone, date: "À l'instant", type: "Relance WhatsApp IA", status: "Livré" },
         ...prev
       ]);
-    }, 800);
+    }, 50);
   };
 
   const sendAllBot = () => {
@@ -581,23 +690,23 @@ function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
 
     setIsSendingAll(true);
     setGlobalSuccess(false);
-    setSendProgress("Initialisation de l'API WhatsApp Business...");
+    setSendProgress("Initialisation...");
 
     setTimeout(() => {
-      setSendProgress(`Envoi de la relance à ${selectedInvoices[0]?.client} (1/${selectedInvoices.length})...`);
-    }, 600);
+      setSendProgress(`Envoi (1/${selectedInvoices.length})...`);
+    }, 20);
 
     setTimeout(() => {
       if (selectedInvoices.length > 1) {
-        setSendProgress(`Envoi de la relance à ${selectedInvoices[1]?.client} (2/${selectedInvoices.length})...`);
+        setSendProgress(`Envoi (2/${selectedInvoices.length})...`);
       }
-    }, 1400);
+    }, 40);
 
     setTimeout(() => {
       if (selectedInvoices.length > 2) {
-        setSendProgress(`Envoi de la relance à ${selectedInvoices[2]?.client} (3/${selectedInvoices.length})...`);
+        setSendProgress(`Envoi (3/${selectedInvoices.length})...`);
       }
-    }, 2200);
+    }, 60);
 
     setTimeout(() => {
       setIsSendingAll(false);
@@ -615,7 +724,7 @@ function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         })),
         ...prev
       ]);
-    }, 2900);
+    }, 80);
   };
 
   const selectedCount = invoices.filter(i => i.selected).length;
@@ -774,7 +883,7 @@ function WhatsAppModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
                         className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-[12px] font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-all"
                       >
                         <ExternalLink size={14} className="text-emerald-400" />
-                        <span>Ouvrir WhatsApp Web</span>
+                        <span>Ouvrir l'App WhatsApp</span>
                       </button>
 
                       <button

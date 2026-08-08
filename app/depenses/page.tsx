@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X, Search, MoreHorizontal, Check, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, X, Search, MoreHorizontal, Check, Trash2, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
-import { depensesList } from "@/lib/mock-data";
 import { mad, statusTone } from "@/lib/format";
 
 type Depense = {
@@ -16,7 +15,8 @@ type Depense = {
 };
 
 export default function DepensesPage() {
-  const [list, setList] = useState<Depense[]>(depensesList as Depense[]);
+  const [list, setList] = useState<Depense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [categorie, setCategorie] = useState("Fournitures");
   const [fournisseur, setFournisseur] = useState("");
@@ -25,16 +25,34 @@ export default function DepensesPage() {
   const [statutFilter, setStatutFilter] = useState("Tous");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
+  const fetchDepenses = async () => {
+    try {
+      const res = await fetch(`/api/depenses?t=${Date.now()}`);
+      const data = await res.json();
+      setList(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDepenses();
+    const handleUpdate = () => fetchDepenses();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
+  }, []);
+
   const total = list.reduce((s, d) => s + d.montant, 0);
   const totalPayees = list.filter((d) => d.statut === "Payée").reduce((s, d) => s + d.montant, 0);
   const totalEnAttente = list.filter((d) => d.statut === "En attente").reduce((s, d) => s + d.montant, 0);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fournisseur || !montant) return;
 
-    const newDepense: Depense = {
-      id: `DEP-${Math.floor(100 + Math.random() * 900)}`,
+    const newDepense = {
       categorie,
       fournisseur,
       montant: parseFloat(montant) || 0,
@@ -42,10 +60,22 @@ export default function DepensesPage() {
       date: new Date().toISOString().split("T")[0],
     };
 
-    setList([newDepense, ...list]);
-    setIsModalOpen(false);
-    setFournisseur("");
-    setMontant("");
+    try {
+      fetch('/api/depenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDepense)
+      }).then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "depenses" } }));
+        }
+      });
+      setIsModalOpen(false);
+      setFournisseur("");
+      setMontant("");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const filtered = list.filter((d) => {
@@ -158,11 +188,21 @@ export default function DepensesPage() {
                       {actionMenuOpen === d.id && (
                         <div className="absolute right-2 top-10 z-20 w-44 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              const newStatus = d.statut === "Payée" ? "En attente" : "Payée";
+                              try {
+                                await fetch(`/api/depenses/${d.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ status: newStatus }),
+                                });
+                              } catch (err) {
+                                console.error('Failed to update depense status:', err);
+                              }
                               setList((prev) =>
                                 prev.map((item) =>
                                   item.id === d.id
-                                    ? { ...item, statut: item.statut === "Payée" ? "En attente" : "Payée" }
+                                    ? { ...item, statut: newStatus }
                                     : item
                                 )
                               );
@@ -173,7 +213,12 @@ export default function DepensesPage() {
                             Marquer comme {d.statut === "Payée" ? "Non payée" : "Payée"}
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              try {
+                                await fetch(`/api/depenses/${d.id}`, { method: 'DELETE' });
+                              } catch (err) {
+                                console.error('Failed to delete depense:', err);
+                              }
                               setList((prev) => prev.filter((item) => item.id !== d.id));
                               setActionMenuOpen(null);
                             }}

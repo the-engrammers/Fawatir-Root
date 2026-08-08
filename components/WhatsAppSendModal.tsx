@@ -9,6 +9,7 @@ import {
   renderTemplate, 
   buildWhatsAppWebUrl,
   buildWhatsAppWaMeUrl,
+  buildWhatsAppAppUrl,
   openWhatsAppMessage
 } from "@/lib/whatsapp";
 
@@ -68,6 +69,7 @@ export default function WhatsAppSendModal({
   const cleanPhone = formatPhoneForWhatsApp(phone, config.defaultCountryCode);
   const webUrl = buildWhatsAppWebUrl(cleanPhone, customMessage);
   const waMeUrl = buildWhatsAppWaMeUrl(cleanPhone, customMessage);
+  const appUrl = buildWhatsAppAppUrl(cleanPhone, customMessage);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(webUrl);
@@ -79,6 +81,18 @@ export default function WhatsAppSendModal({
     navigator.clipboard.writeText(customMessage);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
+  };
+
+  const handleOpenWeb = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.open(webUrl, "_blank");
+    onClose();
+  };
+
+  const handleOpenApp = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.open(appUrl, "_self");
+    onClose();
   };
 
   return (
@@ -161,26 +175,20 @@ export default function WhatsAppSendModal({
 
         {/* Direct Open Buttons */}
         <div className="space-y-2 pt-2">
-          <a
-            href={webUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onClose}
+          <button
+            onClick={handleOpenApp}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-[14px] font-bold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
           >
-            <ExternalLink size={18} /> Ouvrir sur WhatsApp Web
-          </a>
+            <ExternalLink size={18} /> Ouvrir l'application WhatsApp Desktop
+          </button>
 
           <div className="flex items-center justify-between gap-2 pt-1 text-[11.5px]">
-            <a
-              href={waMeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
+            <button
+              onClick={handleOpenWeb}
               className="text-slate-400 hover:text-slate-200 flex items-center gap-1 font-medium underline"
             >
-              Lien direct wa.me (Mobile / App)
-            </a>
+              Continuer sur WhatsApp Web (Navigateur)
+            </button>
 
             <button
               type="button"

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X, Search, MoreHorizontal, Printer, CheckCircle, Trash2 } from "lucide-react";
-import { avoirsList } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { Plus, X, Search, MoreHorizontal, Printer, CheckCircle, Trash2, Loader2 } from "lucide-react";
 import { mad } from "@/lib/format";
 
 type AvoirItem = {
@@ -16,9 +15,8 @@ type AvoirItem = {
 };
 
 export default function AvoirsPage() {
-  const [list, setList] = useState<AvoirItem[]>(
-    avoirsList.map((a) => ({ ...a, statut: "Émis" as const }))
-  );
+  const [list, setList] = useState<AvoirItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [client, setClient] = useState("");
   const [facture, setFacture] = useState("");
@@ -28,12 +26,30 @@ export default function AvoirsPage() {
   const [statutFilter, setStatutFilter] = useState("Tous");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const fetchAvoirs = async () => {
+    try {
+      const res = await fetch(`/api/avoirs?t=${Date.now()}`);
+      const data = await res.json();
+      setList(data.map((a: any) => ({ ...a, statut: a.statut || "Émis" })));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAvoirs();
+    const handleUpdate = () => fetchAvoirs();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!client || !montant) return;
 
-    const newAvoir: AvoirItem = {
-      id: `AV-${Math.floor(100 + Math.random() * 900)}`,
+    const newAvoir = {
       client,
       facture: facture || `FAC-${Math.floor(100 + Math.random() * 900)}`,
       motif: motif || "Retour marchandise / Ajustement",
@@ -42,12 +58,24 @@ export default function AvoirsPage() {
       statut: "Émis",
     };
 
-    setList([newAvoir, ...list]);
-    setIsModalOpen(false);
-    setClient("");
-    setFacture("");
-    setMotif("");
-    setMontant("");
+    try {
+      fetch('/api/avoirs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAvoir)
+      }).then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "avoirs" } }));
+        }
+      });
+      setIsModalOpen(false);
+      setClient("");
+      setFacture("");
+      setMotif("");
+      setMontant("");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const filtered = list.filter((a) => {
@@ -185,7 +213,16 @@ export default function AvoirsPage() {
                             Imprimer l'avoir
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              try {
+                                await fetch(`/api/avoirs/${a.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ status: 'Appliqué' }),
+                                });
+                              } catch (err) {
+                                console.error('Failed to update avoir status:', err);
+                              }
                               setList((prev) =>
                                 prev.map((item) =>
                                   item.id === a.id ? { ...item, statut: "Appliqué" } : item
@@ -198,7 +235,12 @@ export default function AvoirsPage() {
                             Appliquer sur la facture
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
+                              try {
+                                await fetch(`/api/avoirs/${a.id}`, { method: 'DELETE' });
+                              } catch (err) {
+                                console.error('Failed to delete avoir:', err);
+                              }
                               setList((prev) => prev.filter((item) => item.id !== a.id));
                               setActionMenuOpen(null);
                             }}

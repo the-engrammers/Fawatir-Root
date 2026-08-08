@@ -229,7 +229,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       setTimeout(() => {
         handleClose();
         window.dispatchEvent(new CustomEvent("dataUpdated"));
-      }, 1200);
+      }, 100);
     } catch (err: any) {
       setError("Erreur de sauvegarde: " + err.message);
     } finally {

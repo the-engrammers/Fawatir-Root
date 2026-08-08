@@ -8,7 +8,7 @@ import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
 import ScannerModal from "@/components/ScannerModal";
 import WhatsAppSendModal from "@/components/WhatsAppSendModal";
-import { clientsFull } from "@/lib/mock-data";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const statutFilters = ["Toutes", "Brouillon", "Envoyée", "Accepté", "Refusé", "Expiré", "Converti"];
 
@@ -20,6 +20,13 @@ function DevisContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
   const [selectedDevisForWhatsApp, setSelectedDevisForWhatsApp] = useState<any | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   const fetchDevis = async () => {
     try {
@@ -75,14 +82,19 @@ function DevisContent() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={async () => {
-              if (confirm("Voulez-vous vraiment vider toute la liste des devis ?")) {
-                await fetch("/api/quotations/clear", { method: "DELETE" });
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
+            onClick={() => {
+              setConfirmConfig({
+                isOpen: true,
+                title: "Vider les devis",
+                message: "Voulez-vous vraiment vider toute la liste des devis ? Cette action est irréversible.",
+                onConfirm: async () => {
+                  await fetch("/api/quotations/clear", { method: "DELETE" });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
+                  }
+                  fetchDevis();
                 }
-                fetchDevis();
-              }
+              });
             }}
             className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-[12.5px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
           >
@@ -205,18 +217,23 @@ function DevisContent() {
                             Envoyer sur WhatsApp
                           </button>
                           <button
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              if (confirm(`Supprimer le devis ${d.numero} ?`)) {
-                                try {
-                                  await fetch(`/api/quotations/${d.id}`, { method: "DELETE" });
-                                } catch (err) {}
-                                if (typeof window !== "undefined") {
-                                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
+                              setConfirmConfig({
+                                isOpen: true,
+                                title: `Supprimer le devis ${d.numero}`,
+                                message: "Voulez-vous vraiment supprimer ce devis ? Cette action est irréversible.",
+                                onConfirm: async () => {
+                                  try {
+                                    await fetch(`/api/quotations/${d.id}`, { method: "DELETE" });
+                                  } catch (err) {}
+                                  if (typeof window !== "undefined") {
+                                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
+                                  }
+                                  fetchDevis();
                                 }
-                                fetchDevis();
-                                setActionMenuOpen(null);
-                              }
+                              });
+                              setActionMenuOpen(null);
                             }}
                             className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"
                           >
@@ -247,12 +264,20 @@ function DevisContent() {
           onClose={() => setSelectedDevisForWhatsApp(null)}
           documentType="devis"
           recipientName={selectedDevisForWhatsApp.client}
-          recipientPhone={clientsFull.find((c) => c.nom === selectedDevisForWhatsApp.client)?.telephone || ""}
+          recipientPhone={""}
           documentNumber={selectedDevisForWhatsApp.numero}
           amount={selectedDevisForWhatsApp.montant}
           dueDate={selectedDevisForWhatsApp.validiteJusquau}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+      />
     </div>
   );
 }

@@ -39,9 +39,13 @@ export default function DevisDetailPage({ params }: { params: { id: string } }) 
           <button className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
             <Pencil size={14} /> Modifier
           </button>
-          <button className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
+          <Link
+            href={`/devis/${devis.id}/print`}
+            target="_blank"
+            className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50"
+          >
             <Download size={14} /> PDF
-          </button>
+          </Link>
           {devis.statut !== "Converti" && (
             <button className="flex items-center gap-1.5 rounded-md bg-brass px-3 py-2 text-[13px] font-medium text-white hover:bg-brass-dark">
               <RefreshCw size={14} /> Convertir en facture

@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Plus, X, Search, MoreHorizontal } from "lucide-react";
-import { bonsCommandeList } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { Plus, X, Search, MoreHorizontal, Loader2 } from "lucide-react";
 import { mad } from "@/lib/format";
 
 const statutStyles: Record<string, string> = {
@@ -14,7 +13,8 @@ const statutStyles: Record<string, string> = {
 };
 
 export default function BonsCommandePage() {
-  const [list, setList] = useState(bonsCommandeList);
+  const [list, setList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fournisseur, setFournisseur] = useState("");
   const [montant, setMontant] = useState("");
@@ -22,12 +22,30 @@ export default function BonsCommandePage() {
   const [statutFilter, setStatutFilter] = useState("Tous");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const fetchBons = async () => {
+    try {
+      const res = await fetch(`/api/bons-commande?t=${Date.now()}`);
+      const data = await res.json();
+      setList(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBons();
+    const handleUpdate = () => fetchBons();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fournisseur || !montant) return;
 
     const newPO = {
-      id: `BC-${Math.floor(1000 + Math.random() * 9000)}`,
       fournisseur,
       statut: "Brouillon" as const,
       dateEmission: new Date().toISOString().split("T")[0],
@@ -36,10 +54,21 @@ export default function BonsCommandePage() {
       articles: [{ nom: "Article général", qte: 1, recu: 0, prixUnitaire: parseFloat(montant) || 0 }],
     };
 
-    setList([newPO, ...list]);
-    setIsModalOpen(false);
-    setFournisseur("");
-    setMontant("");
+    try {
+      await fetch('/api/bons-commande', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPO)
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "bons-commande" } }));
+      }
+      setIsModalOpen(false);
+      setFournisseur("");
+      setMontant("");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const filtered = list.filter((po) => {
@@ -103,8 +132,8 @@ export default function BonsCommandePage() {
             </div>
           ) : (
             filtered.map((po) => {
-              const totalArticles = po.articles.reduce((s, a) => s + a.qte, 0);
-              const totalRecu = po.articles.reduce((s, a) => s + a.recu, 0);
+              const totalArticles = po.articles.reduce((s: number, a: any) => s + a.qte, 0);
+              const totalRecu = po.articles.reduce((s: number, a: any) => s + a.recu, 0);
               const progress = totalArticles > 0 ? (totalRecu / totalArticles) * 100 : 0;
               return (
                 <div
@@ -147,7 +176,16 @@ export default function BonsCommandePage() {
                           Voir le bon
                         </Link>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/bons-commande/${po.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'Reçu' }),
+                              });
+                            } catch (err) {
+                              console.error('Failed to update bon status:', err);
+                            }
                             setList((prev) =>
                               prev.map((item) =>
                                 item.id === po.id ? { ...item, statut: "Reçu" } : item
@@ -160,7 +198,12 @@ export default function BonsCommandePage() {
                           Marquer Reçu
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/bons-commande/${po.id}`, { method: 'DELETE' });
+                            } catch (err) {
+                              console.error('Failed to delete bon:', err);
+                            }
                             setList((prev) => prev.filter((item) => item.id !== po.id));
                             setActionMenuOpen(null);
                           }}

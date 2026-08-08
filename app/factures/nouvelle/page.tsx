@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Plus, Trash2, Check, Loader2 } from "lucide-react";
-import { clientsRecents, clientsList, produitsList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 type Ligne = { id: number; article: string; description: string; qte: number; prix: number; remise: number };
@@ -18,6 +17,15 @@ function FactureFormContent() {
   const fromDevis = searchParams.get("from_devis");
 
   const [clientId, setClientId] = useState(initialClientId);
+  const [clients, setClients] = useState<any[]>([]);
+  const [produits, setProduits] = useState<any[]>([]);
+  
+  useEffect(() => {
+    fetch('/api/clients').then(r => r.json()).then(data => setClients(Array.isArray(data) ? data : (data.results || [])));
+    fetch('/api/products').then(r => r.json()).then(data => setProduits(Array.isArray(data) ? data : (data.results || [])));
+  }, []);
+
+  const recurrenteOptions = false;
   const [recurrente, setRecurrente] = useState(false);
   const [echeance, setEcheance] = useState<"15" | "30" | "60" | "perso">("30");
   const [afficherTva, setAfficherTva] = useState(true);
@@ -64,12 +72,37 @@ function FactureFormContent() {
     setLignes((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSubmitting(true);
-    setSaveSuccess(true);
-    setTimeout(() => {
+    try {
+      const selectedClient = clients.find(c => c.id === clientId);
+      const invoiceData = {
+        invoice_number: `FAC-00${Math.floor(Math.random() * 1000)}`,
+        client: clientId,
+        client_name: selectedClient ? (selectedClient.company_name || selectedClient.nom) : "Client Inconnu",
+        status: "Brouillon",
+        total_amount: total,
+        date: new Date().toISOString(),
+        lignes,
+      };
+      
+      // Fetch in background to not block UI (instant transition)
+      fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invoiceData)
+      }).then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
+        }
+      });
+      
+      setSaveSuccess(true);
       router.push("/factures");
-    }, 800);
+    } catch (err) {
+      console.error(err);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -95,35 +128,19 @@ function FactureFormContent() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-[12.5px] text-ink-600 font-medium">Client *</label>
-                <select
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
-                >
-                  <option value="">Sélectionner un client...</option>
-                  {clientsList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {clientsRecents.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setClientId(c.id)}
-                      className={`rounded-full border px-2.5 py-1 text-[11.5px] ${
-                        clientId === c.id
-                          ? "border-brass bg-brass/10 text-brass font-medium"
-                          : "border-ink-200 text-ink-600 hover:border-brass/50"
-                      }`}
-                    >
-                      {c.nom}
-                    </button>
-                  ))}
+                  <select
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    className="w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
+                  >
+                    <option value="">-- Choisir un client existant --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.company_name || c.nom}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -200,20 +217,20 @@ function FactureFormContent() {
                   <label className="mb-1 block text-[11px] text-ink-500 font-medium">Sélectionner un produit du catalogue</label>
                   <select
                     onChange={(e) => {
-                      const selectedProd = produitsList.find(p => p.id === e.target.value);
+                      const selectedProd = produits.find((p: any) => p.id === e.target.value);
                       if (selectedProd) {
                         updateLigne(l.id, {
-                          article: selectedProd.nom,
-                          prix: selectedProd.prix
+                          article: selectedProd.name || selectedProd.nom,
+                          prix: selectedProd.selling_price || selectedProd.prix
                         });
                       }
                     }}
                     className="w-full rounded-md border border-ink-200 bg-white px-2 py-1.5 text-[12px] mb-1.5 focus:border-brass/60 focus:outline-none"
                   >
                     <option value="">-- Choisir dans le catalogue --</option>
-                    {produitsList.map(p => (
+                    {produits.map((p: any) => (
                       <option key={p.id} value={p.id}>
-                        {p.nom} ({mad(p.prix)})
+                        {p.name || p.nom} ({mad(p.selling_price || p.prix)})
                       </option>
                     ))}
                   </select>

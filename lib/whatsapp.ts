@@ -98,6 +98,18 @@ export function buildWhatsAppWaMeUrl(phone: string, message: string): string {
 }
 
 /**
+ * Build direct WhatsApp Desktop/Mobile app link (whatsapp:// protocol)
+ */
+export function buildWhatsAppAppUrl(phone: string, message: string): string {
+  const cleanPhone = formatPhoneForWhatsApp(phone);
+  const encodedText = encodeURIComponent(message);
+  if (cleanPhone) {
+    return `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
+  }
+  return `whatsapp://send?text=${encodedText}`;
+}
+
+/**
  * Build WhatsApp Link according to preferred mode
  */
 export function buildWhatsAppUrl(phone: string, message: string, useWebVersion = true): string {

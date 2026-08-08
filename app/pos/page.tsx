@@ -12,7 +12,6 @@ import {
   MessageCircle,
   X,
 } from "lucide-react";
-import { produitsList, posCategories } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 import { fetchAPI } from "@/lib/api";
 
@@ -26,7 +25,7 @@ export default function PosPage() {
   const [category, setCategory] = useState("Tous");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>(produitsList);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
 
   const [remisePanierPct, setRemisePanierPct] = useState(0);
   const [tvaPct, setTvaPct] = useState(20);
@@ -49,12 +48,17 @@ export default function PosPage() {
             prix: p.selling_price || 0,
             categorie: p.category_name || "Général",
           }));
-          setAllProducts([...apiFormatted, ...produitsList]);
+          setAllProducts(apiFormatted);
         }
       } catch (err) {}
     };
     loadProducts();
   }, []);
+
+  const dynamicCategories = useMemo(() => {
+    const cats = new Set(allProducts.map(p => p.categorie));
+    return ["Tous", ...Array.from(cats)];
+  }, [allProducts]);
 
   const filtered = allProducts.filter(
     (p) =>
@@ -70,7 +74,7 @@ export default function PosPage() {
   const tva = (sousTotal - remisePanier) * (tvaPct / 100);
   const total = sousTotal - remisePanier + tva;
 
-  function addToCart(produit: (typeof produitsList)[number]) {
+  function addToCart(produit: any) {
     setCart((prev) => {
       const existing = prev.find((l) => l.produitId === produit.id);
       if (existing) {
@@ -122,7 +126,7 @@ export default function PosPage() {
 
       setReceipt({
         transactionId,
-        total,
+        total: total,
         rendu: Math.max(0, montantRemis - total),
         lignes: cart,
       });
@@ -170,19 +174,21 @@ export default function PosPage() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {posCategories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
-                category === c ? "bg-ink-900 text-white" : "bg-paper-card text-ink-600 hover:bg-ink-200/50"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {dynamicCategories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${
+                  category === c
+                    ? "bg-ink-900 text-white"
+                    : "bg-paper text-ink-600 hover:bg-ink-100 hover:text-ink-900"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => (
@@ -395,7 +401,7 @@ export default function PosPage() {
 
             <div className="mb-4 space-y-1 text-[13px]">
               <div className="flex justify-between text-ink-500">
-                <span>Total</span>
+                <span>Total à payer</span>
                 <span className="figure">{mad(total)}</span>
               </div>
               <div className="flex justify-between text-ink-500">

@@ -14,15 +14,21 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/invoices`)
-      .then(res => res.json())
-      .then(data => {
-        const list = Array.isArray(data) ? data : (data.results || []);
-        const found = list.find((f: any) => f.id === params.id);
-        setFacture(found);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const loadFacture = () => {
+      fetch(`/api/invoices?t=${Date.now()}`)
+        .then(res => res.json())
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.results || []);
+          const found = list.find((f: any) => f.id === params.id);
+          setFacture(found);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+    loadFacture();
+    const handleUpdate = () => loadFacture();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
   }, [params.id]);
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
@@ -64,12 +70,13 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
           >
             <MessageSquare size={15} /> Envoyer WhatsApp
           </button>
-          <button
-            onClick={() => window.print()}
+          <Link
+            href={`/factures/${facture.id || params.id}/print`}
+            target="_blank"
             className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all"
           >
             <Download size={15} /> Télécharger PDF
-          </button>
+          </Link>
         </div>
       </div>
 

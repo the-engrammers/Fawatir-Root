@@ -4,6 +4,7 @@ import { Plus, MoreHorizontal, Loader2, ChevronLeft, ChevronRight } from "lucide
 import { useEffect, useState } from "react";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
 import AddSupplierModal from "@/components/AddSupplierModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function FournisseursPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -18,6 +19,13 @@ export default function FournisseursPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     fetchSuppliers();
@@ -77,14 +85,19 @@ export default function FournisseursPage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={async () => {
-              if (confirm("Voulez-vous vraiment vider toute la liste des fournisseurs ?")) {
-                await fetch("/api/suppliers/clear", { method: "DELETE" });
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
+            onClick={() => {
+              setConfirmConfig({
+                isOpen: true,
+                title: "Vider les fournisseurs",
+                message: "Voulez-vous vraiment vider toute la liste des fournisseurs ? Cette action est irréversible.",
+                onConfirm: async () => {
+                  await fetch("/api/suppliers/clear", { method: "DELETE" });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
+                  }
+                  fetchSuppliers();
                 }
-                fetchSuppliers();
-              }
+              });
             }}
             className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-[12.5px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
           >
@@ -170,17 +183,22 @@ export default function FournisseursPage() {
                           {actionMenuOpen === f.id && (
                             <div className="absolute right-2 top-10 z-20 w-36 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Supprimer le fournisseur ${f.company_name || f.contact_name} ?`)) {
-                                    try {
-                                      await fetch(`/api/suppliers/${f.id}`, { method: "DELETE" });
-                                    } catch (err) {}
-                                    if (typeof window !== "undefined") {
-                                      window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
+                                onClick={() => {
+                                  setConfirmConfig({
+                                    isOpen: true,
+                                    title: `Supprimer le fournisseur ${f.company_name || f.contact_name}`,
+                                    message: "Voulez-vous vraiment supprimer ce fournisseur ? Cette action est irréversible.",
+                                    onConfirm: async () => {
+                                      try {
+                                        await fetch(`/api/suppliers/${f.id}`, { method: "DELETE" });
+                                      } catch (err) {}
+                                      if (typeof window !== "undefined") {
+                                        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
+                                      }
+                                      fetchSuppliers();
                                     }
-                                    fetchSuppliers();
-                                    setActionMenuOpen(null);
-                                  }
+                                  });
+                                  setActionMenuOpen(null);
                                 }}
                                 className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"
                               >
@@ -237,12 +255,22 @@ export default function FournisseursPage() {
         expectedType="suppliers"
       />
 
-      {isAddModalOpen && (
-        <AddSupplierModal
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={() => fetchSuppliers()}
-        />
-      )}
+      <AddSupplierModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => {
+          setIsAddModalOpen(false);
+          fetchSuppliers();
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+      />
     </div>
   );
 }

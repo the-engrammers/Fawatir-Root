@@ -25,53 +25,8 @@ type BankTransaction = {
   pieceAssociee?: string;
 };
 
-const initialTransactions: BankTransaction[] = [
-  {
-    id: "TXN-8801",
-    date: "2026-04-12",
-    libelle: "VIREMENT CLIENT - FAC-0045 - MOUAD EL KHATIB",
-    montant: 102000,
-    type: "Crédit",
-    statut: "Rapproché",
-    pieceAssociee: "FAC-0045",
-  },
-  {
-    id: "TXN-8802",
-    date: "2026-04-11",
-    libelle: "PRLV MAROC TELECOM - ABO-0992",
-    montant: -1450,
-    type: "Débit",
-    statut: "Rapproché",
-    pieceAssociee: "DEP-028",
-  },
-  {
-    id: "TXN-8803",
-    date: "2026-04-10",
-    libelle: "VIREMENT - FATIMA ZAHRA MOUSSAOUI",
-    montant: 41400,
-    type: "Crédit",
-    statut: "À rapprocher",
-  },
-  {
-    id: "TXN-8804",
-    date: "2026-04-09",
-    libelle: "ACHAT LOYER BUREAU - IMMOBILIERE ANFA",
-    montant: -12500,
-    type: "Débit",
-    statut: "À rapprocher",
-  },
-  {
-    id: "TXN-8805",
-    date: "2026-04-08",
-    libelle: "COMMISSION BANCAIRE - ATTIJARIWAFA",
-    montant: -120,
-    type: "Débit",
-    statut: "À rapprocher",
-  },
-];
-
 export default function RapprochementPage() {
-  const [transactions, setTransactions] = useState<BankTransaction[]>(initialTransactions);
+  const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState<string>("Tous");
   const [selectedTxn, setSelectedTxn] = useState<BankTransaction | null>(null);

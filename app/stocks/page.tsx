@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Loader2, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import { mad } from "@/lib/format";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
+import ConfirmModal from "@/components/ConfirmModal";
 import { fetchAPI } from "@/lib/api";
 
 export default function StocksPage() {
@@ -14,6 +15,13 @@ export default function StocksPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,14 +87,19 @@ export default function StocksPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={async () => {
-              if (confirm("Voulez-vous vraiment vider toute la liste des produits ?")) {
-                await fetch("/api/products/clear", { method: "DELETE" });
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+            onClick={() => {
+              setConfirmConfig({
+                isOpen: true,
+                title: "Vider les produits",
+                message: "Voulez-vous vraiment vider toute la liste des produits ? Cette action est irréversible.",
+                onConfirm: async () => {
+                  await fetch("/api/products/clear", { method: "DELETE" });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                  }
+                  fetchProducts();
                 }
-                fetchProducts();
-              }
+              });
             }}
             className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-200 px-4 py-2 text-[13px] font-medium text-red-600 hover:bg-red-500/20"
           >
@@ -238,17 +251,22 @@ export default function StocksPage() {
                                 Ajuster le stock
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (confirm(`Supprimer le produit ${p.name} ?`)) {
-                                    try {
-                                      await fetch(`/api/products/${p.id}`, { method: "DELETE" });
-                                    } catch (err) {}
-                                    if (typeof window !== "undefined") {
-                                      window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                                onClick={() => {
+                                  setConfirmConfig({
+                                    isOpen: true,
+                                    title: `Supprimer le produit ${p.name}`,
+                                    message: "Voulez-vous vraiment supprimer ce produit ? Cette action est irréversible.",
+                                    onConfirm: async () => {
+                                      try {
+                                        await fetch(`/api/products/${p.id}`, { method: "DELETE" });
+                                      } catch (err) {}
+                                      if (typeof window !== "undefined") {
+                                        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                                      }
+                                      fetchProducts();
                                     }
-                                    fetchProducts();
-                                    setActionMenuOpen(null);
-                                  }
+                                  });
+                                  setActionMenuOpen(null);
                                 }}
                                 className="block w-full text-left px-3 py-1.5 text-[12px] text-red-600 hover:bg-red-50"
                               >
@@ -303,6 +321,14 @@ export default function StocksPage() {
           fetchProducts();
         }}
         expectedType="stock"
+      />
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
       />
     </div>
   );
