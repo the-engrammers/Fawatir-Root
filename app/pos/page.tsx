@@ -157,7 +157,7 @@ export default function PosPage() {
           {!sessionOpen && (
             <button
               onClick={() => setOpenModal(true)}
-              className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
+              className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-indigo-700"
             >
               Ouvrir la session
             </button>
@@ -181,8 +181,8 @@ export default function PosPage() {
                 onClick={() => setCategory(c)}
                 className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${
                   category === c
-                    ? "bg-ink-900 text-white"
-                    : "bg-paper text-ink-600 hover:bg-ink-100 hover:text-ink-900"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-paper text-ink-600 hover:bg-slate-200 hover:text-slate-900"
                 }`}
               >
                 {c}
@@ -307,7 +307,7 @@ export default function PosPage() {
               setMontantRemis(total);
               setCheckoutOpen(true);
             }}
-            className="flex-1 rounded-md bg-ink-900 py-2 text-[12.5px] font-medium text-white hover:bg-ink-800 disabled:opacity-40"
+            className="flex-1 rounded-md bg-indigo-600 py-2 text-[12.5px] font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
           >
             Encaisser
           </button>
@@ -418,7 +418,7 @@ export default function PosPage() {
 
             <button
               onClick={encaisser}
-              className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
+              className="w-full rounded-md bg-indigo-600 py-2.5 text-[13px] font-medium text-white hover:bg-indigo-700"
             >
               Encaisser {mad(total)}
             </button>
@@ -480,7 +480,7 @@ export default function PosPage() {
 
             <button
               onClick={nouvelleVente}
-              className="mt-4 w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
+              className="mt-4 w-full rounded-md bg-indigo-600 py-2.5 text-[13px] font-medium text-white hover:bg-indigo-700"
             >
               Nouvelle vente
             </button>

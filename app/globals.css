@@ -143,6 +143,8 @@ html.light-mode .bg-slate-950\/60,
 html.light-mode .bg-slate-900\/30,
 html.light-mode .bg-slate-900\/50,
 html.light-mode .bg-slate-900\/95,
+html.light-mode .bg-paper-card,
+html.light-mode .bg-paper,
 html.light-mode .bg-gradient-to-b {
   background-color: #FFFFFF !important;
   background-image: none !important;
@@ -226,11 +228,19 @@ html.light-mode .text-slate-200,
 html.light-mode .text-slate-300,
 html.light-mode .text-slate-400,
 html.light-mode .text-white,
-html.light-mode .text-ink-100,
-html.light-mode .text-ink-200,
-html.light-mode .text-ink-300,
-html.light-mode .text-ink-400 {
+html.light-mode .text-ink-900,
+html.light-mode .text-ink-800 {
   color: #0F172A !important;
+}
+
+html.light-mode .text-ink-700,
+html.light-mode .text-ink-600,
+html.light-mode .text-ink-500,
+html.light-mode .text-ink-400,
+html.light-mode .text-ink-300,
+html.light-mode .text-ink-200,
+html.light-mode .text-ink-100 {
+  color: #475569 !important;
 }
 
 /* Fix Unreadable Text Classes in Dark Mode */
