@@ -35,6 +35,13 @@ export default function PosPage() {
   const [montantRemis, setMontantRemis] = useState<number>(0);
   const [receipt, setReceipt] = useState<null | { id?: string; transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
 
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -446,10 +453,10 @@ export default function PosPage() {
                   try {
                     if(!receipt?.id) return;
                     const res = await fetchAPI(`api/invoices/${receipt.id}/send_email/`, { method: "POST" });
-                    if(res.ok) alert("Email envoyé avec succès via le backend Django !");
-                    else alert("Erreur : Veuillez configurer vos accès SMTP (Email) dans la page 'Paramètres > Entreprise'.");
+                    if(res.ok) showToast("Email envoyé avec succès !", "success");
+                    else showToast("Veuillez configurer vos accès SMTP (Email) dans Paramètres > Entreprise.", "error");
                   } catch(e) {
-                    alert("Erreur réseau.");
+                    showToast("Erreur réseau.", "error");
                   }
                 }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Mail size={12} />
@@ -458,10 +465,10 @@ export default function PosPage() {
                   try {
                     if(!receipt?.id) return;
                     const res = await fetchAPI(`api/invoices/${receipt.id}/send_whatsapp/`, { method: "POST" });
-                    if(res.ok) alert("Message WhatsApp envoyé avec succès via Twilio !");
-                    else alert("Erreur : Veuillez configurer vos accès Twilio (WhatsApp) dans la page 'Paramètres > Entreprise'.");
+                    if(res.ok) showToast("Message WhatsApp envoyé avec succès !", "success");
+                    else showToast("Veuillez configurer vos accès Twilio (WhatsApp) dans Paramètres > Entreprise.", "error");
                   } catch(e) {
-                    alert("Erreur réseau.");
+                    showToast("Erreur réseau.", "error");
                   }
                 }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <MessageCircle size={12} />
@@ -509,6 +516,23 @@ export default function PosPage() {
               Nouvelle vente
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Custom Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[100] flex animate-fade-in items-center gap-3 rounded-lg px-4 py-3 shadow-xl ${
+          toast.type === 'success' ? 'bg-status-successBg border border-emerald-500/20 text-emerald-800' : 'bg-red-50 border border-red-500/20 text-red-800'
+        }`}>
+          {toast.type === 'success' ? (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">✓</div>
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">!</div>
+          )}
+          <p className="text-[13px] font-medium leading-relaxed max-w-[280px]">{toast.message}</p>
+          <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>
