@@ -117,7 +117,7 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
           <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">
             Lignes de facture
           </p>
-          <span className="text-[12px] text-slate-400">{facture.lignes.length} article(s)</span>
+          <span className="text-[12px] text-slate-400">{lignes.length} article(s)</span>
         </div>
         <table className="w-full text-[13px]">
           <thead>
