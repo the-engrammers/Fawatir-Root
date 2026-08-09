@@ -419,6 +419,21 @@
           "prix_unitaire": 4250
         }
       ]
+    },
+    {
+      "id": "fac-1786285659714-1-dmcu",
+      "invoice_number": "TXN-285655107",
+      "client_name": "Client Comptoir",
+      "status": "Payée",
+      "total_amount": 828,
+      "date": "2026-08-09",
+      "lignes": [
+        {
+          "description": "DataVault Backup 4To — Solution de sauvegarde NAS (x2)",
+          "quantite": 1,
+          "prix_unitaire": 690
+        }
+      ]
     }
   ],
   "employeesStore": [],

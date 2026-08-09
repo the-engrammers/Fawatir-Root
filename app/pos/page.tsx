@@ -439,10 +439,10 @@ export default function PosPage() {
                 <button onClick={() => window.print()} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Printer size={12} /> Imprimer
                 </button>
-                <button onClick={() => alert("Reçu envoyé par email avec succès !")} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Mail size={12} />
                 </button>
-                <button onClick={() => alert("Reçu envoyé par WhatsApp avec succès !")} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <MessageCircle size={12} />
                 </button>
               </div>
