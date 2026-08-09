@@ -404,20 +404,25 @@
           "remise": 0
         }
       ]
+    },
+    {
+      "id": "fac-1786285167262-1-0i0v",
+      "invoice_number": "TXN-285156349",
+      "client_name": "Client Comptoir",
+      "status": "Payée",
+      "total_amount": 5100,
+      "date": "2026-08-09",
+      "lignes": [
+        {
+          "description": "ServerNode X200 — Serveur rack 2U bi-processeur (x2)",
+          "quantite": 1,
+          "prix_unitaire": 4250
+        }
+      ]
     }
   ],
   "employeesStore": [],
-  "avoirsStore": [
-    {
-      "client": "Sara Tazi",
-      "facture": "FAC-001",
-      "motif": "Retour marchandise / Ajustement",
-      "montant": 1500,
-      "date": "2026-08-09",
-      "statut": "Émis",
-      "id": "AV-1786281076309"
-    }
-  ],
+  "avoirsStore": [],
   "depensesStore": [],
   "bulletinsStore": [],
   "bonsCommandeStore": [],

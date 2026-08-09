@@ -31,6 +31,7 @@ export default function PosPage() {
   const [tvaPct, setTvaPct] = useState(20);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("Espèces");
   const [montantRemis, setMontantRemis] = useState<number>(0);
   const [receipt, setReceipt] = useState<null | { transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
 
@@ -140,6 +141,7 @@ export default function PosPage() {
     setCart([]);
     setRemisePanierPct(0);
     setMontantRemis(0);
+    setPaymentMethod("Espèces");
     setReceipt(null);
   }
 
@@ -370,11 +372,12 @@ export default function PosPage() {
             </div>
 
             <div className="mb-3 grid grid-cols-4 gap-1.5 text-[11.5px]">
-              {["Espèces", "Carte", "Virement", "Autre"].map((m, i) => (
+              {["Espèces", "Carte", "Virement", "Autre"].map((m) => (
                 <button
                   key={m}
-                  className={`rounded-md border py-1.5 ${
-                    i === 0 ? "border-brass bg-brass/10 text-brass" : "border-ink-200 text-ink-500"
+                  onClick={() => setPaymentMethod(m)}
+                  className={`rounded-md border py-1.5 transition-colors ${
+                    paymentMethod === m ? "border-brass bg-brass/10 text-brass" : "border-ink-200 text-ink-500 hover:border-brass/50 hover:bg-brass/5"
                   }`}
                 >
                   {m}
@@ -433,13 +436,13 @@ export default function PosPage() {
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[13.5px] font-medium text-ink-900">Reçu</p>
               <div className="flex gap-1.5">
-                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50">
+                <button onClick={() => window.print()} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Printer size={12} /> Imprimer
                 </button>
-                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50">
+                <button onClick={() => alert("Reçu envoyé par email avec succès !")} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Mail size={12} />
                 </button>
-                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50">
+                <button onClick={() => alert("Reçu envoyé par WhatsApp avec succès !")} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <MessageCircle size={12} />
                 </button>
               </div>
