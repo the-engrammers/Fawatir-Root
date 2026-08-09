@@ -1,16 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
-import { 
-  getClients, 
-  getSuppliers, 
-  getProducts, 
-  getQuotations, 
-  getInvoices, 
-  addClient, 
-  addProduct, 
-  addQuotation, 
-  addInvoice 
-} from "@/lib/mock-data-store";
+
+const DJANGO_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 
 // ==========================================================================
@@ -55,11 +46,11 @@ function normalize(s: string): string {
 }
 
 /** Check if a word fuzzy-matches any word in a name */
-function fuzzyWordMatch(query: string, target: string, threshold = 0.65): boolean {
+function fuzzyWordMatch(query: string, target: string, threshold = 0.55): boolean {
   const qWords = normalize(query).split(" ");
   const tWords = normalize(target).split(" ");
   return qWords.some(q =>
-    q.length > 2 && tWords.some(t => t.length > 2 && similarity(q, t) >= threshold)
+    q.length >= 2 && tWords.some(t => t.length >= 2 && similarity(q, t) >= threshold)
   );
 }
 
@@ -114,11 +105,22 @@ export async function POST(req: Request) {
     }
 
     // 1. Gather Live Database Context
-    const storeClients = getClients();
-    const storeSuppliers = getSuppliers();
-    const storeProducts = getProducts();
-    const storeQuotations = getQuotations();
-    const storeInvoices = getInvoices();
+    const fetchApi = async (path: string) => {
+      try {
+        const res = await fetch(`${DJANGO_URL}/${path}`, { cache: 'no-store' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : (data.results || []);
+      } catch (e) {
+        return [];
+      }
+    };
+
+    const storeClients = await fetchApi('api/clients/');
+    const storeSuppliers = await fetchApi('api/suppliers/');
+    const storeProducts = await fetchApi('api/products/');
+    const storeQuotations = await fetchApi('api/quotations/');
+    const storeInvoices = await fetchApi('api/invoices/');
 
     // Consolidated Clients
     const allClients = storeClients.map((c) => ({
@@ -231,15 +233,24 @@ export async function POST(req: Request) {
         });
       }
 
-      const newCli = addClient({
-        company_name: clientName,
-        contact_name: clientName,
-        city: "Casablanca",
-        phone: "+212 660 000000",
-      });
-      return NextResponse.json({
-        reply: `✅ **Client créé avec succès dans la base de données Fatourati !**\n\n- **Nom / Entreprise :** ${newCli.company_name}\n- **Code Client :** ${newCli.customer_code}\n- **Ville :** Casablanca\n\nVous pouvez retrouver ce client dans le module [Clients](/clients).`
-      });
+      try {
+        const res = await fetch(`${DJANGO_URL}/api/clients/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_name: clientName,
+            contact_name: clientName,
+            city: "Casablanca",
+            phone: "+212 660 000000",
+          })
+        });
+        const newCli = await res.json();
+        return NextResponse.json({
+          reply: `✅ **Client créé avec succès dans la base de données Fatourati !**\n\n- **Nom / Entreprise :** ${newCli.company_name}\n- **Code Client :** ${newCli.customer_code}\n- **Ville :** Casablanca\n\nVous pouvez retrouver ce client dans le module [Clients](/clients).`
+        });
+      } catch (e) {
+        return NextResponse.json({ reply: "Erreur lors de la création du client." });
+      }
     }
 
     // --- PRODUCT CREATION ---
@@ -254,15 +265,24 @@ export async function POST(req: Request) {
       const productName = extractName(prompt.replace(/produit/gi, "client").replace(/article/gi, "client")) || "Produit Ajouté via Assistant IA";
       const amount = extractAmount(prompt);
       
-      const newProd = addProduct({
-        name: productName.replace(/client/gi, "").trim() || "Produit Ajouté via Assistant IA",
-        selling_price: amount || 500,
-        quantity: 10,
-        category_name: "Général"
-      });
-      return NextResponse.json({
-        reply: `✅ **Produit ajouté avec succès dans vos stocks !**\n\n- **Désignation :** ${newProd.name}\n- **Référence SKU :** ${newProd.sku}\n- **Prix Vente :** ${newProd.selling_price} MAD\n- **Quantité initiale :** ${newProd.quantity} unités\n\nRetrouvez cet article dans [Gestion des stocks](/stocks).`
-      });
+      try {
+        const res = await fetch(`${DJANGO_URL}/api/products/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: productName.replace(/client/gi, "").trim() || "Produit Ajouté via Assistant IA",
+            selling_price: amount || 500,
+            quantity: 10,
+            category_name: "Général"
+          })
+        });
+        const newProd = await res.json();
+        return NextResponse.json({
+          reply: `✅ **Produit ajouté avec succès dans vos stocks !**\n\n- **Désignation :** ${newProd.name}\n- **Référence SKU :** ${newProd.sku}\n- **Prix Vente :** ${newProd.selling_price} MAD\n- **Quantité initiale :** ${newProd.quantity || 10} unités\n\nRetrouvez cet article dans [Gestion des stocks](/stocks).`
+        });
+      } catch (e) {
+        return NextResponse.json({ reply: "Erreur lors de l'ajout du produit." });
+      }
     }
 
     // --- INVOICE CREATION VIA CHAT ---
@@ -289,17 +309,25 @@ export async function POST(req: Request) {
 
       const clientName = matchedClient?.entreprise || matchedClient?.nom || extractName(prompt) || "Client";
 
-      const newInv = addInvoice({
-        client_name: clientName,
-        total_amount: amount,
-        status: "Brouillon",
-        date: new Date().toISOString().split("T")[0],
-        items: [{ description: "Prestation / Article", quantity: 1, unit_price: amount }]
-      });
-
-      return NextResponse.json({
-        reply: `✅ **Facture créée avec succès !**\n\n- **Numéro :** ${newInv.invoice_number}\n- **Client :** ${clientName}\n- **Montant :** ${amount.toLocaleString("fr-FR")} MAD\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n${matchedClient ? `📌 Client trouvé dans votre base : **${matchedClient.entreprise || matchedClient.nom}**` : `⚠️ Client "${clientName}" non trouvé dans votre base. Pensez à l'ajouter !`}\n\n👉 [Voir les Factures](/factures)`
-      });
+      try {
+        const res = await fetch(`${DJANGO_URL}/api/invoices/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_name: clientName,
+            total_amount: amount,
+            status: "Brouillon",
+            date: new Date().toISOString().split("T")[0],
+            items: [{ description: "Prestation / Article", quantity: 1, unit_price: amount }]
+          })
+        });
+        const newInv = await res.json();
+        return NextResponse.json({
+          reply: `✅ **Facture créée avec succès !**\n\n- **Numéro :** ${newInv.invoice_number}\n- **Client :** ${clientName}\n- **Montant :** ${amount.toLocaleString("fr-FR")} MAD\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n${matchedClient ? `📌 Client trouvé dans votre base : **${matchedClient.entreprise || matchedClient.nom}**` : `⚠️ Client "${clientName}" non trouvé dans votre base. Pensez à l'ajouter !`}\n\n👉 [Voir les Factures](/factures)`
+        });
+      } catch (e) {
+        return NextResponse.json({ reply: "Erreur lors de la création de la facture." });
+      }
     }
 
     // Call Gemini API if Key is present
