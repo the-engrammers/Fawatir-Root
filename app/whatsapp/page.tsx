@@ -342,12 +342,12 @@ export default function WhatsAppConfigPage() {
               {/* Action Buttons */}
               <div className="flex flex-col gap-2 pt-2">
                 <a
-                  href={buildWhatsAppWebUrl(formattedTestPhone, renderedMessage)}
+                  href={generatedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-[14px] font-bold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
                 >
-                  <ExternalLink size={17} /> Ouvrir sur WhatsApp Web
+                  <ExternalLink size={17} /> {config.sendMode === 'web' ? 'Ouvrir sur WhatsApp Web' : 'Ouvrir l\'Application WhatsApp'}
                 </a>
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <a

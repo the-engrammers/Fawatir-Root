@@ -116,7 +116,7 @@ export function buildWhatsAppUrl(phone: string, message: string, useWebVersion =
   if (useWebVersion) {
     return buildWhatsAppWebUrl(phone, message);
   }
-  return buildWhatsAppWaMeUrl(phone, message);
+  return buildWhatsAppAppUrl(phone, message);
 }
 
 /**
