@@ -46,6 +46,11 @@ export default function AssistantWidget() {
       const data = await res.json();
       
       setMessages((prev) => [...prev, { from: "assistant", text: data.reply || "Aucune réponse reçue." }]);
+      
+      // Tell all active tables (Clients, Stocks, Factures) to refresh their data
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dataUpdated"));
+      }
     } catch (e) {
       setMessages((prev) => [...prev, { from: "assistant", text: "Désolé, une erreur s'est produite lors de la connexion à l'assistant IA." }]);
     } finally {
