@@ -35,14 +35,12 @@ import {
 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import QuickInvoiceModal from "@/components/QuickInvoiceModal";
-import ScannerModal from "@/components/ScannerModal";
 import { mad, statusTone } from "@/lib/format";
 
 import { useEffect, useMemo } from "react";
 
 export default function DashboardPage() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
-  const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [chartTab, setChartTab] = useState<"revenu" | "depenses" | "prevision">("revenu");
@@ -226,30 +224,6 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-
-          <button
-            onClick={() => setIsScannerModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 shadow-sm hover:bg-slate-800 hover:border-slate-700 active:scale-95 transition-all"
-          >
-            <Zap size={15} className="text-amber-400" />
-            <span>Scan Doc IA</span>
-          </button>
-
-          <button
-            onClick={handleGenerateReport}
-            className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 shadow-sm hover:bg-slate-800 hover:border-slate-700 active:scale-95 transition-all"
-          >
-            <Download size={15} className="text-slate-400" />
-            <span>{isGenerating ? "Export..." : "Rapport PDF"}</span>
-          </button>
-
-          <button
-            onClick={() => setIsInvoiceModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg shadow-indigo-600/20 hover:from-indigo-500 hover:to-violet-500 active:scale-95 transition-all ring-1 ring-white/20"
-          >
-            <Plus size={16} />
-            <span>Nouvelle Facture</span>
-          </button>
         </div>
       </div>
 
@@ -553,7 +527,7 @@ export default function DashboardPage() {
 
       {/* Global Modals */}
       <QuickInvoiceModal isOpen={isInvoiceModalOpen} onClose={() => setIsInvoiceModalOpen(false)} />
-      <ScannerModal isOpen={isScannerModalOpen} onClose={() => setIsScannerModalOpen(false)} targetType="factures" />
+
       <WhatsAppModal isOpen={isWhatsAppOpen} onClose={() => setIsWhatsAppOpen(false)} initialInvoices={invoices.filter(i => i.status !== 'Payée' && (i as any).statut !== 'Payée')} />
 
     </div>

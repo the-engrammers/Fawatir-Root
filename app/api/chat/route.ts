@@ -13,6 +13,97 @@ import {
 } from "@/lib/mock-data-store";
 
 
+// ==========================================================================
+// FUZZY MATCHING UTILITIES
+// ==========================================================================
+
+/** Levenshtein distance between two strings */
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/** Similarity score 0-1 between two strings (case-insensitive, accent-normalized) */
+function similarity(a: string, b: string): number {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (na === nb) return 1;
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(na, nb) / maxLen;
+}
+
+/** Normalize: lowercase, strip accents, remove extra whitespace */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** Check if a word fuzzy-matches any word in a name */
+function fuzzyWordMatch(query: string, target: string, threshold = 0.65): boolean {
+  const qWords = normalize(query).split(" ");
+  const tWords = normalize(target).split(" ");
+  return qWords.some(q =>
+    q.length > 2 && tWords.some(t => t.length > 2 && similarity(q, t) >= threshold)
+  );
+}
+
+/** Check if user text contains any of the phrases (flexible matching) */
+function containsAny(text: string, phrases: string[]): boolean {
+  const n = normalize(text);
+  return phrases.some(p => n.includes(normalize(p)));
+}
+
+/** Extract a name from user text (very flexible) */
+function extractName(text: string): string | null {
+  // Try quoted text first: "name" or «name»
+  const quoted = text.match(/["«]([^"»]+)["»]/);
+  if (quoted) return quoted[1].trim();
+
+  // Try after keywords
+  const afterKeyword = text.match(/(?:client|nommé|appelé|nommee|appele|pour)\s+(.+?)(?:\s+(?:de|avec|et|dans|sur|a|à|,|\.|$))/i);
+  if (afterKeyword) return afterKeyword[1].trim();
+
+  // Try to capture capitalized words (names)
+  const caps = text.match(/(?:client|nommé|appelé|pour)\s+([A-ZÀ-ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zà-ÿ]+)*)/i);
+  if (caps) return caps[1].trim();
+
+  // Fallback: grab text after "client"
+  const afterClient = text.match(/client\s+(.+)/i);
+  if (afterClient) {
+    const cleaned = afterClient[1].replace(/[.,!?]+$/, "").trim();
+    if (cleaned.length > 1 && cleaned.length < 60) return cleaned;
+  }
+
+  return null;
+}
+
+/** Extract amount from text (e.g., "5000 MAD", "5000", "5 000") */
+function extractAmount(text: string): number | null {
+  const match = text.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*(?:mad|dh|dirhams?|dhs?|€|eur)?/i);
+  if (match) {
+    const num = parseFloat(match[1].replace(/\s/g, "").replace(",", "."));
+    if (!isNaN(num) && num > 0) return num;
+  }
+  return null;
+}
+
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -107,12 +198,39 @@ export async function POST(req: Request) {
       employes: []
     };
 
-    // Check for AI Intent to Create Data dynamically
+    // =========================================================
+    // 2. SMART INTENT DETECTION (flexible, typo-tolerant)
+    // =========================================================
     const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes("crée un client") || lowerPrompt.includes("ajouter client") || lowerPrompt.includes("nouveau client")) {
-      const matchName = prompt.match(/(?:client|nommé|appelé)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
-      const clientName = matchName ? matchName[1] : "Nouveau Client IA";
+    const normalizedPrompt = normalize(prompt);
+
+    // --- CLIENT CREATION ---
+    const clientCreatePhrases = [
+      "cree un client", "crée un client", "créer un client", "creer un client",
+      "ajouter client", "ajoute un client", "ajouter un client", "ajout client",
+      "nouveau client", "enregistrer client", "enregistre un client",
+      "inscris un client", "inscrire client", "ajoute client",
+      "je veux creer un client", "je veux créer un client",
+      "ajoute moi un client", "ajoute-moi un client",
+      "créer client", "creer client", "cree client",
+    ];
+
+    if (containsAny(prompt, clientCreatePhrases)) {
+      const clientName = extractName(prompt) || "Nouveau Client IA";
+      
+      // Check if client already exists (fuzzy)
+      const existingClient = allClients.find(c =>
+        similarity(c.nom, clientName) > 0.75 ||
+        similarity(c.entreprise || "", clientName) > 0.75 ||
+        similarity(c.contact || "", clientName) > 0.75
+      );
+
+      if (existingClient) {
+        return NextResponse.json({
+          reply: `⚠️ **Un client similaire existe déjà !**\n\n- **Nom :** ${existingClient.entreprise || existingClient.nom}\n- **Contact :** ${existingClient.contact}\n- **Tél :** ${existingClient.tel}\n- **Ville :** ${existingClient.ville}\n\nVoulez-vous dire ce client ? Sinon, précisez un nom différent.\n\n👉 [Voir les Clients](/clients)`
+        });
+      }
+
       const newCli = addClient({
         company_name: clientName,
         contact_name: clientName,
@@ -124,15 +242,63 @@ export async function POST(req: Request) {
       });
     }
 
-    if (lowerPrompt.includes("crée un produit") || lowerPrompt.includes("ajouter produit") || lowerPrompt.includes("nouveau produit")) {
+    // --- PRODUCT CREATION ---
+    const productCreatePhrases = [
+      "cree un produit", "crée un produit", "créer un produit", "creer un produit",
+      "ajouter produit", "ajoute un produit", "ajouter un produit", "ajout produit",
+      "nouveau produit", "enregistrer produit", "ajoute produit",
+      "créer produit", "creer produit", "cree produit",
+    ];
+
+    if (containsAny(prompt, productCreatePhrases)) {
+      const productName = extractName(prompt.replace(/produit/gi, "client").replace(/article/gi, "client")) || "Produit Ajouté via Assistant IA";
+      const amount = extractAmount(prompt);
+      
       const newProd = addProduct({
-        name: "Produit Ajouté via Assistant IA",
-        selling_price: 500,
+        name: productName.replace(/client/gi, "").trim() || "Produit Ajouté via Assistant IA",
+        selling_price: amount || 500,
         quantity: 10,
         category_name: "Général"
       });
       return NextResponse.json({
         reply: `✅ **Produit ajouté avec succès dans vos stocks !**\n\n- **Désignation :** ${newProd.name}\n- **Référence SKU :** ${newProd.sku}\n- **Prix Vente :** ${newProd.selling_price} MAD\n- **Quantité initiale :** ${newProd.quantity} unités\n\nRetrouvez cet article dans [Gestion des stocks](/stocks).`
+      });
+    }
+
+    // --- INVOICE CREATION VIA CHAT ---
+    const invoiceCreatePhrases = [
+      "cree une facture", "crée une facture", "créer une facture", "creer une facture",
+      "ajouter facture", "ajoute une facture", "nouvelle facture",
+      "facture pour", "facturer", "facture de", "envoyer une facture",
+      "cree facture", "crée facture", "créer facture",
+    ];
+
+    if (containsAny(prompt, invoiceCreatePhrases)) {
+      const amount = extractAmount(prompt) || 1000;
+      
+      // Try to find client name in the prompt (fuzzy match against existing clients)
+      let matchedClient = null;
+      const words = normalize(prompt).split(" ").filter(w => w.length > 2);
+      
+      for (const client of allClients) {
+        if (fuzzyWordMatch(prompt, client.nom) || fuzzyWordMatch(prompt, client.entreprise || "") || fuzzyWordMatch(prompt, client.contact || "")) {
+          matchedClient = client;
+          break;
+        }
+      }
+
+      const clientName = matchedClient?.entreprise || matchedClient?.nom || extractName(prompt) || "Client";
+
+      const newInv = addInvoice({
+        client_name: clientName,
+        total_amount: amount,
+        status: "Brouillon",
+        date: new Date().toISOString().split("T")[0],
+        items: [{ description: "Prestation / Article", quantity: 1, unit_price: amount }]
+      });
+
+      return NextResponse.json({
+        reply: `✅ **Facture créée avec succès !**\n\n- **Numéro :** ${newInv.invoice_number}\n- **Client :** ${clientName}\n- **Montant :** ${amount.toLocaleString("fr-FR")} MAD\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n${matchedClient ? `📌 Client trouvé dans votre base : **${matchedClient.entreprise || matchedClient.nom}**` : `⚠️ Client "${clientName}" non trouvé dans votre base. Pensez à l'ajouter !`}\n\n👉 [Voir les Factures](/factures)`
       });
     }
 
@@ -154,12 +320,18 @@ export async function POST(req: Request) {
 VOICI LES DONNÉES EN TEMPS RÉEL EXTRAITES DE LA BASE DE DONNÉES DU CLIENT :
 ${JSON.stringify(dbContext, null, 2)}
 
-INSTRUCTIONS :
+INSTRUCTIONS CRITIQUES :
 1. Réponds aux questions de l'utilisateur en exploitant TOUJOURS les données ci-dessus (noms de clients, numéros de factures, montants exacts en MAD, stocks disponibles, dépenses, devis, employés).
 2. Si l'utilisateur demande des chiffres (ex: chiffre d'affaires, total des dépenses, nombre de clients, statut d'un devis), cite les vrais chiffres extraits des données.
 3. Sois très précis, chaleureux et professionnel. Utilise une mise en page Markdown soignée (listes à puces, tableaux si approprié, texte en gras).
 4. Lorsque l'utilisateur demande un modèle ou un envoi WhatsApp, propose un lien cliquable au format : [Envoyer par WhatsApp](https://wa.me/212661123456?text=Bonjour...) avec le texte pré-rempli.
-5. Si la question porte sur un élément introuvable dans la base, indique clairement ce qui est présent et propose de l'ajouter.`;
+5. Si la question porte sur un élément introuvable dans la base, indique clairement ce qui est présent et propose de l'ajouter.
+
+RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
+6. **SOIS TOLÉRANT avec l'orthographe !** L'utilisateur peut écrire avec des fautes, sans accents, en minuscules, en franglais, ou en Darija. Par exemple : "klavier" = "Clavier", "fature" = "Facture", "klien" = "Client". Tu DOIS comprendre l'intention.
+7. Quand l'utilisateur mentionne un nom de client, produit ou facture, cherche la correspondance la PLUS PROCHE dans les données, même avec des fautes de frappe. Ne refuse JAMAIS de répondre juste parce que l'orthographe n'est pas exacte.
+8. Si tu ne trouves rien qui correspond, liste les éléments les plus proches et demande de confirmer.
+9. Tu parles en Français (avec un style marocain professionnel). Tu peux comprendre le Darija et le Français mélangé.`;
 
         const response = await ai.models.generateContent({
           model: "gemini-1.5-flash",
@@ -178,7 +350,7 @@ INSTRUCTIONS :
     }
 
     // ======================================================
-    // SMART FALLBACK — Natural Language DB Parser
+    // SMART FALLBACK — Natural Language DB Parser with Fuzzy Matching
     // Runs when Gemini API is unavailable (quota/no key)
     // ======================================================
     let reply = "";
@@ -187,28 +359,33 @@ INSTRUCTIONS :
     const words = lowerPrompt.replace(/[?.,!]/g, "").split(/\s+/).filter(w => w.length > 2);
 
     // --- Helper: check if question asks "is X in stock / do you have X?" ---
-    const isStockQuery = lowerPrompt.includes("stock") || lowerPrompt.includes("disponible") || lowerPrompt.includes("avez-vous") || lowerPrompt.includes("avons") || lowerPrompt.includes("reste") || lowerPrompt.includes("quantité");
-    const isProductMention = lowerPrompt.includes("produit") || lowerPrompt.includes("article") || lowerPrompt.includes("inventaire");
-    const isClientQuery = lowerPrompt.includes("client") || lowerPrompt.includes("acheteur") || lowerPrompt.includes("contact");
-    const isInvoiceQuery = lowerPrompt.includes("facture") || lowerPrompt.includes("chiffre") || lowerPrompt.includes("vente") || lowerPrompt.includes("impayé") || lowerPrompt.includes("retard");
-    const isQuotationQuery = lowerPrompt.includes("devis") || lowerPrompt.includes("proposition") || lowerPrompt.includes("offre");
-    const isExpenseQuery = lowerPrompt.includes("dépense") || lowerPrompt.includes("charge") || lowerPrompt.includes("fournisseur") || lowerPrompt.includes("achat");
-    const isStaffQuery = lowerPrompt.includes("employé") || lowerPrompt.includes("employe") || lowerPrompt.includes("salarié") || lowerPrompt.includes("équipe") || lowerPrompt.includes("paie");
-    const isWhatsAppQuery = lowerPrompt.includes("whatsapp") || lowerPrompt.includes("message") || lowerPrompt.includes("sms");
+    const isStockQuery = containsAny(prompt, ["stock", "disponible", "avez-vous", "avons", "reste", "quantité", "quantite", "inventaire"]);
+    const isProductMention = containsAny(prompt, ["produit", "article", "inventaire"]);
+    const isClientQuery = containsAny(prompt, ["client", "acheteur", "contact"]);
+    const isInvoiceQuery = containsAny(prompt, ["facture", "chiffre", "vente", "impayé", "impaye", "retard"]);
+    const isQuotationQuery = containsAny(prompt, ["devis", "proposition", "offre"]);
+    const isExpenseQuery = containsAny(prompt, ["dépense", "depense", "charge", "fournisseur", "achat"]);
+    const isStaffQuery = containsAny(prompt, ["employé", "employe", "salarié", "salarie", "équipe", "equipe", "paie"]);
+    const isWhatsAppQuery = containsAny(prompt, ["whatsapp", "message", "sms"]);
 
-    // --- STOCK / PRODUCT QUERY ---
+    // --- STOCK / PRODUCT QUERY (with fuzzy matching) ---
     if (isStockQuery || isProductMention) {
-      // Find keywords that might be a product name (exclude common words)
-      const stopWords = ["est", "ce", "que", "les", "des", "une", "pour", "dans", "avec", "est", "sont", "vous", "avez", "stock", "produit", "article", "clavier", "bien", "quel", "combien", "votre", "notre", "mon", "plus", "très"];
+      const stopWords = ["est", "ce", "que", "les", "des", "une", "pour", "dans", "avec", "est", "sont", "vous", "avez", "stock", "produit", "article", "bien", "quel", "combien", "votre", "notre", "mon", "plus", "très", "tres"];
       const productKeywords = words.filter(w => !stopWords.includes(w) && w.length > 2);
 
-      // Try to find matching products
+      // Exact substring match first
       let matches = dbContext.produits_et_stocks.filter(p =>
-        productKeywords.some(k => p.nom.toLowerCase().includes(k))
+        productKeywords.some(k => normalize(p.nom).includes(normalize(k)))
       );
 
+      // If no exact match, try fuzzy match
+      if (matches.length === 0 && productKeywords.length > 0) {
+        matches = dbContext.produits_et_stocks.filter(p =>
+          productKeywords.some(k => fuzzyWordMatch(k, p.nom, 0.6))
+        );
+      }
+
       if (matches.length > 0) {
-        // Specific product found
         const p = matches[0];
         const stockQty = typeof p.stock === "number" ? p.stock : "Non suivi";
         const stockStatus = typeof p.stock === "number" ? (p.stock > 0 ? `✅ **Oui, il en reste ${p.stock} unité(s) en stock.**` : "❌ **Rupture de stock — aucune unité disponible.**") : "ℹ️ Stock non suivi.";
@@ -228,12 +405,21 @@ INSTRUCTIONS :
         }
       }
 
-    // --- CLIENT QUERY ---
+    // --- CLIENT QUERY (with fuzzy matching) ---
     } else if (isClientQuery) {
       const clientKeywords = words.filter(w => w.length > 3 && !["client", "liste", "tous", "voir", "mes", "les"].includes(w));
-      const matches = clientKeywords.length > 0
-        ? dbContext.clients.filter(c => clientKeywords.some(k => (c.entreprise || c.nom || "").toLowerCase().includes(k) || (c.contact || "").toLowerCase().includes(k)))
+      
+      // Exact match first
+      let matches = clientKeywords.length > 0
+        ? dbContext.clients.filter(c => clientKeywords.some(k => normalize(c.entreprise || c.nom || "").includes(normalize(k)) || normalize(c.contact || "").includes(normalize(k))))
         : [];
+
+      // Fuzzy match fallback
+      if (matches.length === 0 && clientKeywords.length > 0) {
+        matches = dbContext.clients.filter(c =>
+          clientKeywords.some(k => fuzzyWordMatch(k, c.entreprise || c.nom || "", 0.6) || fuzzyWordMatch(k, c.contact || "", 0.6))
+        );
+      }
 
       if (matches.length > 0) {
         reply = `### 👤 Client trouvé : ${matches[0].entreprise || matches[0].nom}\n\n` +
@@ -310,7 +496,8 @@ INSTRUCTIONS :
         `| 📊 Factures | ${dbContext.facturesCount} (${dbContext.kpis.facturesPayeesCount} payées) |\n` +
         `| 📑 Devis | ${dbContext.devisCount} |\n` +
         `| 👥 Employés | ${dbContext.employes.length} |\n\n` +
-        `**Posez-moi une question** du type :\n- *"Le clavier est-il en stock ?"*\n- *"Montre mes clients"*\n- *"Combien de factures impayées ?"*`;
+        `**Je comprends vos messages même avec des fautes d'orthographe !** 😊\n\n` +
+        `**Posez-moi une question** du type :\n- *"Le clavier est-il en stock ?"*\n- *"Montre mes clients"*\n- *"Crée une facture pour Client X de 5000 MAD"*\n- *"Ajoute un client Mohamed Amine"*`;
     }
 
     return NextResponse.json({ reply });
