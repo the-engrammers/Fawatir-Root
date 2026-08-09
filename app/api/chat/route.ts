@@ -356,7 +356,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
     let reply = "";
 
     // --- Extract all meaningful words from the question ---
-    const words = lowerPrompt.replace(/[?.,!]/g, "").split(/\s+/).filter(w => w.length > 2);
+    const words = lowerPrompt.replace(/[?.,!]/g, "").split(/\s+/).filter(w => w.length >= 2);
 
     // --- Helper: check if question asks "is X in stock / do you have X?" ---
     const isStockQuery = containsAny(prompt, ["stock", "disponible", "avez-vous", "avons", "reste", "quantité", "quantite", "inventaire"]);
@@ -371,7 +371,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
     // --- STOCK / PRODUCT QUERY (with fuzzy matching) ---
     if (isStockQuery || isProductMention) {
       const stopWords = ["est", "ce", "que", "les", "des", "une", "pour", "dans", "avec", "est", "sont", "vous", "avez", "stock", "produit", "article", "bien", "quel", "combien", "votre", "notre", "mon", "plus", "très", "tres"];
-      const productKeywords = words.filter(w => !stopWords.includes(w) && w.length > 2);
+      const productKeywords = words.filter(w => !stopWords.includes(w) && w.length >= 2);
 
       // Exact substring match first
       let matches = dbContext.produits_et_stocks.filter(p =>
@@ -381,7 +381,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
       // If no exact match, try fuzzy match
       if (matches.length === 0 && productKeywords.length > 0) {
         matches = dbContext.produits_et_stocks.filter(p =>
-          productKeywords.some(k => fuzzyWordMatch(k, p.nom, 0.6))
+          productKeywords.some(k => fuzzyWordMatch(k, p.nom, 0.45))
         );
       }
 
@@ -407,7 +407,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
 
     // --- CLIENT QUERY (with fuzzy matching) ---
     } else if (isClientQuery) {
-      const clientKeywords = words.filter(w => w.length > 3 && !["client", "liste", "tous", "voir", "mes", "les"].includes(w));
+      const clientKeywords = words.filter(w => w.length >= 2 && !["client", "liste", "tous", "voir", "mes", "les"].includes(w));
       
       // Exact match first
       let matches = clientKeywords.length > 0
@@ -417,7 +417,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
       // Fuzzy match fallback
       if (matches.length === 0 && clientKeywords.length > 0) {
         matches = dbContext.clients.filter(c =>
-          clientKeywords.some(k => fuzzyWordMatch(k, c.entreprise || c.nom || "", 0.6) || fuzzyWordMatch(k, c.contact || "", 0.6))
+          clientKeywords.some(k => fuzzyWordMatch(k, c.entreprise || c.nom || "", 0.45) || fuzzyWordMatch(k, c.contact || "", 0.45))
         );
       }
 
