@@ -447,7 +447,7 @@ export default function PosPage() {
                     if(!receipt?.id) return;
                     const res = await fetchAPI(`api/invoices/${receipt.id}/send_email/`, { method: "POST" });
                     if(res.ok) alert("Email envoyé avec succès via le backend Django !");
-                    else alert("Le backend a renvoyé une erreur.");
+                    else alert("Erreur : Veuillez configurer vos accès SMTP (Email) dans la page 'Paramètres > Entreprise'.");
                   } catch(e) {
                     alert("Erreur réseau.");
                   }
@@ -459,7 +459,7 @@ export default function PosPage() {
                     if(!receipt?.id) return;
                     const res = await fetchAPI(`api/invoices/${receipt.id}/send_whatsapp/`, { method: "POST" });
                     if(res.ok) alert("Message WhatsApp envoyé avec succès via Twilio !");
-                    else alert("Le backend a renvoyé une erreur. Avez-vous configuré Twilio dans .env ?");
+                    else alert("Erreur : Veuillez configurer vos accès Twilio (WhatsApp) dans la page 'Paramètres > Entreprise'.");
                   } catch(e) {
                     alert("Erreur réseau.");
                   }
