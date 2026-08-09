@@ -101,6 +101,18 @@ class CompanySetting(models.Model):
     include_year = models.BooleanField(null=True, blank=True)
     number_length = models.IntegerField(null=True, blank=True)
     invoice_template = models.CharField(max_length=100, null=True, blank=True)
+    
+    # SMTP Settings
+    smtp_host = models.CharField(max_length=255, null=True, blank=True)
+    smtp_port = models.IntegerField(null=True, blank=True)
+    smtp_user = models.CharField(max_length=255, null=True, blank=True)
+    smtp_password = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Twilio Settings
+    twilio_account_sid = models.CharField(max_length=255, null=True, blank=True)
+    twilio_auth_token = models.CharField(max_length=255, null=True, blank=True)
+    twilio_phone_number = models.CharField(max_length=50, null=True, blank=True)
+
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
