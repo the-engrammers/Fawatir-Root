@@ -323,7 +323,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
 9. Tu parles en Français (avec un style marocain professionnel). Tu peux comprendre le Darija et le Français mélangé.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-1.5-flash",
+          model: "gemini-2.0-flash",
           contents: prompt,
           config: {
             systemInstruction,
@@ -476,6 +476,9 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
         reply = `### 💬 WhatsApp\n\nAucune facture impayée trouvée. Toutes vos relances sont à jour ! ✅\n\n👉 [Voir les factures](/factures)`;
       }
 
+    // --- GREETING QUERY ---
+    } else if (containsAny(prompt, ["bonjour", "salut", "hello", "coucou", "salam", "cv"])) {
+      reply = `### 👋 Bonjour !\n\nJe suis Fatourati AI, votre assistant connecté à la base de données. \n\nQue puis-je faire pour vous aujourd'hui ? (Exemples : *Crée le client Hassan*, *Affiche mes factures*, *Cherche le clavier en stock*).`;
     // --- DEFAULT / GENERAL ---
     } else {
       reply = `### 🤖 Assistant Fatourati\n\nJe suis connecté à votre base de données en temps réel. Voici votre tableau de bord :\n\n` +
