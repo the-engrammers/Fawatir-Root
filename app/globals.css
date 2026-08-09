@@ -244,11 +244,6 @@ html:not(.light-mode) .text-ink-700 {
   color: #F8FAFC !important;
 }
 
-
-
-  color: #A5B4FC;
-}
-
 /* Scrollbars & Focus */
 :focus-visible {
   outline: 2px solid #6366F1;
