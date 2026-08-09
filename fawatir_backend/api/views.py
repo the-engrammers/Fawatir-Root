@@ -1,4 +1,10 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.core.mail import send_mail
+from django.conf import settings
+from twilio.rest import Client
+import os
 from . import models, serializers
 # foundation
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -96,6 +102,55 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 # Accounting 
 class InvoiceViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Invoice.objects.all(), serializers.InvoiceSerializer
+
+    @action(detail=True, methods=['post'])
+    def send_email(self, request, pk=None):
+        invoice = self.get_object()
+        client_email = invoice.client.email if invoice.client else request.data.get('email')
+        
+        if not client_email:
+            return Response({"error": "No email address provided or found for this client."}, status=400)
+
+        subject = f"Invoice {invoice.invoice_number} from {invoice.company.name if invoice.company else 'Fawatir'}"
+        message = f"Hello,\n\nPlease find attached the details for Invoice {invoice.invoice_number}.\nTotal Amount: {invoice.total_amount}\n\nThank you!"
+        
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.EMAIL_HOST_USER or 'noreply@fawatir.com',
+                [client_email],
+                fail_silently=False,
+            )
+            return Response({"status": "Email sent successfully!"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+    @action(detail=True, methods=['post'])
+    def send_whatsapp(self, request, pk=None):
+        invoice = self.get_object()
+        client_phone = invoice.client.phone if invoice.client else request.data.get('phone')
+        
+        if not client_phone:
+            return Response({"error": "No phone number provided or found for this client."}, status=400)
+
+        account_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+        auth_token = os.environ.get('TWILIO_AUTH_TOKEN')
+        twilio_number = os.environ.get('TWILIO_WHATSAPP_NUMBER')
+
+        if not all([account_sid, auth_token, twilio_number]):
+            return Response({"error": "Twilio credentials are not configured on the server."}, status=500)
+
+        try:
+            client = Client(account_sid, auth_token)
+            message = client.messages.create(
+                body=f"Hello, your invoice {invoice.invoice_number} for {invoice.total_amount} MAD is ready.",
+                from_=twilio_number,
+                to=f"whatsapp:{client_phone}" if not client_phone.startswith('whatsapp:') else client_phone
+            )
+            return Response({"status": "WhatsApp message sent successfully!", "sid": message.sid})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 class InvoiceItemViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.InvoiceItem.objects.all(), serializers.InvoiceItemSerializer

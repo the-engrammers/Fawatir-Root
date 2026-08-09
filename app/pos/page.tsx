@@ -33,7 +33,7 @@ export default function PosPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Espèces");
   const [montantRemis, setMontantRemis] = useState<number>(0);
-  const [receipt, setReceipt] = useState<null | { transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
+  const [receipt, setReceipt] = useState<null | { id?: string; transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -108,7 +108,7 @@ export default function PosPage() {
         prix_unitaire: l.prix
       }));
 
-      await fetch('/api/invoices', {
+      const res = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,11 +121,14 @@ export default function PosPage() {
         })
       });
 
+      const created = await res.json();
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
       }
 
       setReceipt({
+        id: created.id,
         transactionId,
         total: total,
         rendu: Math.max(0, montantRemis - total),
@@ -439,10 +442,28 @@ export default function PosPage() {
                 <button onClick={() => window.print()} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Printer size={12} /> Imprimer
                 </button>
-                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button onClick={async () => {
+                  try {
+                    if(!receipt?.id) return;
+                    const res = await fetchAPI(`api/invoices/${receipt.id}/send_email/`, { method: "POST" });
+                    if(res.ok) alert("Email envoyé avec succès via le backend Django !");
+                    else alert("Le backend a renvoyé une erreur.");
+                  } catch(e) {
+                    alert("Erreur réseau.");
+                  }
+                }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Mail size={12} />
                 </button>
-                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button onClick={async () => {
+                  try {
+                    if(!receipt?.id) return;
+                    const res = await fetchAPI(`api/invoices/${receipt.id}/send_whatsapp/`, { method: "POST" });
+                    if(res.ok) alert("Message WhatsApp envoyé avec succès via Twilio !");
+                    else alert("Le backend a renvoyé une erreur. Avez-vous configuré Twilio dans .env ?");
+                  } catch(e) {
+                    alert("Erreur réseau.");
+                  }
+                }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <MessageCircle size={12} />
                 </button>
               </div>
