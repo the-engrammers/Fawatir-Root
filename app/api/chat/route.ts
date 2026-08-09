@@ -204,18 +204,18 @@ export async function POST(req: Request) {
     const lowerPrompt = prompt.toLowerCase();
     const normalizedPrompt = normalize(prompt);
 
-    // --- CLIENT CREATION ---
-    const clientCreatePhrases = [
-      "cree un client", "crée un client", "créer un client", "creer un client",
-      "ajouter client", "ajoute un client", "ajouter un client", "ajout client",
-      "nouveau client", "enregistrer client", "enregistre un client",
-      "inscris un client", "inscrire client", "ajoute client",
-      "je veux creer un client", "je veux créer un client",
-      "ajoute moi un client", "ajoute-moi un client",
-      "créer client", "creer client", "cree client",
-    ];
+    // Helper to check if text contains at least one word from two different sets
+    function hasKeywords(text: string, setA: string[], setB: string[]): boolean {
+      const words = normalize(text).split(/\s+/);
+      const hasA = setA.some(a => words.some(w => w.includes(a)));
+      const hasB = setB.some(b => words.some(w => w.includes(b)));
+      return hasA && hasB;
+    }
 
-    if (containsAny(prompt, clientCreatePhrases)) {
+    const createVerbs = ["cree", "creer", "ajoute", "ajouter", "ajout", "nouveau", "faire", "fais", "enregistr", "inscri"];
+
+    // --- CLIENT CREATION ---
+    if (hasKeywords(prompt, createVerbs, ["client", "acheteur"])) {
       const clientName = extractName(prompt) || "Nouveau Client IA";
       
       // Check if client already exists (fuzzy)
@@ -238,19 +238,13 @@ export async function POST(req: Request) {
         phone: "+212 660 000000",
       });
       return NextResponse.json({
-        reply: `✅ **Client créé avec succès dans la base de données Fatourati !**\n\n- **Nom / Entreprise :** ${newCli.company_name}\n- **Code Client :** ${newCli.customer_code}\n- **Ville :** Casablanca\n\nVous pouvez retrouver ce client dans le module [Clients](/clients).`
+        reply: `✅ **Client créé avec succès dans la base de données Fatourati !**\n\n- **Nom / Entreprise :** ${newCli.company_name}\n- **Code Client :** ${newCli.customer_code}\n- **Ville :** Casablanca\n\nVous pouvez retrouver ce client dans le module [Clients](/clients).`,
+        event: "clients"
       });
     }
 
     // --- PRODUCT CREATION ---
-    const productCreatePhrases = [
-      "cree un produit", "crée un produit", "créer un produit", "creer un produit",
-      "ajouter produit", "ajoute un produit", "ajouter un produit", "ajout produit",
-      "nouveau produit", "enregistrer produit", "ajoute produit",
-      "créer produit", "creer produit", "cree produit",
-    ];
-
-    if (containsAny(prompt, productCreatePhrases)) {
+    if (hasKeywords(prompt, createVerbs, ["produit", "article", "marchandise"])) {
       const productName = extractName(prompt.replace(/produit/gi, "client").replace(/article/gi, "client")) || "Produit Ajouté via Assistant IA";
       const amount = extractAmount(prompt);
       
@@ -261,19 +255,13 @@ export async function POST(req: Request) {
         category_name: "Général"
       });
       return NextResponse.json({
-        reply: `✅ **Produit ajouté avec succès dans vos stocks !**\n\n- **Désignation :** ${newProd.name}\n- **Référence SKU :** ${newProd.sku}\n- **Prix Vente :** ${newProd.selling_price} MAD\n- **Quantité initiale :** ${newProd.quantity} unités\n\nRetrouvez cet article dans [Gestion des stocks](/stocks).`
+        reply: `✅ **Produit ajouté avec succès dans vos stocks !**\n\n- **Désignation :** ${newProd.name}\n- **Référence SKU :** ${newProd.sku}\n- **Prix Vente :** ${newProd.selling_price} MAD\n- **Quantité initiale :** ${newProd.quantity} unités\n\nRetrouvez cet article dans [Gestion des stocks](/stocks).`,
+        event: "stocks"
       });
     }
 
     // --- INVOICE CREATION VIA CHAT ---
-    const invoiceCreatePhrases = [
-      "cree une facture", "crée une facture", "créer une facture", "creer une facture",
-      "ajouter facture", "ajoute une facture", "nouvelle facture",
-      "facture pour", "facturer", "facture de", "envoyer une facture",
-      "cree facture", "crée facture", "créer facture",
-    ];
-
-    if (containsAny(prompt, invoiceCreatePhrases)) {
+    if (hasKeywords(prompt, createVerbs, ["facture", "devis", "recu", "ticket", "reçu"])) {
       const amount = extractAmount(prompt) || 1000;
       
       // Try to find client name in the prompt (fuzzy match against existing clients)
@@ -298,7 +286,8 @@ export async function POST(req: Request) {
       });
 
       return NextResponse.json({
-        reply: `✅ **Facture créée avec succès !**\n\n- **Numéro :** ${newInv.invoice_number}\n- **Client :** ${clientName}\n- **Montant :** ${amount.toLocaleString("fr-FR")} MAD\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n${matchedClient ? `📌 Client trouvé dans votre base : **${matchedClient.entreprise || matchedClient.nom}**` : `⚠️ Client "${clientName}" non trouvé dans votre base. Pensez à l'ajouter !`}\n\n👉 [Voir les Factures](/factures)`
+        reply: `✅ **Facture créée avec succès !**\n\n- **Numéro :** ${newInv.invoice_number}\n- **Client :** ${clientName}\n- **Montant :** ${amount.toLocaleString("fr-FR")} MAD\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n${matchedClient ? `📌 Client trouvé dans votre base : **${matchedClient.entreprise || matchedClient.nom}**` : `⚠️ Client "${clientName}" non trouvé dans votre base. Pensez à l'ajouter !`}\n\n👉 [Voir les Factures](/factures)`,
+        event: "factures"
       });
     }
 
