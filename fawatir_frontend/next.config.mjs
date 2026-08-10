@@ -1,17 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone", // Required for your Docker setup to work
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  typescript: {
-    // Optional: Set to true if TypeScript errors also block Docker builds
-    ignoreBuildErrors: false,
-  },
 };
 
-module.exports = nextConfig; // Use module.exports if CommonJS, or rename file to next.config.mjs if using ES imports
+export default nextConfig;
+
+
 
 // /** @type {import('next').NextConfig} */
 // const nextConfig = {
