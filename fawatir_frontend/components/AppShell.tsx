@@ -26,7 +26,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Private routes: Wrap inside ProtectedRoute and render dashboard shell
   return (
-    // <ProtectedRoute> temporarily removed
+    <>
+      {/* <ProtectedRoute> temporarily removed */}
       <div className="flex h-screen w-full relative z-10 p-3 lg:p-4 gap-4 overflow-hidden">
         
         {/* <Sidebar /> temporarily removed */}
@@ -41,5 +42,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       {/* <AssistantWidget /> temporarily removed */}
-    // </ProtectedRoute>
+      {/* </ProtectedRoute> temporarily removed */}
+    </>
   );
