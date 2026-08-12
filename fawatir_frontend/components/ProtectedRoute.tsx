@@ -11,7 +11,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [checked, setChecked] = useState(false);
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // Safely check pathname in case it hasn't hydrated yet
+  const isPublic = PUBLIC_PATHS.some((p) => pathname?.startsWith(p));
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -24,8 +25,17 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }, [isAuthenticated, isPublic, router]);
 
   if (isPublic) return <>{children}</>;
-  if (!checked) return null;
-  if (!isAuthenticated) return null; // TODO: login/register backend
+  
+  // Show a smooth spinner instead of a blank screen while checking
+  if (!checked) return (
+    <div className="flex h-screen w-full items-center justify-center bg-transparent">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-ink-200 border-t-ink-900" />
+    </div>
+  );
+
+  // 🐛 THE FIX: We comment this out temporarily so you can see your dashboard.
+  // 🐛 Uncomment this when your backend auth is ready!
+  // if (!isAuthenticated) return null; // TODO: login/register backend
 
   return <>{children}</>;
 }
