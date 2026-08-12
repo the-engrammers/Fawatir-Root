@@ -20,7 +20,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <main className="min-h-screen w-full relative z-10">{children}</main>;
   }
 
-  // Everything is properly uncommented and wrapped correctly here
   return (
     <ProtectedRoute>
       <div className="flex h-screen w-full relative z-10 p-3 lg:p-4 gap-4 overflow-hidden">
