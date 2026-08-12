@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import AssistantWidget from "@/components/AssistantWidget";
-// import ProtectedRoute from "@/components/ProtectedRoute"; // Temporarily removed
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
 
@@ -20,9 +20,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <main className="min-h-screen w-full relative z-10">{children}</main>;
   }
 
-  // Notice: No <ProtectedRoute> wrapping the div this time!
+  // Everything is properly uncommented and wrapped correctly here
   return (
-    <>
+    <ProtectedRoute>
       <div className="flex h-screen w-full relative z-10 p-3 lg:p-4 gap-4 overflow-hidden">
         
         <Sidebar />
@@ -38,6 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       
       <AssistantWidget />
-    </>
+      
+    </ProtectedRoute>
   );
 }
