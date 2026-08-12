@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "http://localhost:8000";
+const DEFAULT_API_URL = "http://localhost:8080";
 
 export const getAPIUrl = (): string => {
   if (typeof window !== "undefined") {
