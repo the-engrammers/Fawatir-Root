@@ -45,3 +45,4 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* </ProtectedRoute> temporarily removed */}
     </>
   );
+}
