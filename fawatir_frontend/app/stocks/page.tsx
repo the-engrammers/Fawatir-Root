@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Loader2, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import { mad } from "@/lib/format";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
+import ConfirmModal from "@/components/ConfirmModal";
 import { fetchAPI } from "@/lib/api";
 
 export default function StocksPage() {
@@ -12,6 +13,15 @@ export default function StocksPage() {
   const [loading, setLoading] = useState(true);
   const [metadataKeys, setMetadataKeys] = useState<string[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,14 +29,18 @@ export default function StocksPage() {
 
   useEffect(() => {
     fetchProducts();
+    const handleDataUpdate = () => fetchProducts();
+    window.addEventListener("dataUpdated", handleDataUpdate);
+    return () => window.removeEventListener("dataUpdated", handleDataUpdate);
   }, []);
 
   const fetchProducts = async () => {
     try {
-      const res = await fetchAPI("api/products/");
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.results || [];
       setProducts(list);
+      setCurrentPage(1);
       
       const keys = new Set<string>();
       list.forEach((p: any) => {
@@ -42,13 +56,22 @@ export default function StocksPage() {
     }
   };
 
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-  const displayedProducts = products.slice(
+  const filteredProducts = products.filter((p) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (p.name || "").toLowerCase().includes(term) ||
+      (p.sku || "").toLowerCase().includes(term) ||
+      (p.category_name || "").toLowerCase().includes(term)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const displayedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  const suivis = products.filter((p) => p.track_inventory);
+  const suivis = products.filter((p) => p.track_inventory !== false);
   const enRupture = suivis.filter((p) => (p.quantity ?? 0) === 0).length;
   const stockBas = suivis.filter((p) => (p.quantity ?? 0) > 0 && (p.quantity ?? 0) < 10).length;
   const valeurTotale = suivis.reduce((s, p) => s + (p.selling_price || 0) * (p.quantity ?? 0), 0);
@@ -64,11 +87,19 @@ export default function StocksPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={async () => {
-              if (confirm("Voulez-vous vraiment vider toute la liste des produits ?")) {
-                await fetchAPI("api/products/clear/", { method: "DELETE" });
-                fetchProducts();
-              }
+            onClick={() => {
+              setConfirmConfig({
+                isOpen: true,
+                title: "Vider les produits",
+                message: "Voulez-vous vraiment vider toute la liste des produits ? Cette action est irréversible.",
+                onConfirm: async () => {
+                  await fetch("/api/products/clear", { method: "DELETE" });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                  }
+                  fetchProducts();
+                }
+              });
             }}
             className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-200 px-4 py-2 text-[13px] font-medium text-red-600 hover:bg-red-500/20"
           >
@@ -111,6 +142,11 @@ export default function StocksPage() {
       <div className="ledger-card !p-4 flex flex-col min-h-[500px]">
         <input
           type="text"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
           placeholder="Rechercher des produits..."
           className="mb-4 w-72 rounded-md border border-ink-200 bg-paper px-3 py-1.5 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
         />
@@ -135,18 +171,19 @@ export default function StocksPage() {
                       <th key={key} className="pb-2.5 font-medium px-2 text-brass">{key}</th>
                     ))}
                     <th className="pb-2.5 font-medium px-2">Statut</th>
+                    <th className="pb-2.5 font-medium text-right px-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-200/60">
                   {displayedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={7 + metadataKeys.length} className="py-8 text-center text-ink-400">
+                      <td colSpan={8 + metadataKeys.length} className="py-8 text-center text-ink-400">
                         Aucun produit trouvé.
                       </td>
                     </tr>
                   ) : (
-                    displayedProducts.map((p) => (
-                      <tr key={p.id}>
+                    displayedProducts.map((p, idx) => (
+                      <tr key={`${p.id}-${idx}`}>
                         <td className="py-3 px-2">
                           <Link href={`/stocks/${p.id}`} className="font-medium text-ink-900 hover:text-brass">
                             {p.name || 'Sans nom'}
@@ -161,7 +198,7 @@ export default function StocksPage() {
                           </span>
                         </td>
                         <td className="figure py-3 px-2 text-ink-700">
-                          {p.track_inventory ? (p.quantity || 0) : <span className="text-ink-300">—</span>}
+                          {p.track_inventory !== false ? (p.quantity ?? 0) : <span className="text-ink-300">—</span>}
                         </td>
                         
                         {metadataKeys.map(key => (
@@ -173,13 +210,70 @@ export default function StocksPage() {
                         <td className="py-3 px-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              p.is_active
+                              p.is_active !== false
                                 ? "bg-status-successBg text-status-success"
                                 : "bg-ink-200/60 text-ink-500"
                             }`}
                           >
-                            {p.is_active ? 'Actif' : 'Inactif'}
+                            {p.is_active !== false ? 'Actif' : 'Inactif'}
                           </span>
+                        </td>
+                        <td className="py-3 px-2 text-right relative">
+                          <button 
+                            onClick={() => setActionMenuOpen(actionMenuOpen === p.id ? null : p.id)}
+                            className="rounded-md p-1.5 text-ink-400 hover:bg-ink-900/[0.04] hover:text-ink-700"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                          {actionMenuOpen === p.id && (
+                            <div className="absolute right-2 top-10 z-20 w-44 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
+                              <button
+                                onClick={async () => {
+                                  const newQtyStr = prompt("Ajuster la quantité en stock :", String(p.quantity || 0));
+                                  if (newQtyStr !== null) {
+                                    const newQty = parseInt(newQtyStr) || 0;
+                                    try {
+                                      await fetch(`/api/products/${p.id}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ quantity: newQty })
+                                      });
+                                    } catch (err) {}
+                                    if (typeof window !== "undefined") {
+                                      window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                                    }
+                                    fetchProducts();
+                                  }
+                                  setActionMenuOpen(null);
+                                }}
+                                className="block w-full text-left px-3 py-1.5 text-[12px] text-ink-700 hover:bg-ink-50"
+                              >
+                                Ajuster le stock
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setConfirmConfig({
+                                    isOpen: true,
+                                    title: `Supprimer le produit ${p.name}`,
+                                    message: "Voulez-vous vraiment supprimer ce produit ? Cette action est irréversible.",
+                                    onConfirm: async () => {
+                                      try {
+                                        await fetch(`/api/products/${p.id}`, { method: "DELETE" });
+                                      } catch (err) {}
+                                      if (typeof window !== "undefined") {
+                                        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+                                      }
+                                      fetchProducts();
+                                    }
+                                  });
+                                  setActionMenuOpen(null);
+                                }}
+                                className="block w-full text-left px-3 py-1.5 text-[12px] text-red-600 hover:bg-red-50"
+                              >
+                                Supprimer
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -223,7 +317,18 @@ export default function StocksPage() {
           setIsImportModalOpen(false);
           fetchProducts(); 
         }}
+        onSuccess={() => {
+          fetchProducts();
+        }}
         expectedType="stock"
+      />
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
       />
     </div>
   );

@@ -1,20 +1,21 @@
 # Step 1: Base image
-FROM oven/bun:1 as base
+FROM node:18-alpine as base
 WORKDIR /app
 
 # Step 2: Install dependencies
 FROM base AS deps
-# COPY package.json bun.lock ./
-COPY package.json ./
-RUN bun install --frozen-lockfile
+COPY fawatir_frontend/package.json ./fawatir_frontend/
+WORKDIR /app/fawatir_frontend
+RUN npm install
 
 # Step 3: Build application
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=deps /app/fawatir_frontend/node_modules ./fawatir_frontend/node_modules
+COPY fawatir_frontend ./fawatir_frontend
+WORKDIR /app/fawatir_frontend
 
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN bun run build
+RUN npm run build
 
 # Step 4: Production runner
 FROM node:18-alpine AS runner
@@ -26,9 +27,9 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/fawatir_frontend/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/fawatir_frontend/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/fawatir_frontend/.next/static ./.next/static
 
 USER nextjs
 
@@ -38,4 +39,3 @@ ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 CMD ["node", "server.js"]
-# CMD ["bun", "run", "dev"]

@@ -3,6 +3,8 @@
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import { FileScan, AlertCircle, Loader2, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Modal from "./Modal";
+import FormAlert from "./FormAlert";
 
 interface ScannerModalProps {
   isOpen: boolean;
@@ -17,6 +19,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
   const [step, setStep] = useState<"upload" | "verify">("upload");
   const [extractedData, setExtractedData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -55,16 +58,16 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
     setError(null);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
       
       let companyId = null;
-      const compRes = await fetch(`${apiUrl}/api/companies/`);
+      const compRes = await fetch(`/api/companies/`);
       const compData = await compRes.json();
       const compList = Array.isArray(compData) ? compData : (compData.results || []);
       if (compList.length > 0) {
         companyId = compList[0].id;
       } else {
-        const createRes = await fetch(`${apiUrl}/api/companies/`, {
+        const createRes = await fetch(`/api/companies/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
@@ -78,7 +81,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       formData.append("company", companyId);
       formData.append("doc_type", targetType === "devis" ? "other" : "invoice");
       
-      const response = await fetch(`${apiUrl}/api/ai/documents/`, {
+      const response = await fetch(`/api/ai/documents/`, {
         method: "POST",
         body: formData,
       });
@@ -108,6 +111,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
     if (isScanning) return;
     setFile(null);
     setError(null);
+    setSuccessMessage(null);
     setStep("upload");
     setExtractedData(null);
     onClose();
@@ -116,15 +120,15 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
     if (!extractedData) return;
     setIsSaving(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
       
       let companyId = null;
-      const compRes = await fetch(`${apiUrl}/api/companies/`);
+      const compRes = await fetch(`/api/companies`);
       const compData = await compRes.json();
       const compList = Array.isArray(compData) ? compData : (compData.results || []);
       if (compList.length > 0) companyId = compList[0].id;
       else {
-        const createRes = await fetch(`${apiUrl}/api/companies/`, {
+        const createRes = await fetch(`/api/companies`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
         });
@@ -134,14 +138,14 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       
       let clientId = null;
       const clientName = extractedData.fournisseur || extractedData.client || "Client Inconnu";
-      const clientsRes = await fetch(`${apiUrl}/api/clients/?company=${companyId}`);
+      const clientsRes = await fetch(`/api/clients?company=${companyId}`);
       const clientsData = await clientsRes.json();
       const clientsList = Array.isArray(clientsData) ? clientsData : (clientsData.results || []);
       const existingClient = clientsList.find((c: any) => c.company_name === clientName);
       if (existingClient) {
         clientId = existingClient.id;
       } else {
-        const createClientRes = await fetch(`${apiUrl}/api/clients/`, {
+        const createClientRes = await fetch(`/api/clients`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ company: companyId, company_name: clientName, customer_code: `CL-${Math.floor(Math.random()*10000)}` })
         });
@@ -149,12 +153,15 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
         clientId = createdClient.id;
       }
       
-      const endpoint = targetType === "devis" ? "/api/quotations/" : "/api/invoices/";
+      const endpoint = targetType === "devis" ? "/api/quotations" : "/api/invoices";
       const payload: any = {
         company: companyId,
         client: clientId,
+        client_name: clientName, // FIX: Pass the actual extracted name to the DB
         status: "Brouillon",
         total_amount: extractedData.montant_ttc || 0,
+        date: extractedData.date || new Date().toISOString().split("T")[0],
+        lignes: extractedData.lignes || []
       };
       if (targetType === "devis") {
         payload.quotation_number = extractedData.numero_facture || extractedData.numero || `DEV-${Math.floor(Math.random()*10000)}`;
@@ -162,7 +169,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
         payload.invoice_number = extractedData.numero_facture || extractedData.numero || `FAC-${Math.floor(Math.random()*10000)}`;
       }
       
-      const saveRes = await fetch(`${apiUrl}${endpoint}`, {
+      const saveRes = await fetch(`${endpoint}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -179,14 +186,14 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
           const desc = ligne.description || "Article";
           let productId = null;
           try {
-            const prodRes = await fetch(`${apiUrl}/api/products/?search=${encodeURIComponent(desc)}`);
+            const prodRes = await fetch(`/api/products?search=${encodeURIComponent(desc)}`);
             const prodData = await prodRes.json();
             const prodList = Array.isArray(prodData) ? prodData : (prodData.results || []);
             const existingProd = prodList.find((p: any) => p.name === desc);
             if (existingProd) {
               productId = existingProd.id;
             } else {
-              const createProdRes = await fetch(`${apiUrl}/api/products/`, {
+              const createProdRes = await fetch(`/api/products`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ company: companyId, name: desc, selling_price: ligne.prix_unitaire || 0 })
               });
@@ -194,7 +201,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
               productId = createdProd.id;
             }
             
-            const itemEndpoint = targetType === "devis" ? "/api/quotation-items/" : "/api/invoice-items/";
+            const itemEndpoint = targetType === "devis" ? "/api/quotation-items" : "/api/invoice-items";
             const itemPayload: any = {
               product: productId,
               description: desc,
@@ -208,7 +215,7 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
               itemPayload.invoice = savedId;
             }
             
-            await fetch(`${apiUrl}${itemEndpoint}`, {
+            await fetch(`${itemEndpoint}`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(itemPayload)
             });
@@ -218,155 +225,142 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
         }
       }
       
-      alert(`${targetType === "devis" ? "Devis" : "Facture"} enregistré avec succès !`);
-      window.location.reload();
-      
+      setSuccessMessage(`${targetType === "devis" ? "Devis" : "Facture"} enregistré avec succès !`);
+      setTimeout(() => {
+        handleClose();
+        window.dispatchEvent(new CustomEvent("dataUpdated"));
+      }, 100);
     } catch (err: any) {
-      alert("Erreur: " + err.message);
+      setError("Erreur de sauvegarde: " + err.message);
     } finally {
       setIsSaving(false);
-      handleClose();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm transition-opacity" 
-        onClick={handleClose} 
-      />
-      
-      <div className="relative z-10 w-full max-w-md rounded-card bg-paper-card shadow-bento backdrop-blur-3xl border border-white/80 p-8 text-center animate-in zoom-in-95">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-ai text-white shadow-glow">
-          <FileScan size={32} />
-        </div>
-        
-        {step === "upload" && (
-          <>
-            <h3 className="font-display text-[20px] font-semibold text-ink-900 mb-2">Extraction Automatique</h3>
-            <p className="text-[13px] text-ink-600 mb-6">
-              Déposez un ancien {targetType === "devis" ? "devis" : "document"} (PDF/Image) ici, notre IA extraira automatiquement le client, les articles et les montants.
-            </p>
+    <Modal isOpen={isOpen} onClose={handleClose} title={`Numériser ${targetType === "devis" ? "un devis" : "un document"}`}>
+      <FormAlert error={error} onClose={() => setError(null)} title="Erreur lors du traitement" />
+
+      {step === "upload" ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600/20 text-purple-400 ring-1 ring-purple-500/30">
+              <FileScan size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-100">Numérisation par IA</h4>
+              <p className="text-[11.5px] text-slate-400">
+                Extraction automatique des clients, articles et montants depuis PDF/Images.
+              </p>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => !isScanning && fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 cursor-pointer transition-all duration-300 ${
+              file && !isScanning ? 'border-purple-500 bg-purple-500/10' : 'border-slate-800 bg-slate-900/60 hover:border-purple-500/50 hover:bg-slate-900'
+            }`}
+          >
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileSelect} 
+              className="hidden" 
+              accept="image/*,application/pdf"
+            />
             
-            {error && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 flex items-start gap-2 text-left">
-                <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
-                <p className="text-[12.5px] text-red-700">{error}</p>
+            {isScanning ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="animate-spin text-purple-400" size={28} />
+                <p className="text-[13px] font-semibold text-purple-300 animate-pulse">Analyse du document en cours...</p>
+              </div>
+            ) : file ? (
+              <div className="text-center">
+                <p className="text-[13px] font-bold text-purple-300 truncate max-w-[260px]">
+                  {file.name}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">Cliquez pour modifier le fichier</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-[13px] font-semibold text-slate-200">Glissez-déposez votre document ici</p>
+                <p className="text-[11px] text-slate-400 mt-1">Formats PDF, JPG, PNG acceptés</p>
               </div>
             )}
-            
-            <div 
-              onClick={() => !isScanning && fileInputRef.current?.click()}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              className={`relative mx-auto h-40 w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden cursor-pointer transition-colors ${
-                file && !isScanning ? 'border-brass bg-brass/10' : 'border-brass/40 bg-brass/5 hover:bg-brass/10'
-              }`}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-800">
+            <button 
+              onClick={handleClose}
+              disabled={isScanning}
+              className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[12.5px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
             >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileSelect} 
-                className="hidden" 
-                accept="image/*,application/pdf"
-              />
-              
-              {isScanning ? (
-                <>
-                  <div className="absolute top-0 w-full h-1 bg-brass animate-scan shadow-[0_0_15px_rgba(156,126,62,0.8)]" />
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="animate-spin text-brass-dark" size={24} />
-                    <p className="text-[14px] font-semibold text-brass-dark animate-pulse">Analyse du document en cours...</p>
-                  </div>
-                </>
-              ) : file ? (
-                <div className="px-4 text-center">
-                  <p className="text-[14px] font-semibold text-brass-dark truncate max-w-[250px]">
-                    {file.name}
-                  </p>
-                  <p className="text-[11px] text-ink-500 mt-1">Cliquez pour modifier</p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-[13.5px] font-medium text-ink-700">Glissez-déposez votre document ici</p>
-                  <p className="text-[11px] text-ink-400 mt-1">ou cliquez pour parcourir</p>
-                </>
-              )}
-            </div>
-
-            <div className="mt-8 flex gap-3">
-              <button 
-                onClick={handleClose}
-                disabled={isScanning}
-                className="flex-1 rounded-full bg-ink-100 py-3 text-[13.5px] font-semibold text-ink-700 hover:bg-ink-200 active:scale-95 transition-all disabled:opacity-50"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={handleScan}
-                disabled={isScanning || !file}
-                className="flex-1 rounded-full bg-ink-900 py-3 text-[13.5px] font-semibold text-white hover:bg-ink-800 active:scale-95 transition-all shadow-lg disabled:opacity-50"
-              >
-                Lancer l'IA
-              </button>
-            </div>
-          </>
-        )}
-
-        {step === "verify" && extractedData && (
-          <div className="text-left">
-            <h3 className="font-display text-[20px] font-semibold text-ink-900 mb-2 text-center">Vérification des données</h3>
-            <p className="text-[13px] text-ink-600 mb-6 text-center">
-              L'IA a terminé l'extraction. Veuillez vérifier les informations ci-dessous.
-            </p>
+              Annuler
+            </button>
+            <button 
+              onClick={handleScan}
+              disabled={isScanning || !file}
+              className="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-[12.5px] font-bold text-white shadow-lg shadow-purple-600/25 hover:bg-purple-500 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {isScanning && <Loader2 size={15} className="animate-spin" />}
+              Lancer l'IA
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="text-left space-y-3">
+            <h4 className="text-sm font-bold text-slate-100">Vérification des données extraites</h4>
             
-            <div className="space-y-4 rounded-xl border border-ink-200 bg-paper p-4 text-[13.5px]">
+            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-[13px]">
               <div>
-                <span className="block text-[11px] font-medium uppercase text-ink-400">Fournisseur / Émetteur</span>
-                <span className="font-semibold text-ink-900">{extractedData.fournisseur || "Non détecté"}</span>
+                <span className="block text-[11px] font-semibold uppercase text-slate-400">Fournisseur / Émetteur</span>
+                <span className="font-bold text-slate-100">{extractedData.fournisseur || "Non détecté"}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <span className="block text-[11px] font-medium uppercase text-ink-400">Montant HT</span>
-                  <span className="font-semibold text-ink-900">{extractedData.montant_ht || "0"} MAD</span>
+                  <span className="block text-[11px] font-semibold uppercase text-slate-400">Montant HT</span>
+                  <span className="font-bold text-slate-100">{extractedData.montant_ht || "0"} MAD</span>
                 </div>
                 <div>
-                  <span className="block text-[11px] font-medium uppercase text-ink-400">Montant TTC</span>
-                  <span className="font-semibold text-ink-900">{extractedData.montant_ttc || "0"} MAD</span>
+                  <span className="block text-[11px] font-semibold uppercase text-slate-400">Montant TTC</span>
+                  <span className="font-bold text-emerald-400">{extractedData.montant_ttc || "0"} MAD</span>
                 </div>
               </div>
 
               <div>
-                <span className="block text-[11px] font-medium uppercase text-ink-400">Articles détectés</span>
-                <span className="font-semibold text-ink-900">
+                <span className="block text-[11px] font-semibold uppercase text-slate-400">Articles détectés</span>
+                <span className="font-bold text-slate-100">
                   {extractedData.lignes ? extractedData.lignes.length : (extractedData.line_items ? extractedData.line_items.length : 0)} article(s)
                 </span>
               </div>
             </div>
-
-            <div className="mt-8 flex gap-3">
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={isSaving}
-                className="rounded-full px-6 py-2.5 text-[13.5px] font-semibold text-ink-600 hover:bg-ink-100 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={isSaving}
-                className="flex items-center gap-2 rounded-full bg-brass px-8 py-2.5 text-[13.5px] font-bold text-white hover:bg-brass-dark hover:-translate-y-0.5 active:scale-95 transition-all shadow-lg disabled:opacity-50"
-              >
-                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-                Confirmer l'ajout
-              </button>
-            </div>
           </div>
-        )}
-      </div>
-    </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isSaving}
+              className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[12.5px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isSaving}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-[12.5px] font-bold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-500 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+              Confirmer l'ajout
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }

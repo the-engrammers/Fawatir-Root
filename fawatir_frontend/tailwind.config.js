@@ -8,19 +8,19 @@ module.exports = {
     extend: {
       colors: {
         ink: {
-          900: "#09090b", // Pure black/ink
-          800: "#18181b",
-          700: "#3f3f46",
-          600: "#52525b",
-          500: "#71717a",
-          400: "#a1a1aa",
-          200: "#e4e4e7", // Subtle borders
-          100: "#f4f4f5", // Light hover states
-          50: "#fafafa",
+          900: "#FFFFFF", // Pure white primary text
+          800: "#F8FAFC", // Slate-50 high contrast text
+          700: "#E2E8F0", // Slate-200 readable text
+          600: "#CBD5E1", // Slate-300 readable text
+          50: "#94A3B8", // Slate-400 secondary text
+          400: "#94A3B8", // Slate-400 secondary text
+          200: "#1E293B", // Slate-800 border
+          100: "#0F172A", // Slate-900 background
+          50: "#020617",  // Slate-950 deep background
         },
         paper: {
-          DEFAULT: "#FAFAFA", // Pristine off-white
-          card: "rgba(255, 255, 255, 0.7)", // Translucent white for glass bento
+          DEFAULT: "#0F172A", // Dark slate container
+          card: "rgba(15, 23, 42, 0.9)", // Translucent slate card
         },
         brass: {
           DEFAULT: "#4F46E5", // Vibrant Indigo

@@ -35,19 +35,24 @@ export default function AssistantWidget() {
     setIsLoading(true);
 
     try {
-      // The API endpoint on the Django backend
-      const res = await fetch("http://127.0.0.1:8000/api/ai/chat/", {
+      // The API endpoint on Next.js backend
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text, prompt: text })
       });
       
       if (!res.ok) throw new Error();
       const data = await res.json();
       
       setMessages((prev) => [...prev, { from: "assistant", text: data.reply || "Aucune réponse reçue." }]);
+      
+      // Tell all active tables (Clients, Stocks, Factures) to refresh their data
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dataUpdated"));
+      }
     } catch (e) {
-      setMessages((prev) => [...prev, { from: "assistant", text: "Désolé, je n'arrive pas à me connecter au serveur d'IA (backend Django)." }]);
+      setMessages((prev) => [...prev, { from: "assistant", text: "Désolé, une erreur s'est produite lors de la connexion à l'assistant IA." }]);
     } finally {
       setIsLoading(false);
     }
@@ -86,11 +91,11 @@ export default function AssistantWidget() {
           </div>
 
           {/* Chat Area */}
-          <div className="flex-1 space-y-4 overflow-y-auto p-5 scrollbar-hide bg-gradient-to-b from-paper to-white">
+          <div className="flex-1 space-y-4 overflow-y-auto p-5 scrollbar-hide bg-slate-900">
             {messages.length === 0 && (
               <div className="mb-6">
-                <div className="inline-block bg-white border border-ink-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm mb-4">
-                  <p className="text-[13px] text-ink-800 leading-relaxed font-medium">
+                <div className="inline-block bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm mb-4">
+                  <p className="text-[13px] text-slate-200 leading-relaxed font-medium">
                     Bonjour ! 👋 Je suis l'IA de Fatourati connectée en temps réel à votre base de données. 
                     <br/><br/>
                     Je peux vérifier vos stocks, trouver des clients, générer des devis et préparer des liens WhatsApp. Que voulez-vous faire ?
@@ -101,12 +106,12 @@ export default function AssistantWidget() {
                     <button
                       key={s.label}
                       onClick={() => send(s.label)}
-                      className="group flex items-center gap-3 rounded-xl border border-ink-100 bg-white px-4 py-3 text-left hover:border-brass/40 hover:bg-brass/5 hover:shadow-sm active:scale-95 transition-all duration-300"
+                      className="group flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-left hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:shadow-sm active:scale-95 transition-all duration-300"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-50 text-ink-500 group-hover:bg-brass/10 group-hover:text-brass transition-colors">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-slate-400 group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-colors">
                         <s.icon size={15} />
                       </div>
-                      <span className="text-[12px] font-semibold text-ink-700 group-hover:text-ink-900">{s.label}</span>
+                      <span className="text-[12px] font-semibold text-slate-300 group-hover:text-slate-100">{s.label}</span>
                     </button>
                   ))}
                 </div>
@@ -116,15 +121,15 @@ export default function AssistantWidget() {
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
                 {m.from === "assistant" && (
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brass/10 text-brass mr-2 mt-1">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mr-2 mt-1">
                     <Sparkles size={12} />
                   </div>
                 )}
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed shadow-sm ${
                     m.from === "user"
-                      ? "bg-ink-900 text-white rounded-tr-sm"
-                      : "border border-ink-100 bg-white text-ink-800 rounded-tl-sm prose prose-sm prose-p:my-1 prose-a:text-brass prose-a:font-semibold prose-a:underline"
+                      ? "bg-emerald-600 text-white rounded-tr-sm"
+                      : "border border-slate-700 bg-slate-800 text-slate-200 rounded-tl-sm prose prose-sm prose-p:my-1 prose-a:text-emerald-400 prose-a:font-semibold prose-a:underline"
                   }`}
                 >
                   {m.from === "user" ? (
@@ -133,9 +138,9 @@ export default function AssistantWidget() {
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm]}
                       components={{
-                        table: ({node, ...props}) => <div className="overflow-x-auto my-3 rounded-lg border border-ink-100 shadow-sm"><table className="min-w-full divide-y divide-ink-100 text-[12px] text-left" {...props} /></div>,
-                        th: ({node, ...props}) => <th className="bg-ink-50 px-3 py-2 font-semibold text-ink-900 border-b border-ink-100" {...props} />,
-                        td: ({node, ...props}) => <td className="whitespace-nowrap px-3 py-2 text-ink-700 border-b border-ink-50" {...props} />,
+                        table: ({node, ...props}) => <div className="overflow-x-auto my-3 rounded-lg border border-slate-700 shadow-sm"><table className="min-w-full divide-y divide-slate-700 text-[12px] text-left text-slate-300" {...props} /></div>,
+                        th: ({node, ...props}) => <th className="bg-slate-900 px-3 py-2 font-semibold text-slate-200 border-b border-slate-700" {...props} />,
+                        td: ({node, ...props}) => <td className="whitespace-nowrap px-3 py-2 text-slate-400 border-b border-slate-800" {...props} />,
                         a: ({node, href, children}) => {
                             if (href?.startsWith('https://wa.me')) {
                                 return (
@@ -158,13 +163,13 @@ export default function AssistantWidget() {
 
             {isLoading && (
               <div className="flex justify-start items-center">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brass/10 text-brass mr-2">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mr-2">
                   <Sparkles size={12} />
                 </div>
-                <div className="flex items-center gap-1 bg-white border border-ink-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                  <div className="h-1.5 w-1.5 bg-ink-300 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="h-1.5 w-1.5 bg-ink-300 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="h-1.5 w-1.5 bg-ink-300 rounded-full animate-bounce"></div>
+                <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                  <div className="h-1.5 w-1.5 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="h-1.5 w-1.5 bg-slate-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="h-1.5 w-1.5 bg-slate-500 rounded-full animate-bounce"></div>
                 </div>
               </div>
             )}
@@ -173,19 +178,19 @@ export default function AssistantWidget() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-ink-100 bg-white p-4">
-            <div className="flex items-center gap-2 rounded-xl border border-ink-200 bg-paper px-3 py-2 focus-within:border-brass/60 focus-within:ring-4 focus-within:ring-brass/10 transition-all shadow-inner">
+          <div className="border-t border-slate-800 bg-slate-900 p-4">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 focus-within:border-emerald-500/50 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all shadow-inner">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && send(input)}
                 placeholder="Ex: Prépare un Devis pour Hassan..."
-                className="flex-1 bg-transparent px-2 py-1.5 text-[13px] text-ink-900 placeholder:text-ink-400 focus:outline-none"
+                className="flex-1 bg-transparent px-2 py-1.5 text-[13px] text-white placeholder:text-slate-500 focus:outline-none"
               />
               <button
                 onClick={() => send(input)}
                 disabled={!input.trim() || isLoading}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brass text-white hover:bg-brass-dark hover:shadow-md active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all duration-300"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all duration-300"
               >
                 <Send size={15} className="ml-0.5" />
               </button>

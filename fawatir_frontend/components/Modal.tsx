@@ -25,26 +25,26 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
       <div 
-        className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
       
-      <div className="relative z-10 w-full max-w-lg transform overflow-hidden rounded-card bg-paper-card shadow-bento backdrop-blur-2xl border border-white/80 transition-all">
+      <div className="relative z-10 w-full max-w-lg transform overflow-hidden rounded-2xl bg-slate-900/95 p-0 shadow-2xl backdrop-blur-2xl border border-slate-800 text-slate-100 transition-all sm:max-w-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-ink-200/60 px-6 py-4">
-          <h3 className="font-display text-lg font-semibold text-ink-900">{title}</h3>
+        <div className="flex items-center justify-between border-b border-slate-800/80 px-6 py-4 bg-slate-950/40">
+          <h3 className="font-sans text-base font-bold text-slate-100 tracking-tight">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-ink-400 transition-colors hover:bg-ink-200/50 hover:text-ink-800"
+            className="rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white active:scale-95"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
         
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 max-h-[85vh] overflow-y-auto">
           {children}
         </div>
       </div>
