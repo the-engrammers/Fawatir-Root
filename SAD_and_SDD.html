@@ -168,42 +168,881 @@
 </tr>
 </tbody>
 </table>
-<h3>3.3 Database Entity-Relationship Model (Core Modules)</h3>
+<h3>3.3 Detailed Database Entity-Relationship Models</h3>
+<p>The following diagrams detail the exact database schema derived directly from the Django models.</p>
+<h4>FOUNDATION MODULE</h4>
 <pre class="mermaid">erDiagram
-    COMPANY ||--o{ CLIENT : manages
-    COMPANY ||--o{ SUPPLIER : manages
-    COMPANY ||--o{ PRODUCT : owns
-
-    CLIENT ||--o{ INVOICE : receives
-    CLIENT ||--o{ QUOTATION : requests
-
-    INVOICE ||--o{ INVOICE_ITEM : contains
-    QUOTATION ||--o{ QUOTATION_ITEM : contains
-
-    PRODUCT ||--o{ INVOICE_ITEM : referenced_by
-    PRODUCT ||--o{ QUOTATION_ITEM : referenced_by
-
-    COMPANY {
-        int id PK
+    Company {
+        UUID id PK
         string name
-        string tax_id
-    }
-    CLIENT {
-        int id PK
-        string name
+        string legal_name
+        string email
         string phone
+        string website
+        string address
+        string city
+        string postal_code
+        string country
+        string tax_identifier
+        string ice
+        string rc
+        string industry
+        int company_size
+        string subscription_plan
+        string subscription_status
+        string currency
+        string language
+        string timezone
+        string logo_url
+        boolean is_active
+        datetime created_at
+        datetime updated_at
     }
-    INVOICE {
-        int id PK
-        date issue_date
-        float total_amount
+    Role {
+        UUID id PK
+        UUID company_id FK
+        string display_name
+        string system_name
+        string description
+        datetime created_at
+        datetime updated_at
+    }
+    Permission {
+        UUID id PK
+        string module
+        string name
+        string code
+        string description
+    }
+    User {
+        UUID id PK
+        UUID company_id FK
+        UUID role_id FK
+        string first_name
+        string last_name
+        string email
+        string phone
+        string password_hash
+        string avatar_url
+        string job_title
+        datetime birth_date
+        string preferred_language
+        boolean email_verified
+        boolean two_factor_enabled
+        int failed_login_attempts
+        boolean is_active
+        UUID created_by_id FK
+        datetime last_login
+        datetime created_at
+        datetime updated_at
+    }
+    RolePermission {
+        UUID id PK
+        UUID role_id FK
+        UUID permission_id FK
+        UUID assigned_by_id FK
+        datetime assigned_at
+    }
+    CompanySetting {
+        UUID id PK
+        UUID company_id FK
+        float vat_rate
+        float default_tax
+        int invoice_due_days
+        boolean show_vat
+        boolean amount_in_words
+        string invoice_prefix
+        string quotation_prefix
+        string purchase_prefix
+        string iban
+        string rib
+        string swift
+        string footer_text
+        string accent_color
+        string default_language
+        string default_currency
+        string date_format
+        string time_format
+        string country
+        string number_separator
+        boolean include_year
+        int number_length
+        string invoice_template
+        UUID updated_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    AuditLog {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        string module
+        string action
+        string entity
+        UUID entity_id
+        string description
+        json old_values
+        json new_values
+        string ip_address
+        datetime created_at
+    }
+    UserPreference {
+        UUID id PK
+        UUID user_id FK
+        string theme
+        string language
+        string dashboard_layout
+        boolean notifications_enabled
+        datetime created_at
+        datetime updated_at
+    }
+    UserSession {
+        UUID id PK
+        UUID user_id FK
+        string token
+        string device_name
+        string ip_address
+        string user_agent
+        boolean is_revoked
+        datetime expires_at
+        datetime logged_out_at
+        datetime created_at
+    }
+    PasswordReset {
+        UUID id PK
+        UUID user_id FK
+        string token
+        boolean used
+        datetime expires_at
+        datetime created_at
+    }
+    EmailVerification {
+        UUID id PK
+        UUID user_id FK
+        string verification_token
+        boolean verified
+        datetime verified_at
+        datetime expires_at
+        datetime created_at
+    }
+    ActivityLog {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        string module
+        string action
+        string entity
+        UUID entity_id
+        string description
+        string ip_address
+        string user_agent
+        datetime created_at
+    }
+    Notification {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        string title
+        string message
+        string notification_type
+        boolean is_read
+        datetime read_at
+        datetime created_at
+    }
+    PdfTemplate {
+        UUID id PK
+        UUID company_id FK
+        string name
+        string document_type
+        string template_path
+        boolean is_default
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    User ||--o{ User : has
+    User ||--o{ EmailVerification : has
+    User ||--o{ PasswordReset : has
+    Company ||--o{ ActivityLog : has
+    Company ||--o{ AuditLog : has
+    User ||--o{ UserPreference : has
+    User ||--o{ AuditLog : has
+    User ||--o{ ActivityLog : has
+    Company ||--o{ Notification : has
+    User ||--o{ CompanySetting : has
+    Role ||--o{ RolePermission : has
+    Role ||--o{ User : has
+    User ||--o{ PdfTemplate : has
+    Permission ||--o{ RolePermission : has
+    User ||--o{ RolePermission : has
+    User ||--o{ Notification : has
+    User ||--o{ UserSession : has
+    Company ||--o{ Role : has
+    Company ||--o{ CompanySetting : has
+    Company ||--o{ User : has
+    Company ||--o{ PdfTemplate : has</pre>
+
+<h4>CRM MODULE</h4>
+<pre class="mermaid">erDiagram
+    Client {
+        UUID id PK
+        UUID company_id FK
+        string customer_code
+        string company_name
+        string contact_name
+        string email
+        string phone
+        string mobile
+        string website
+        string tax_identifier
+        string ice
+        string rc
+        string address
+        string city
+        string postal_code
+        string country
+        string notes
         string status
+        float credit_limit
+        float balance
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
     }
-    INVOICE_ITEM {
-        int id PK
+    ClientContact {
+        UUID id PK
+        UUID client_id FK
+        string first_name
+        string last_name
+        string job_title
+        string email
+        string phone
+        string mobile
+        boolean is_primary
+        datetime created_at
+    }
+    CustomerAddress {
+        UUID id PK
+        UUID client_id FK
+        string address_type
+        string address
+        string city
+        string postal_code
+        string country
+        datetime created_at
+    }
+    CustomerPortal {
+        UUID id PK
+        UUID client_id FK
+        string email
+        string password_hash
+        boolean is_active
+        datetime last_login
+        datetime created_at
+    }
+    Supplier {
+        UUID id PK
+        UUID company_id FK
+        string supplier_code
+        string company_name
+        string contact_name
+        string email
+        string phone
+        string mobile
+        string website
+        string tax_identifier
+        string ice
+        string rc
+        string address
+        string city
+        string postal_code
+        string country
+        string notes
+        string status
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    SupplierContact {
+        UUID id PK
+        UUID supplier_id FK
+        string first_name
+        string last_name
+        string job_title
+        string email
+        string phone
+        string mobile
+        boolean is_primary
+        datetime created_at
+    }
+    SupplierAddress {
+        UUID id PK
+        UUID supplier_id FK
+        string address_type
+        string address
+        string city
+        string postal_code
+        string country
+        datetime created_at
+    }
+    WhatsappMessage {
+        UUID id PK
+        UUID company_id FK
+        UUID client_id FK
+        UUID invoice_id FK
+        UUID quotation_id FK
+        string phone_number
+        string message
+        string status
+        datetime sent_at
+    }
+    MarketingCampaign {
+        UUID id PK
+        UUID company_id FK
+        UUID created_by_id FK
+        string campaign_name
+        string objective
+        string platform
+        string status
+        float budget
+        datetime start_date
+        datetime end_date
+        string target_audience
+        datetime created_at
+        datetime updated_at
+    }
+    MarketingAd {
+        UUID id PK
+        UUID campaign_id FK
+        boolean generated_by_ai
+        string title
+        string description
+        string media_url
+        string call_to_action
+        string destination_url
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    MarketingMetric {
+        UUID id PK
+        UUID ad_id FK
+        int impressions
+        int clicks
+        int conversions
+        int reach
+        float cost
+        float revenue_generated
+        float roi
+        datetime updated_at
+    }
+
+    Company ||--o{ Supplier : has
+    Supplier ||--o{ SupplierContact : has
+    Company ||--o{ WhatsappMessage : has
+    Company ||--o{ Client : has
+    Client ||--o{ CustomerAddress : has
+    User ||--o{ Supplier : has
+    Company ||--o{ MarketingCampaign : has
+    MarketingCampaign ||--o{ MarketingAd : has
+    User ||--o{ MarketingCampaign : has
+    Supplier ||--o{ SupplierAddress : has
+    Client ||--o{ CustomerPortal : has
+    Client ||--o{ WhatsappMessage : has
+    MarketingAd ||--o{ MarketingMetric : has
+    Client ||--o{ ClientContact : has
+    Invoice ||--o{ WhatsappMessage : has
+    Quotation ||--o{ WhatsappMessage : has
+    User ||--o{ Client : has</pre>
+
+<h4>INVENTORY MODULE</h4>
+<pre class="mermaid">erDiagram
+    Category {
+        UUID id PK
+        UUID company_id FK
+        UUID parent_category_id FK
+        string name
+        string description
+        string image_url
+        boolean is_active
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    Product {
+        UUID id PK
+        UUID company_id FK
+        UUID category_id FK
+        string sku
+        string barcode
+        string name
+        string description
+        string brand
+        string unit
+        float purchase_price
+        float selling_price
+        float tax_rate
+        int minimum_stock
+        float weight
+        string image_url
+        boolean is_active
+        boolean track_inventory
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    ProductVariant {
+        UUID id PK
+        UUID product_id FK
+        string sku
+        string barcode
+        string variant_name
+        string attribute_name
+        string attribute_value
+        float purchase_price
+        float selling_price
+        datetime created_at
+        datetime updated_at
+    }
+    Inventory {
+        UUID id PK
+        UUID product_id FK
+        UUID variant_id FK
         int quantity
+        int reserved_quantity
+        int available_quantity
+        int reorder_level
+        string warehouse_location
+        datetime updated_at
+    }
+    StockMovement {
+        UUID id PK
+        UUID product_id FK
+        UUID variant_id FK
+        string movement_type
+        int quantity
+        int previous_quantity
+        int new_quantity
+        string reference_type
+        UUID reference_id
+        string reason
+        UUID created_by_id FK
+        datetime created_at
+    }
+    SupplierProduct {
+        UUID id PK
+        UUID supplier_id FK
+        UUID product_id FK
+        string supplier_reference
+        float purchase_price
+        boolean preferred_supplier
+        int lead_time_days
+        string notes
+        datetime created_at
+    }
+
+    Category ||--o{ Product : has
+    Product ||--o{ ProductVariant : has
+    Product ||--o{ SupplierProduct : has
+    Company ||--o{ Category : has
+    Category ||--o{ Category : has
+    Supplier ||--o{ SupplierProduct : has
+    User ||--o{ Product : has
+    Company ||--o{ Product : has
+    Product ||--o{ Inventory : has
+    User ||--o{ Category : has
+    Product ||--o{ StockMovement : has
+    ProductVariant ||--o{ StockMovement : has
+    ProductVariant ||--o{ Inventory : has
+    User ||--o{ StockMovement : has</pre>
+
+<h4>ACCOUNTING MODULE</h4>
+<pre class="mermaid">erDiagram
+    Invoice {
+        UUID id PK
+        UUID company_id FK
+        UUID client_id FK
+        string invoice_number
+        datetime issue_date
+        datetime due_date
+        string status
+        float subtotal
+        float tax_amount
+        float discount_amount
+        float total_amount
+        float balance_due
+        string notes
+        string terms
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    InvoiceItem {
+        UUID id PK
+        UUID invoice_id FK
+        UUID product_id FK
+        string description
+        float quantity
         float unit_price
-    }</pre>
+        float discount
+        float tax_rate
+        float tax_amount
+        float line_total
+        datetime created_at
+    }
+    BankAccount {
+        UUID id PK
+        UUID company_id FK
+        string bank_name
+        string account_name
+        string account_number
+        string currency
+        float current_balance
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    Payment {
+        UUID id PK
+        UUID invoice_id FK
+        UUID company_id FK
+        UUID bank_account_id FK
+        float amount
+        datetime payment_date
+        string payment_method
+        string reference
+        string notes
+        UUID created_by_id FK
+        datetime created_at
+    }
+    RecurringInvoice {
+        UUID id PK
+        UUID company_id FK
+        UUID client_id FK
+        UUID template_invoice_id FK
+        string frequency
+        datetime start_date
+        datetime end_date
+        datetime next_generation
+        datetime last_generated
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    BankTransaction {
+        UUID id PK
+        UUID bank_account_id FK
+        datetime transaction_date
+        string description
+        string reference
+        float amount
+        string transaction_type
+        boolean imported
+        datetime created_at
+    }
+    BankReconciliation {
+        UUID id PK
+        UUID transaction_id FK
+        UUID payment_id FK
+        UUID invoice_id FK
+        string status
+        datetime reconciled_at
+    }
+
+    Company ||--o{ Invoice : has
+    Company ||--o{ BankAccount : has
+    BankAccount ||--o{ BankTransaction : has
+    BankTransaction ||--o{ BankReconciliation : has
+    Invoice ||--o{ InvoiceItem : has
+    Client ||--o{ Invoice : has
+    Invoice ||--o{ RecurringInvoice : has
+    Invoice ||--o{ Payment : has
+    Client ||--o{ RecurringInvoice : has
+    Product ||--o{ InvoiceItem : has
+    User ||--o{ Invoice : has
+    User ||--o{ Payment : has
+    Company ||--o{ Payment : has
+    Invoice ||--o{ BankReconciliation : has
+    BankAccount ||--o{ Payment : has
+    Company ||--o{ RecurringInvoice : has
+    Payment ||--o{ BankReconciliation : has</pre>
+
+<h4>QUOTATIONS MODULE</h4>
+<pre class="mermaid">erDiagram
+    Quotation {
+        UUID id PK
+        UUID company_id FK
+        UUID client_id FK
+        string quotation_number
+        string status
+        float total_amount
+        datetime created_at
+        datetime updated_at
+    }
+    QuotationItem {
+        UUID id PK
+        UUID quotation_id FK
+        UUID product_id FK
+        string description
+        float quantity
+        string unit
+        float unit_price
+        float discount
+        float tax_rate
+        float tax_amount
+        float line_total
+        datetime created_at
+    }
+
+    Client ||--o{ Quotation : has
+    Quotation ||--o{ QuotationItem : has
+    Product ||--o{ QuotationItem : has
+    Company ||--o{ Quotation : has</pre>
+
+<h4>PURCHASE ORDERS MODULE</h4>
+<pre class="mermaid">erDiagram
+    PurchaseOrder {
+        UUID id PK
+        UUID company_id FK
+        UUID supplier_id FK
+        string purchase_order_number
+        string status
+        float total_amount
+        datetime created_at
+        datetime updated_at
+    }
+    PurchaseOrderItem {
+        UUID id PK
+        UUID purchase_order_id FK
+        UUID product_id FK
+        string description
+        float quantity
+        float received_quantity
+        float remaining_quantity
+        string unit
+        float unit_cost
+        float discount
+        float tax_rate
+        float tax_amount
+        float line_total
+        datetime created_at
+    }
+
+    Product ||--o{ PurchaseOrderItem : has
+    PurchaseOrder ||--o{ PurchaseOrderItem : has
+    Company ||--o{ PurchaseOrder : has
+    Supplier ||--o{ PurchaseOrder : has</pre>
+
+<h4>POS MODULE</h4>
+<pre class="mermaid">erDiagram
+    PosSession {
+        UUID id PK
+        UUID company_id FK
+        string session_number
+        string status
+        UUID created_by_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    PosSale {
+        UUID id PK
+        UUID company_id FK
+        UUID session_id FK
+        string sale_number
+        float total_amount
+        UUID created_by_id FK
+        datetime created_at
+    }
+    PosSaleItem {
+        UUID id PK
+        UUID sale_id FK
+        UUID product_id FK
+        float quantity
+        string unit
+        float unit_price
+        float discount
+        float tax_rate
+        float tax_amount
+        float line_total
+        datetime created_at
+    }
+
+    User ||--o{ PosSession : has
+    User ||--o{ PosSale : has
+    PosSession ||--o{ PosSale : has
+    Product ||--o{ PosSaleItem : has
+    PosSale ||--o{ PosSaleItem : has
+    Company ||--o{ PosSession : has
+    Company ||--o{ PosSale : has</pre>
+
+<h4>HUMAN RESOURCES MODULE</h4>
+<pre class="mermaid">erDiagram
+    Department {
+        UUID id PK
+        UUID company_id FK
+        string name
+        datetime created_at
+    }
+    Employee {
+        UUID id PK
+        UUID company_id FK
+        UUID department_id FK
+        string employee_number
+        string first_name
+        string last_name
+        float salary
+        datetime created_at
+        datetime updated_at
+    }
+    Payroll {
+        UUID id PK
+        UUID company_id FK
+        UUID employee_id FK
+        string payroll_number
+        float net_salary
+        datetime created_at
+        datetime updated_at
+    }
+    PayrollItem {
+        UUID id PK
+        UUID payroll_id FK
+        string item_name
+        string item_type
+        float amount
+        string description
+        datetime created_at
+    }
+
+    Employee ||--o{ Payroll : has
+    Payroll ||--o{ PayrollItem : has
+    Company ||--o{ Department : has
+    Department ||--o{ Employee : has
+    Company ||--o{ Payroll : has
+    Company ||--o{ Employee : has</pre>
+
+<h4>AI MODULE</h4>
+<pre class="mermaid">erDiagram
+    AiConversation {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        string title
+        datetime created_at
+    }
+    AiMessage {
+        UUID id PK
+        UUID conversation_id FK
+        string sender
+        string message
+        int tokens_used
+        float response_time
+        datetime created_at
+    }
+    OcrDocument {
+        UUID id PK
+        UUID company_id FK
+        UUID uploaded_by_id FK
+        string original_filename
+        string extracted_text
+        string processing_status
+        datetime created_at
+    }
+    AiTask {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        string task_type
+        string entity_type
+        UUID entity_id
+        string prompt
+        string ai_response
+        float confidence_score
+        string priority
+        string status
+        datetime created_at
+        datetime completed_at
+    }
+    AiRecommendation {
+        UUID id PK
+        UUID company_id FK
+        string recommendation_type
+        string title
+        string description
+        string entity_type
+        UUID entity_id
+        string priority
+        string status
+        datetime created_at
+    }
+    AiAutomation {
+        UUID id PK
+        UUID company_id FK
+        string name
+        string trigger_event
+        string action_type
+        boolean enabled
+        datetime created_at
+        datetime updated_at
+    }
+    AiNotification {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        UUID recommendation_id FK
+        string title
+        string message
+        string notification_type
+        boolean is_read
+        datetime created_at
+    }
+    AiAdGeneration {
+        UUID id PK
+        UUID company_id FK
+        UUID user_id FK
+        UUID campaign_id FK
+        string prompt
+        string generated_title
+        string generated_description
+        string generated_hashtags
+        string generated_keywords
+        string language
+        string ai_provider
+        string model_name
+        datetime created_at
+    }
+    Ticket {
+        UUID id PK
+        UUID company_id FK
+        UUID client_id FK
+        UUID assigned_to_id FK
+        string ticket_number
+        string subject
+        string description
+        string priority
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    AiRecommendation ||--o{ AiNotification : has
+    Company ||--o{ AiAdGeneration : has
+    User ||--o{ Ticket : has
+    User ||--o{ AiConversation : has
+    Company ||--o{ AiRecommendation : has
+    User ||--o{ AiAdGeneration : has
+    Company ||--o{ Ticket : has
+    Company ||--o{ AiConversation : has
+    User ||--o{ AiTask : has
+    Company ||--o{ AiNotification : has
+    Client ||--o{ Ticket : has
+    Company ||--o{ AiAutomation : has
+    Company ||--o{ AiTask : has
+    MarketingCampaign ||--o{ AiAdGeneration : has
+    AiConversation ||--o{ AiMessage : has
+    Company ||--o{ OcrDocument : has
+    User ||--o{ OcrDocument : has
+    User ||--o{ AiNotification : has</pre>
 
 <div class="page-break"></div>
 
