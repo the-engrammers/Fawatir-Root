@@ -2,8 +2,7 @@
 
 import { useState, useRef } from "react";
 import Modal from "./Modal";
-import FormAlert from "./FormAlert";
-import { FileText, Send, Upload, Loader2, CheckCircle2 } from "lucide-react";
+import { FileText, Send, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface QuickInvoiceModalProps {
   isOpen: boolean;
@@ -26,16 +25,19 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
     setError(null);
 
     try {
-      // Get or create company ID
-      let companyId = null;
-      try {
-        const compRes = await fetch(`/api/companies`);
+      if (file) {
+        // OCR Path
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+        // Get or create company ID
+        let companyId = null;
+        const compRes = await fetch(`${apiUrl}/api/companies/`);
         const compData = await compRes.json();
         const compList = Array.isArray(compData) ? compData : (compData.results || []);
         if (compList.length > 0) {
           companyId = compList[0].id;
         } else {
-          const createRes = await fetch(`/api/companies`, {
+          const createRes = await fetch(`${apiUrl}/api/companies/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
@@ -43,102 +45,32 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
           const created = await createRes.json();
           companyId = created.id;
         }
-      } catch (err) {
-        console.warn("API de compagnies injoignable, on continue avec un ID null", err);
-      }
-      
-      const formData = new FormData();
-      if (file) {
+
+        const formData = new FormData();
         formData.append("file", file);
-      } else if (description.trim()) {
-        formData.append("text", description);
-      }
-      if (companyId) formData.append("company", companyId);
-      formData.append("doc_type", "invoice");
-      
-      const response = await fetch(`/api/ai/documents/`, {
-        method: "POST",
-        body: formData,
-      });
+        formData.append("company", companyId); 
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erreur d'analyse: ${errorText}`);
-      }
+        const response = await fetch(`${apiUrl}/api/ai/documents/`, {
+          method: "POST",
+          body: formData,
+        });
 
-      const data = await response.json();
-      
-      // Auto-save the extracted document to the Database!
-      if (data.extracted_data) {
-        try {
-          const clientName = data.extracted_data.fournisseur || data.extracted_data.client;
-          let clientId = null;
-          let companyId = null;
-
-          // 1. Get default company
-          const compRes = await fetch(`/api/companies`);
-          const compData = await compRes.json();
-          const compList = Array.isArray(compData) ? compData : (compData.results || []);
-          if (compList.length > 0) companyId = compList[0].id;
-          
-          // 2. Check/Create Client so it shows in the Clients table
-          if (clientName && companyId) {
-            const clientsRes = await fetch(`/api/clients?company=${companyId}`);
-            const clientsData = await clientsRes.json();
-            const clientsList = Array.isArray(clientsData) ? clientsData : (clientsData.results || []);
-            const existingClient = clientsList.find((c: any) => c.company_name === clientName);
-            
-            if (existingClient) {
-              clientId = existingClient.id;
-            } else {
-              const createClientRes = await fetch(`/api/clients`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ company: companyId, company_name: clientName, customer_code: `CL-${Math.floor(Math.random()*10000)}` })
-              });
-              const createdClient = await createClientRes.json();
-              clientId = createdClient.id;
-            }
-          }
-
-          const isDevis = data.extracted_data.type === "devis";
-          const endpoint = isDevis ? "/api/quotations" : "/api/invoices";
-          const payload = isDevis ? {
-            quotation_number: data.extracted_data.numero_facture,
-            client: clientId, // Attach the real client ID!
-            client_name: clientName,
-            total_amount: data.extracted_data.montant_ttc,
-            date: data.extracted_data.date,
-            status: "Brouillon",
-            lignes: data.extracted_data.lignes || []
-          } : {
-            invoice_number: data.extracted_data.numero_facture,
-            client: clientId, // Attach the real client ID!
-            client_name: clientName,
-            total_amount: data.extracted_data.montant_ttc,
-            date: data.extracted_data.date,
-            status: "Brouillon",
-            lignes: data.extracted_data.lignes || []
-          };
-
-          await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          
-          // Dispatch event so UI updates if we are on the Devis or Factures page
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: isDevis ? "quotations" : "invoices" } }));
-            window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
-          }
-        } catch (saveErr) {
-          console.error("Failed to sync AI document to DB:", saveErr);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erreur d'analyse: ${errorText}`);
         }
-      }
 
-      setResult(data);
+        const data = await response.json();
+        setResult(data);
+      } else {
+        // NLP Path (Future Text to Invoice)
+        console.log("Creating invoice for:", description);
+        setTimeout(() => {
+          setResult({ success: true, message: "Facture générée à partir du texte !" });
+        }, 1500);
+      }
     } catch (err: any) {
-      setError(err.message || "Une erreur est survenue lors du traitement");
+      setError(err.message || "Une erreur est survenue");
     } finally {
       setIsLoading(false);
     }
@@ -151,15 +83,8 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
     setError(null);
   };
 
-  const handleCloseAndReload = () => {
-    handleReset();
-    onClose();
-    // Force a reload so all the tables (Factures/Devis) fetch the new DB data instantly
-    window.location.reload();
-  };
-
   return (
-    <Modal isOpen={isOpen} onClose={() => { handleReset(); onClose(); }} title="Créer une Facture Rapide">
+    <Modal isOpen={isOpen} onClose={() => { handleReset(); onClose(); }} title="Créer une Nouvelle Facture">
       <div className="flex flex-col gap-4">
         
         {/* State: Success/Result */}
@@ -168,76 +93,78 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 mb-4 shadow-sm ring-4 ring-emerald-500/20">
               <CheckCircle2 size={32} />
             </div>
-            <h4 className="text-base font-bold text-slate-100 mb-2">Document extrait avec succès !</h4>
-            <p className="text-xs text-slate-400 mb-6 max-w-[280px]">
+            <h4 className="text-sm font-semibold text-ink-900 mb-2">Facture extraite avec succès !</h4>
+            <p className="text-xs text-ink-500 mb-6 max-w-[250px]">
               {result.extracted_data 
-                ? `Type: ${result.extracted_data.type === 'devis' ? 'Devis' : 'Facture'} - Fournisseur: ${result.extracted_data.fournisseur || "Inconnu"} - Montant: ${result.extracted_data.montant_ttc || 0} MAD`
+                ? `Fournisseur: ${result.fournisseur || "Inconnu"} - Montant: ${result.montant_ttc || 0} MAD`
                 : result.message}
             </p>
             <button
-              onClick={handleCloseAndReload}
-              className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/25 active:scale-95"
+              onClick={() => { handleReset(); onClose(); }}
+              className="rounded-full bg-ink-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-ink-800 transition-all shadow-sm active:scale-95"
             >
-              Fermer et consulter
+              Voir la facture
             </button>
           </div>
         ) : (
           /* State: Form */
           <>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 ring-1 ring-indigo-500/30">
-                <FileText size={20} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-100">Nouvelle Facture Intelligente</h4>
-                <p className="text-[11.5px] text-slate-400">
-                  Importez un reçu/facture ou saisissez une description rapide.
-                </p>
-              </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-ai text-white shadow-glow">
+              <FileText size={20} />
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-semibold text-ink-900 mb-1">Que voulez-vous facturer ?</h4>
+              <p className="text-[11px] text-ink-500 mb-4 leading-relaxed">
+                Décrivez la transaction ou <strong>uploadez une image (Reçu/Facture)</strong> pour que notre IA OCR l'extraie automatiquement.
+              </p>
             </div>
 
-            <FormAlert error={error} onClose={() => setError(null)} title="Erreur lors de l'analyse" />
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-[11px] text-red-600 font-medium">
+                <AlertCircle size={14} /> {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               
               {/* Image Upload Zone */}
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 cursor-pointer transition-all duration-300 ${
-                  file ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-900/60 hover:border-indigo-500/50 hover:bg-slate-900"
+                className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 cursor-pointer transition-all duration-300 ${
+                  file ? "border-brass bg-brass/5" : "border-ink-200 bg-paper hover:border-brass/50 hover:bg-ink-50/50"
                 }`}
               >
                 <input 
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept="image/jpeg, image/png, image/webp, application/pdf"
+                  accept="image/jpeg, image/png, image/webp"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setFile(e.target.files[0]);
                       setDescription("");
-                      setError(null);
                     }
                   }}
                 />
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full mb-3 shadow-sm ${file ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full mb-3 shadow-sm ${file ? 'bg-brass text-white' : 'bg-white text-ink-400 border border-ink-100'}`}>
                   {file ? <CheckCircle2 size={18} /> : <Upload size={18} />}
                 </div>
-                <p className="text-[12.5px] font-semibold text-slate-200">
-                  {file ? file.name : "Scanner un document (Image/PDF)"}
+                <p className="text-[12px] font-medium text-ink-700">
+                  {file ? file.name : "Scanner un document (Image)"}
                 </p>
-                {!file && <p className="text-[10.5px] text-slate-400 mt-1">PNG, JPG, PDF acceptés</p>}
+                {!file && <p className="text-[10px] text-ink-400 mt-1">PNG, JPG, WEBP acceptés</p>}
               </div>
 
               <div className="flex items-center gap-4 py-1">
-                <div className="h-px flex-1 bg-slate-800"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">OU</span>
-                <div className="h-px flex-1 bg-slate-800"></div>
+                <div className="h-px flex-1 bg-ink-200/60"></div>
+                <span className="text-[10px] font-bold text-ink-300 uppercase tracking-wider">OU</span>
+                <div className="h-px flex-1 bg-ink-200/60"></div>
               </div>
 
               {/* Text Area */}
               <textarea
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 py-3 px-4 text-[12.5px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all shadow-sm"
+                className="w-full rounded-xl border border-ink-200 bg-paper py-3 px-4 text-[12px] text-ink-800 placeholder-ink-400 focus:border-brass focus:ring-4 focus:ring-brass/10 focus:outline-none transition-all shadow-sm"
                 rows={3}
                 placeholder="Ex: 5 ordinateurs portables HP à 4500 MAD chacun..."
                 value={description}
@@ -252,22 +179,22 @@ export default function QuickInvoiceModal({ isOpen, onClose }: QuickInvoiceModal
                   type="button"
                   onClick={onClose}
                   disabled={isLoading}
-                  className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[12.5px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+                  className="rounded-full px-5 py-2 text-[12px] font-semibold text-ink-600 hover:text-ink-900 hover:bg-ink-100 active:scale-95 transition-all duration-300 disabled:opacity-50"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading || (!file && !description)}
-                  className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-[12.5px] font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative flex items-center gap-2 overflow-hidden rounded-full bg-ink-900 px-6 py-2.5 text-[12px] font-semibold text-white hover:bg-ink-800 hover:shadow-lg active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 size={15} className="animate-spin" /> Analyse en cours...
+                      <Loader2 size={16} className="animate-spin" /> Analyse en cours (~30s)...
                     </>
                   ) : (
                     <>
-                      <Send size={15} /> 
+                      <Send size={14} className="group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" /> 
                       Générer avec l'IA
                     </>
                   )}

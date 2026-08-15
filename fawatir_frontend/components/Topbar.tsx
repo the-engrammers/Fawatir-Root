@@ -1,48 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Bell, ChevronDown, Check, LogOut, Settings, User, Plus, FileText, Scan, FileSpreadsheet, Sparkles, Sun, Moon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { Search, Bell, ChevronDown, Check, LogOut, Settings, User } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { fetchAPI } from "@/lib/api";
-import QuickInvoiceModal from "@/components/QuickInvoiceModal";
-import ScannerModal from "@/components/ScannerModal";
-import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
 
 export default function Topbar() {
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-  const [openDropdown, setOpenDropdown] = useState<"lang" | "bell" | "profile" | "actions" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"lang" | "bell" | "profile" | null>(null);
   const pathname = usePathname();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-
-  // Modals state
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
-  const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
-  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
-
-  // Light / Dark mode state
-  const [isLightMode, setIsLightMode] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("fawatir_theme");
-    if (saved === "light" || document.documentElement.classList.contains("light-mode")) {
-      setIsLightMode(true);
-      document.documentElement.classList.add("light-mode");
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    if (isLightMode) {
-      document.documentElement.classList.remove("light-mode");
-      localStorage.setItem("fawatir_theme", "dark");
-      setIsLightMode(false);
-    } else {
-      document.documentElement.classList.add("light-mode");
-      localStorage.setItem("fawatir_theme", "light");
-      setIsLightMode(true);
-    }
-  };
 
   useEffect(() => {
     fetchStockAlerts();
@@ -73,8 +41,8 @@ export default function Topbar() {
         if (alerts.length === 0) {
           alerts.push({
             id: "system-ok",
-            title: "Système Prêt",
-            description: "Votre application Fawatir est opérationnelle.",
+            title: "Système IA Prêt",
+            description: "Le chatbot FawatirAI est connecté et prêt à vous aider.",
             time: "Info",
             type: "info",
             unread: false
@@ -100,212 +68,146 @@ export default function Topbar() {
   }, []);
 
   return (
-    <>
-      <header className="flex items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-2xl px-6 py-3.5 z-40 relative">
-        {/* Command Search Bar */}
-        <div className="flex flex-1 items-center max-w-md">
-          <div className="relative w-full group">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search size={14} className="text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
-            </div>
-            <input
-              type="text"
-              className="block w-full rounded-xl border border-slate-800/80 bg-slate-900/90 py-2 pl-9 pr-3 text-[12.5px] text-slate-100 placeholder:text-slate-500 transition-all focus:border-indigo-500/80 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-inner"
-              placeholder="Rechercher facture, client, devis, commande... (⌘K)"
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-[9px] font-bold text-slate-300 font-mono">
-                ⌘K
-              </kbd>
-            </div>
+    <header className="flex items-center justify-between gap-4 border-b border-white/40 px-6 py-4 z-40 relative">
+      {/* Search Bar */}
+      <div className="flex flex-1 items-center max-w-sm">
+        <div className="relative w-full group">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <Search size={14} className="text-ink-400 group-focus-within:text-brass transition-colors" />
+          </div>
+          <input
+            type="text"
+            className="block w-full rounded-full border border-white/50 bg-white/30 py-2 pl-9 pr-3 text-[11px] text-ink-900 placeholder:text-ink-500 backdrop-blur-md transition-all duration-300 focus:border-white/80 focus:bg-white/60 focus:outline-none focus:ring-4 focus:ring-white/20 shadow-sm"
+            placeholder="Rechercher une facture, un client..."
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+            <kbd className="hidden sm:inline-flex items-center gap-1 rounded bg-white/50 px-1.5 py-0.5 text-[9px] font-medium text-ink-500 font-mono">
+              <span className="text-[10px]">⌘</span> K
+            </kbd>
           </div>
         </div>
+      </div>
 
-        {/* System Status Badge */}
-        <div className="hidden lg:flex items-center gap-2.5 rounded-full bg-slate-900/80 px-3.5 py-1.5 border border-slate-800/80 text-[11.5px] font-medium text-slate-300">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-slate-200 font-semibold">Système Actif</span>
-          <span className="text-slate-600">•</span>
-          <span className="font-mono text-emerald-400 font-bold">En ligne</span>
-        </div>
-
-        {/* Right Section */}
-        <div ref={ref} className="flex shrink-0 items-center gap-2.5 relative">
-          
-          {/* Global Quick Action Hub Button */}
-          <div className="relative">
-            <button
-              onClick={() => setOpenDropdown(openDropdown === "actions" ? null : "actions")}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-3.5 py-2 text-[12.5px] font-semibold text-white shadow-lg shadow-indigo-600/25 hover:from-indigo-500 hover:to-violet-500 active:scale-95 transition-all ring-1 ring-white/20"
-            >
-              <Plus size={15} />
-              <span>Nouveau</span>
-              <ChevronDown size={13} className={`transition-transform duration-200 ${openDropdown === "actions" ? "rotate-180" : ""}`} />
-            </button>
-
-            {openDropdown === "actions" && (
-              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-800 bg-slate-900 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 z-50">
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    setIsInvoiceModalOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
-                    <FileText size={15} />
-                  </div>
-                  Facture Rapide
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    setIsScannerModalOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30">
-                    <Scan size={15} />
-                  </div>
-                  Numériser Doc
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    setIsExcelModalOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30">
-                    <FileSpreadsheet size={15} />
-                  </div>
-                  Importer Excel
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Theme Mode Toggle Button */}
+      {/* Right Section */}
+      <div ref={ref} className="flex shrink-0 items-center gap-4 relative">
+        
+        {/* Language */}
+        <div className="relative">
           <button 
-            onClick={toggleTheme}
-            title={isLightMode ? "Passer au Mode Sombre" : "Passer au Mode Clair"}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-[12px] font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-all active:scale-95 shadow-xs"
+            onClick={() => setOpenDropdown(openDropdown === "lang" ? null : "lang")}
+            className="rounded-full border border-white/60 bg-white/30 px-2.5 py-1 text-[10px] font-bold text-ink-600 hover:bg-white/70 hover:text-ink-900 shadow-sm active:scale-95 transition-all duration-300"
           >
-            {isLightMode ? (
-              <>
-                <Moon size={15} className="text-amber-400" />
-                <span className="hidden sm:inline">Sombre</span>
-              </>
-            ) : (
-              <>
-                <Sun size={15} className="text-amber-400" />
-                <span className="hidden sm:inline">Clair</span>
-              </>
+            FR
+          </button>
+          
+          {openDropdown === "lang" && (
+            <div className="absolute right-0 mt-2 w-28 rounded-xl border border-white/80 bg-white/80 backdrop-blur-[40px] p-1 shadow-spatial animate-in fade-in zoom-in-95 slide-in-from-top-2">
+              <button className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-[11px] font-semibold text-ink-900 hover:bg-white/60 transition-colors">
+                Français <Check size={12} className="text-brass" />
+              </button>
+              <button className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-[11px] font-medium text-ink-600 hover:bg-white/60 transition-colors">
+                English
+              </button>
+              <button className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-600 hover:bg-white/60 transition-colors">
+                العربية
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Notifications */}
+        <div className="relative">
+          <button 
+            onClick={() => setOpenDropdown(openDropdown === "bell" ? null : "bell")}
+            className="relative rounded-full p-2 text-ink-500 hover:bg-white/40 hover:text-ink-900 transition-all duration-300 active:scale-95"
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-status-danger ring-2 ring-white/60 animate-pulse" />
             )}
           </button>
-
-          {/* Notifications */}
-          <div className="relative">
-            <button 
-              onClick={() => setOpenDropdown(openDropdown === "bell" ? null : "bell")}
-              className="relative rounded-xl border border-slate-800 bg-slate-900/80 p-2 text-slate-300 hover:bg-slate-800 hover:text-white transition-all active:scale-95 shadow-xs"
-            >
-              <Bell size={17} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-slate-950 animate-pulse" />
-              )}
-            </button>
-            
-            {openDropdown === "bell" && (
-              <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl animate-in fade-in zoom-in-95 z-50 overflow-hidden flex flex-col">
-                <div className="px-4 py-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
-                  <h3 className="font-bold text-white text-[13px]">Alertes & Notifications</h3>
-                  {unreadCount > 0 && (
-                    <button 
+          
+          {openDropdown === "bell" && (
+            <div className="absolute right-0 mt-2 w-80 rounded-3xl border border-white/80 bg-white/80 backdrop-blur-[40px] shadow-spatial animate-in fade-in zoom-in-95 slide-in-from-top-2 overflow-hidden flex flex-col">
+              <div className="px-5 py-4 border-b border-ink-200/50 flex justify-between items-center bg-white/20">
+                <h3 className="font-semibold text-ink-900 text-[14px]">Alertes & Notifications</h3>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={() => {
+                      setNotifications(notifications.map(n => ({ ...n, unread: false })));
+                      setUnreadCount(0);
+                    }}
+                    className="text-[11px] font-medium text-brass hover:text-brass-dark"
+                  >
+                    Tout marquer comme lu
+                  </button>
+                )}
+              </div>
+              <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-2">
+                {notifications.length === 0 ? (
+                  <p className="text-[12px] text-ink-400 text-center py-8">Aucune alerte active.</p>
+                ) : (
+                  notifications.map((n) => (
+                    <div 
+                      key={n.id} 
                       onClick={() => {
-                        setNotifications(notifications.map(n => ({ ...n, unread: false })));
-                        setUnreadCount(0);
+                        setNotifications(notifications.map(item => item.id === n.id ? { ...item, unread: false } : item));
+                        setUnreadCount(prev => Math.max(0, prev - (n.unread ? 1 : 0)));
                       }}
-                      className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300"
+                      className={`flex gap-3 p-3 hover:bg-white/50 rounded-2xl cursor-pointer transition-colors ${!n.unread ? 'opacity-60' : ''}`}
                     >
-                      Tout marquer lu
-                    </button>
-                  )}
-                </div>
-                <div className="max-h-[300px] overflow-y-auto p-2 divide-y divide-slate-800/60">
-                  {notifications.length === 0 ? (
-                    <p className="text-[12px] text-slate-500 text-center py-6">Aucune alerte active.</p>
-                  ) : (
-                    notifications.map((n) => (
-                      <div 
-                        key={n.id} 
-                        onClick={() => {
-                          setNotifications(notifications.map(item => item.id === n.id ? { ...item, unread: false } : item));
-                          setUnreadCount(prev => Math.max(0, prev - (n.unread ? 1 : 0)));
-                        }}
-                        className={`flex gap-3 p-2.5 hover:bg-slate-800/60 rounded-xl cursor-pointer transition-colors ${!n.unread ? 'opacity-60' : ''}`}
-                      >
-                        {n.unread && (
-                          <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0" />
-                        )}
-                        <div>
-                          <p className="text-[12.5px] text-white font-semibold">{n.title}</p>
-                          <p className="text-[11.5px] text-slate-400 mt-0.5 leading-relaxed">{n.description}</p>
-                          <p className="text-[10px] text-indigo-400 mt-1 font-bold">{n.time}</p>
-                        </div>
+                      {n.unread && (
+                        <div className="w-2 h-2 rounded-full bg-status-danger mt-1.5 shrink-0" />
+                      )}
+                      <div>
+                        <p className="text-[13px] text-ink-900 font-semibold">{n.title}</p>
+                        <p className="text-[12px] text-ink-500 mt-0.5 leading-relaxed">{n.description}</p>
+                        <p className="text-[10px] text-brass-dark mt-1 font-bold">{n.time}</p>
                       </div>
-                    ))
-                  )}
-                </div>
+                    </div>
+                  ))
+                )}
               </div>
-            )}
-          </div>
-
-          {/* User Menu */}
-          <div className="relative">
-            <button 
-              onClick={() => setOpenDropdown(openDropdown === "profile" ? null : "profile")}
-              className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 p-1 pr-2.5 hover:bg-slate-800 shadow-xs active:scale-95 transition-all"
-            >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-[11px] font-bold text-white shadow-xs">
-                FD
-              </div>
-              <span className="hidden text-[12.5px] font-semibold text-slate-200 md:block">
-                Fawatir Demo
-              </span>
-              <ChevronDown size={13} className="text-slate-400" />
-            </button>
-            
-            {openDropdown === "profile" && (
-              <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-slate-800 bg-slate-900 p-1.5 shadow-2xl animate-in fade-in zoom-in-95 z-50">
-                <div className="px-3 py-2 border-b border-slate-800 mb-1">
-                  <p className="text-[13px] font-bold text-white">Fawatir Demo</p>
-                  <p className="text-[11px] text-slate-400">demo@fawatir.ma</p>
-                </div>
-                <button onClick={() => router.push("/entreprise")} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-medium text-slate-300 hover:bg-slate-800 transition-colors">
-                  <User size={15} /> Mon Profil
-                </button>
-                <button onClick={() => router.push("/entreprise")} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-medium text-slate-300 hover:bg-slate-800 transition-colors">
-                  <Settings size={15} /> Paramètres
-                </button>
-                <div className="my-1 border-t border-slate-800" />
-                <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-medium text-red-400 hover:bg-red-500/10 transition-colors">
-                  <LogOut size={15} /> Déconnexion
-                </button>
-              </div>
-            )}
-          </div>
-
+            </div>
+          )}
         </div>
-      </header>
 
-      {/* Global Modals triggered from Topbar */}
-      <QuickInvoiceModal isOpen={isInvoiceModalOpen} onClose={() => setIsInvoiceModalOpen(false)} />
-      <ScannerModal isOpen={isScannerModalOpen} onClose={() => setIsScannerModalOpen(false)} targetType="factures" />
-      <SpreadsheetImportModal isOpen={isExcelModalOpen} onClose={() => setIsExcelModalOpen(false)} />
-    </>
+        {/* User Menu */}
+        <div className="relative">
+          <button 
+            onClick={() => setOpenDropdown(openDropdown === "profile" ? null : "profile")}
+            className="flex items-center gap-2 rounded-full border border-white/60 bg-white/30 p-1 pr-3 hover:bg-white/60 shadow-sm active:scale-95 transition-all duration-300"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-ai text-[12px] font-bold text-white shadow-glow">
+              FD
+            </div>
+            <span className="hidden text-[13px] font-semibold text-ink-900 md:block">
+              Fawatir Demo
+            </span>
+            <ChevronDown size={14} className="text-ink-400" />
+          </button>
+          
+          {openDropdown === "profile" && (
+            <div className="absolute right-0 mt-2 w-56 rounded-3xl border border-white/80 bg-white/80 backdrop-blur-[40px] p-2 shadow-spatial animate-in fade-in zoom-in-95 slide-in-from-top-2">
+              <div className="px-3 py-3 border-b border-ink-200/50 mb-1">
+                <p className="text-[14px] font-semibold text-ink-900">Fawatir Demo</p>
+                <p className="text-[12px] text-ink-500">demo@fawatir.ma</p>
+              </div>
+              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-700 hover:bg-white/60 transition-colors">
+                <User size={16} /> Mon Profil
+              </button>
+              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-700 hover:bg-white/60 transition-colors">
+                <Settings size={16} /> Paramètres
+              </button>
+              <div className="my-1 border-t border-ink-200/50" />
+              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-status-danger hover:bg-status-dangerBg transition-colors">
+                <LogOut size={16} /> Déconnexion
+              </button>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </header>
   );
 }

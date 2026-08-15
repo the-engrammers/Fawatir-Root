@@ -2,114 +2,89 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, MoreHorizontal, MessageSquare } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
-import WhatsAppSendModal from "@/components/WhatsAppSendModal";
-import ConfirmModal from "@/components/ConfirmModal";
+import { fetchAPI } from "@/lib/api";
 
 const statutFilters = ["Toutes", "Brouillon", "Envoyée", "Vue", "Payée", "En retard", "Annulée"];
 
 export default function FacturesPage() {
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [clientsMap, setClientsMap] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [activeStatut, setActiveStatut] = useState("Toutes");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [list, setList] = useState<any[]>([]);
-  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
-  // Confirm Modal state
-  const [confirmConfig, setConfirmConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: () => {}
-  });
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  // WhatsApp Modal state
-  const [selectedFactureForWhatsApp, setSelectedFactureForWhatsApp] = useState<any | null>(null);
-
-  const fetchInvoices = async () => {
+  const fetchData = async () => {
+    setError("");
     try {
-      const res = await fetch(`/api/invoices?t=${Date.now()}`);
-      const data = await res.json();
-      const apiList = Array.isArray(data) ? data : (data.results || []);
-      const formatted = apiList.map((inv: any) => ({
-        id: inv.id,
-        numero: inv.invoice_number || "FAC-000",
-        client: inv.client_name || "Client",
-        montant: parseFloat(inv.total_amount) || 0,
-        statut: inv.status || "Brouillon",
-        dateEmission: inv.date || new Date().toISOString().split("T")[0]
-      }));
-      setList(formatted);
+      const [invRes, cliRes] = await Promise.all([
+        fetchAPI("api/invoices/"),
+        fetchAPI("api/clients/"),
+      ]);
+
+      if (!invRes.ok) {
+        setError("Impossible de charger les factures");
+        setLoading(false);
+        return;
+      }
+
+      const invData = await invRes.json();
+      const cliData = await cliRes.json();
+
+      const invList = Array.isArray(invData) ? invData : invData.results || [];
+      const cliList = Array.isArray(cliData) ? cliData : cliData.results || [];
+
+      const map: Record<string, string> = {};
+      cliList.forEach((c: any) => {
+        map[c.id] = c.contact_name || c.company_name || "Client inconnu";
+      });
+
+      setClientsMap(map);
+      setInvoices(invList);
     } catch (err) {
-      console.error("Error fetching invoices", err);
-      setList([]);
+      setError("Erreur de connexion au serveur");
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchInvoices();
-    const handleDataUpdate = () => fetchInvoices();
-    window.addEventListener("dataUpdated", handleDataUpdate);
-    return () => window.removeEventListener("dataUpdated", handleDataUpdate);
-  }, []);
-
-  const rows = list.filter((f) => {
-    const matchesStatut = activeStatut === "Toutes" || f.statut === activeStatut;
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      (f.numero || "").toLowerCase().includes(term) ||
-      (f.client || "").toLowerCase().includes(term);
-    return matchesStatut && matchesSearch;
-  });
+  const rows =
+    activeStatut === "Toutes"
+      ? invoices
+      : invoices.filter((f) => f.status === activeStatut);
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 text-slate-100">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="mx-auto max-w-[1400px] space-y-5">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Factures</h1>
-          <p className="text-[13px] text-slate-400">Créez, suivez et encaissez vos factures professionnelles</p>
+          <h1 className="font-display text-[22px] font-semibold text-ink-900">Factures</h1>
+          <p className="text-[13px] text-ink-400">Créez, suivez et encaissez vos factures</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => {
-              setConfirmConfig({
-                isOpen: true,
-                title: "Vider les factures",
-                message: "Voulez-vous vraiment vider toute la liste des factures ? Cette action est irréversible.",
-                onConfirm: async () => {
-                  await fetch("/api/invoices/clear", { method: "DELETE" });
-                  if (typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
-                  }
-                  fetchInvoices();
-                }
-              });
-            }}
-            className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-[12.5px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
-          >
-            Vider
-          </button>
-          <Link
-            href="/factures/nouvelle"
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all active:scale-95 self-start sm:self-auto"
-          >
-            <Plus size={16} /> Nouvelle facture
-          </Link>
-        </div>
+        <Link
+          href="/factures/nouvelle"
+          className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
+        >
+          <Plus size={15} /> Nouvelle facture
+        </Link>
       </div>
 
-      <div className="bento-card !p-5">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+      <div className="ledger-card !p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-1.5">
             {statutFilters.map((s) => (
               <button
                 key={s}
                 onClick={() => setActiveStatut(s)}
-                className={`rounded-xl px-3.5 py-1.5 text-[12px] font-semibold transition-all ${
+                className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                   activeStatut === s
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400/30"
-                    : "bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800"
+                    ? "bg-ink-900 text-white"
+                    : "bg-paper text-ink-600 hover:bg-ink-200/50"
                 }`}
               >
                 {s}
@@ -119,151 +94,66 @@ export default function FacturesPage() {
           <div className="flex items-center gap-2">
             <input
               type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher une facture..."
-              className="w-64 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-56 rounded-md border border-ink-200 bg-paper px-3 py-1.5 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13.5px] border-collapse text-left">
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="animate-spin text-ink-300" size={24} />
+          </div>
+        ) : (
+          <table className="w-full text-[13px]">
             <thead>
-              <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-3">Facture N°</th>
-                <th className="py-3 px-3">Client</th>
-                <th className="py-3 px-3">Montant</th>
-                <th className="py-3 px-3">Statut</th>
-                <th className="py-3 px-3">Date d'émission</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+              <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
+                <th className="pb-2.5 font-medium">Facture N°</th>
+                <th className="pb-2.5 font-medium">Client</th>
+                <th className="pb-2.5 font-medium">Montant</th>
+                <th className="pb-2.5 font-medium">Statut</th>
+                <th className="pb-2.5 font-medium">Date d'émission</th>
+                <th className="pb-2.5 font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-ink-200/60">
               {rows.map((f) => (
-                <tr key={f.id} className="group hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3.5 px-3">
-                    <Link href={`/factures/${f.id}`} className="font-mono font-bold text-indigo-400 hover:text-indigo-300 hover:underline">
-                      {f.numero}
+                <tr key={f.id} className="group">
+                  <td className="py-3">
+                    <Link href={`/factures/${f.id}`} className="font-medium text-brass hover:underline">
+                      {f.invoice_number}
                     </Link>
                   </td>
-                  <td className="py-3.5 px-3 font-semibold text-slate-200">{f.client}</td>
-                  <td className="figure py-3.5 px-3 font-mono font-bold text-white">{mad(f.montant)}</td>
-                  <td className="py-3.5 px-3">
-                    <StatusChip tone={statusTone(f.statut)}>{f.statut}</StatusChip>
+                  <td className="py-3 text-ink-700">{clientsMap[f.client] || "—"}</td>
+                  <td className="figure py-3 text-ink-900">{mad(f.total_amount)}</td>
+                  <td className="py-3">
+                    <StatusChip tone={statusTone(f.status)}>{f.status}</StatusChip>
                   </td>
-                  <td className="py-3.5 px-3 text-slate-400 text-[12.5px]">{f.dateEmission}</td>
-                  <td className="py-3.5 px-3 text-right relative">
-                    <button 
-                      onClick={() => setActionMenuOpen(actionMenuOpen === f.id ? null : f.id)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
-                    >
+                  <td className="py-3 text-ink-400">{f.issue_date}</td>
+                  <td className="py-3 text-right">
+                    <button className="rounded-md p-1.5 text-ink-400 opacity-0 hover:bg-ink-900/[0.04] hover:text-ink-700 group-hover:opacity-100">
                       <MoreHorizontal size={16} />
                     </button>
-                    {actionMenuOpen === f.id && (
-                      <div className="absolute right-2 top-10 z-20 w-48 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
-                        <Link 
-                          href={`/factures/${f.id}`}
-                          className="block rounded-lg px-3 py-2 text-[12.5px] text-slate-200 hover:bg-slate-800 font-medium"
-                        >
-                          Voir la facture
-                        </Link>
-                        <Link
-                          href={`/factures/${f.id}/print`}
-                          target="_blank"
-                          className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-indigo-300 hover:bg-slate-800 font-medium"
-                        >
-                          Télécharger PDF
-                        </Link>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await fetch(`/api/invoices/${f.id}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'Payée' })
-                              });
-                            } catch (e) {}
-                            if (typeof window !== "undefined") {
-                              window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
-                            }
-                            fetchInvoices();
-                            setActionMenuOpen(null);
-                          }}
-                          className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-emerald-400 hover:bg-emerald-500/10 font-medium"
-                        >
-                          Marquer comme Payée
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedFactureForWhatsApp(f);
-                            setActionMenuOpen(null);
-                          }}
-                          className="flex items-center gap-1.5 w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-emerald-300 hover:bg-slate-800 font-medium"
-                        >
-                          <MessageSquare size={14} className="text-emerald-400" />
-                          Envoyer sur WhatsApp
-                        </button>
-                        <button
-                          onClick={() => {
-                            setConfirmConfig({
-                              isOpen: true,
-                              title: `Supprimer la facture ${f.numero}`,
-                              message: "Voulez-vous vraiment supprimer cette facture ? Cette action est irréversible.",
-                              onConfirm: async () => {
-                                try {
-                                  await fetch(`/api/invoices/${f.id}`, { method: "DELETE" });
-                                } catch (err) {}
-                                if (typeof window !== "undefined") {
-                                  window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
-                                }
-                                fetchInvoices();
-                              }
-                            });
-                            setActionMenuOpen(null);
-                          }}
-                          className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    )}
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-10 text-center text-ink-400">
                     Aucune facture pour ce statut.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
-
-      {/* WhatsApp Modal */}
-      {selectedFactureForWhatsApp && (
-        <WhatsAppSendModal
-          isOpen={!!selectedFactureForWhatsApp}
-          onClose={() => setSelectedFactureForWhatsApp(null)}
-          documentType={selectedFactureForWhatsApp.statut === "En retard" ? "relance" : "facture"}
-          recipientName={selectedFactureForWhatsApp.client}
-          recipientPhone={""}
-          documentNumber={selectedFactureForWhatsApp.numero}
-          amount={selectedFactureForWhatsApp.montant}
-          dueDate={selectedFactureForWhatsApp.dateEcheance}
-        />
-      )}
-
-      <ConfirmModal
-        isOpen={confirmConfig.isOpen}
-        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmConfig.onConfirm}
-        title={confirmConfig.title}
-        message={confirmConfig.message}
-      />
     </div>
   );
 }

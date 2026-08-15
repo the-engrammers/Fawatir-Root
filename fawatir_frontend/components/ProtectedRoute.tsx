@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!isAuthenticated && !isPublic) {
-        router.push("/login");
+        // router.push("/login"); // TODO: عاود فعّلها ملي يكمل login/register ف backend
       }
       setChecked(true);
     }, 100);
@@ -25,7 +25,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (isPublic) return <>{children}</>;
   if (!checked) return null;
-  if (!isAuthenticated) return null; // Component won't render while redirecting
+  if (!isAuthenticated) return null; // TODO: login/register backend
 
   return <>{children}</>;
 }

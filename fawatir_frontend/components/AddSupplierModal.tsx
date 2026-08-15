@@ -1,151 +1,124 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import Modal from "./Modal";
-import FormAlert from "./FormAlert";
+import { X } from "lucide-react";
+import { fetchAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/store/authStore";
 
-export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) {
+export default function AddSupplierModal({ onClose }: { onClose: () => void }) {
+  const companyId = useAuthStore((s) => s.user?.company);
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
-  const [country, setCountry] = useState("Maroc");
-  const [ice, setIce] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!companyName) {
-      setError("Le nom de l'entreprise est obligatoire");
+      setError("Nom de l'entreprise requis");
       return;
     }
-    
-    setIsSubmitting(true);
-    setError(null);
-
-    const payload = {
-      company_name: companyName,
-      contact_name: contactName,
-      email,
-      phone,
-      city,
-      country,
-      metadata: ice ? { ICE: ice } : {}
-    };
-
-    // Optimistic background fetch
+    setError("");
+    setLoading(true);
     try {
-      fetch("/api/suppliers", {
+      const res = await fetchAPI("api/suppliers/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }).then((res) => {
-        if (res.ok && typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
-        }
+        body: JSON.stringify({
+          company: companyId,
+          company_name: companyName,
+          contact_name: contactName,
+          email: email,
+          phone: phone,
+        }),
       });
-      
-      if (onSuccess) onSuccess();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setError("Erreur: " + JSON.stringify(errData));
+        setLoading(false);
+        return;
+      }
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue lors de l'enregistrement");
-    } finally {
-      setIsSubmitting(false);
+    } catch (err) {
+      setError("Erreur de connexion au serveur");
+      setLoading(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Ajouter un Fournisseur">
-      <FormAlert error={error} onClose={() => setError(null)} title="Erreur de formulaire" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
+      <div className="w-full max-w-md rounded-card bg-paper-card p-5 shadow-panel">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-ink-900">Ajouter un fournisseur</h2>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-800">
+            <X size={18} />
+          </button>
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom du fournisseur / Entreprise *</label>
+            <label className="mb-1.5 block text-[12.5px] text-ink-600">Nom de l'entreprise</label>
             <input
-              required
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Ex: Papeterie du Sud"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="Nom de l'entreprise"
+              className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />
           </div>
-
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom du contact</label>
+            <label className="mb-1.5 block text-[12.5px] text-ink-600">Contact</label>
             <input
               value={contactName}
               onChange={(e) => setContactName(e.target.value)}
-              placeholder="Ex: Karim Tazi"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="Nom du contact"
+              className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">E-mail</label>
+              <label className="mb-1.5 block text-[12.5px] text-ink-600">E-mail</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="contact@fournisseur.ma"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                placeholder="Adresse e-mail"
+                className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Téléphone</label>
+              <label className="mb-1.5 block text-[12.5px] text-ink-600">Téléphone</label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+212 522 000000"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                placeholder="Numéro de téléphone"
+                className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Ville</label>
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Casablanca"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+              {error}
             </div>
-            <div>
-              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">ICE (Identifiant Fiscal)</label>
-              <input
-                value={ice}
-                onChange={(e) => setIce(e.target.value)}
-                placeholder="000XXXXXXXXXXXX"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
-        <div className="mt-5 flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="mt-4 flex justify-end gap-2">
           <button
-            type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+            className="rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50"
           >
             Annuler
           </button>
           <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 disabled:opacity-60 transition-all active:scale-95"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800 disabled:opacity-50"
           >
-            {isSubmitting && <Loader2 size={15} className="animate-spin" />}
-            Ajouter le fournisseur
+            {loading ? "Ajout..." : "Ajouter un fournisseur"}
           </button>
         </div>
-      </form>
-    </Modal>
+      </div>
+    </div>
   );
 }

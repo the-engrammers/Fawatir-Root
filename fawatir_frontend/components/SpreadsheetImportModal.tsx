@@ -2,17 +2,15 @@
 
 import { useState, useRef } from "react";
 import Modal from "./Modal";
-import FormAlert from "./FormAlert";
-import { TableProperties, Upload, Send, Loader2, CheckCircle2, Database } from "lucide-react";
+import { TableProperties, Upload, Send, Loader2, CheckCircle2, AlertCircle, Database } from "lucide-react";
 
 interface SpreadsheetImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
   expectedType?: string;
 }
 
-export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, expectedType = "stock" }: SpreadsheetImportModalProps) {
+export default function SpreadsheetImportModal({ isOpen, onClose, expectedType = "stock" }: SpreadsheetImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -29,29 +27,44 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
     setError(null);
 
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      
+      // Get or create company ID
+      let companyId = null;
+      const compRes = await fetch(`${apiUrl}/api/companies/`);
+      const compData = await compRes.json();
+      const compList = Array.isArray(compData) ? compData : (compData.results || []);
+      if (compList.length > 0) {
+        companyId = compList[0].id;
+      } else {
+        const createRes = await fetch(`${apiUrl}/api/companies/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Fawatir Demo', email: 'demo@fawatir.ma' })
+        });
+        const created = await createRes.json();
+        companyId = created.id;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("expected_type", expectedType);
+      formData.append("company", companyId); // REQUIRED BY BACKEND
 
-      const response = await fetch("/api/ai/spreadsheets", {
+      const response = await fetch(`${apiUrl}/api/ai/spreadsheets/`, {
         method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMsg = errorText;
-        try {
-          const errJson = JSON.parse(errorText);
-          if (errJson.error) errorMsg = errJson.error;
-        } catch {}
-        throw new Error(`Erreur d'analyse: ${errorMsg}`);
+        throw new Error(`Erreur d'analyse: ${errorText}`);
       }
 
       const data = await response.json();
       setImportSession(data);
     } catch (err: any) {
-      setError(err.message || "Une erreur est survenue lors de l'analyse");
+      setError(err.message || "Une erreur est survenue");
     } finally {
       setIsLoading(false);
     }
@@ -63,8 +76,10 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
     setError(null);
 
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      
       // 1. First save the customized column_mapping via PATCH
-      const patchResponse = await fetch(`/api/ai/spreadsheets/${importSession.id}`, {
+      const patchResponse = await fetch(`${apiUrl}/api/ai/spreadsheets/${importSession.id}/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +94,7 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
       }
 
       // 2. Then confirm the import
-      const response = await fetch(`/api/ai/spreadsheets/${importSession.id}/confirm`, {
+      const response = await fetch(`${apiUrl}/api/ai/spreadsheets/${importSession.id}/confirm/`, {
         method: "POST",
       });
 
@@ -89,10 +104,6 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
 
       const data = await response.json();
       setFinalResult(data);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: data.data_type || expectedType } }));
-      }
-      if (onSuccess) onSuccess();
     } catch (err: any) {
       setError(err.message || "Erreur d'import");
     } finally {
@@ -122,11 +133,7 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
               Les lignes ont été insérées dans la base de données ({finalResult.data_type}).
             </p>
             <button
-              onClick={() => { 
-                handleReset(); 
-                if (onSuccess) onSuccess(); 
-                onClose(); 
-              }}
+              onClick={() => { handleReset(); onClose(); }}
               className="rounded-full bg-ink-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-ink-800 transition-all shadow-sm active:scale-95"
             >
               Terminer
@@ -222,7 +229,11 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
               </div>
             </div>
 
-            <FormAlert error={error} onClose={() => setError(null)} title="Erreur d'import" />
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-[11px] text-red-600 font-medium mb-4">
+                <AlertCircle size={14} /> {error}
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 mt-2">
               <button
@@ -254,11 +265,15 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
             <div>
               <h4 className="text-sm font-semibold text-ink-900 mb-1">Import Intelligent via IA</h4>
               <p className="text-[11px] text-ink-500 mb-4 leading-relaxed">
-                Uploadez un fichier <strong>Excel (.xlsx, .xls)</strong> ou <strong>CSV (.csv)</strong>. L'IA va analyser les colonnes, vous proposer un mapping, puis insérer les données.
+                Uploadez un fichier <strong>Excel (.xlsx)</strong>. L'IA va analyser les colonnes, proposer un mapping, puis insérer les données.
               </p>
             </div>
 
-            <FormAlert error={error} onClose={() => setError(null)} title="Erreur lors de l'import" />
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-[11px] text-red-600 font-medium">
+                <AlertCircle size={14} /> {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div 
@@ -271,7 +286,7 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept=".xlsx, .xls, .csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, text/csv"
+                  accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
                   }}
@@ -280,7 +295,7 @@ export default function SpreadsheetImportModal({ isOpen, onClose, onSuccess, exp
                   {file ? <CheckCircle2 size={18} /> : <Upload size={18} />}
                 </div>
                 <p className="text-[12px] font-medium text-ink-700">
-                  {file ? file.name : "Sélectionner un fichier Excel ou CSV"}
+                  {file ? file.name : "Sélectionner un fichier Excel"}
                 </p>
               </div>
               

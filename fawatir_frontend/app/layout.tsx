@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import ClientLayoutWrapper from "@/components/ClientLayoutWrapper";
+import AuthHydrator from "@/components/AuthHydrator";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Fatourati | Tableau de bord",
@@ -13,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="fr">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -26,15 +27,13 @@ export default function RootLayout({
           }
         `}} />
       </head>
-      <body suppressHydrationWarning className="font-sans text-ink-900 bg-[#FAFAFA] min-h-screen antialiased overflow-hidden relative">
-        {/* Spatial Background Glows & Grid */}
-        <div className="fixed inset-0 z-0 bg-dot-grid opacity-20 pointer-events-none" />
-        <div className="fixed -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-[140px] pointer-events-none" />
-        <div className="fixed -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-pink-500/10 blur-[140px] pointer-events-none" />
+      <body className="font-sans text-ink-900 bg-[#FAFAFA] min-h-screen selection:bg-brass selection:text-white antialiased overflow-hidden relative">
+        <AuthHydrator />
+        <div className="fixed inset-0 z-0 bg-spatial-bg opacity-70 pointer-events-none"></div>
+        <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-brass/5 blur-[120px] pointer-events-none"></div>
+        <div className="fixed bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pink-500/5 blur-[120px] pointer-events-none"></div>
 
-        <ClientLayoutWrapper>
-          {children}
-        </ClientLayoutWrapper>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

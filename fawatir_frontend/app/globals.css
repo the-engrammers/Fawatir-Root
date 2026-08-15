@@ -2,264 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .bg-dot-grid {
-    background-image: radial-gradient(rgba(148, 163, 184, 0.15) 1px, transparent 1px);
-    background-size: 20px 20px;
-  }
-  .glow-indigo {
-    box-shadow: 0 0 30px -5px rgba(99, 102, 241, 0.3);
-  }
-  .glow-emerald {
-    box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.3);
-  }
-}
-
-/* ==========================================================================
-   1. DEFAULT THEME: DARK MODE
-   ========================================================================== */
-
 html {
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   background-color: #FAFAFA;
-  color: #09090b;
-  font-size: 85%; /* Scales down rem units to mimic ~80% zoom density */
 }
 
 body {
-  background-color: #FAFAFA;
-  color: #09090b;
-  font-family: inherit;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
+  @apply bg-paper text-ink-800 font-sans min-h-screen relative overflow-x-hidden;
 }
 
 .figure {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
+  @apply font-mono tabular-nums tracking-tight;
 }
 
-/* Bento & Ledger Cards in Dark Mode */
-.ledger-card, .bento-card {
-  position: relative;
-  background-color: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(16px);
-  border-radius: 1rem;
-  border: 1px solid rgba(30, 41, 59, 0.9);
-  padding: 1.5rem;
-  overflow: hidden;
-  color: #F8FAFC;
-  transition: all 0.2s ease-in-out;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+.bento-card {
+  @apply relative bg-paper-card backdrop-blur-3xl rounded-card shadow-bento border border-white/80 p-6 overflow-hidden transition-all duration-500 ease-out;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8), inset 0 -1px 1px rgba(0,0,0,0.02), 0 20px 40px -10px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0,0,0,0.02);
 }
 
-.ledger-card:hover, .bento-card:hover {
-  border-color: rgba(51, 65, 85, 0.9);
+.bento-card:hover {
+  @apply shadow-bento-hover -translate-y-1 border-white;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 1), inset 0 -1px 1px rgba(0,0,0,0.01), 0 30px 60px -15px rgba(0, 0, 0, 0.08), 0 2px 5px rgba(0,0,0,0.03);
 }
 
-/* Form Inputs in Dark Mode */
-input, select, textarea {
-  color: #FFFFFF;
-  background-color: #020617;
-  border-color: #1E293B;
+.hero-gradient {
+  background: linear-gradient(135deg, #4F46E5 0%, #EC4899 100%);
 }
 
-select option {
-  background-color: #0F172A;
-  color: #F8FAFC;
+::selection {
+  background: rgba(79, 70, 229, 0.2);
+  color: #09090b;
 }
 
-input::placeholder, textarea::placeholder {
-  color: #64748B;
-}
-
-/* Table Design in Dark Mode */
-table {
-  color: #F8FAFC;
-}
-thead tr, thead {
-  background-color: rgba(30, 41, 59, 0.5);
-  border-color: #334155;
-}
-th {
-  color: #CBD5E1;
-  font-weight: 600;
-}
-td {
-  color: #E2E8F0;
-  border-color: #1E293B;
-}
-
-/* Printable PDF Document / White Cards in Dark Mode */
-.bg-white {
-  color: #0F172A;
-}
-
-.bg-white p,
-.bg-white h1,
-.bg-white h2,
-.bg-white h3,
-.bg-white h4,
-.bg-white td,
-.bg-white th,
-.bg-white div:not([class*="bg-indigo"]):not([class*="bg-emerald"]):not([class*="bg-red"]):not([class*="bg-amber"]):not([class*="bg-slate-900"]) {
-  color: #0F172A;
-}
-
-/* ==========================================================================
-   2. SEPARATED LIGHT MODE THEME (html.light-mode)
-   ========================================================================== */
-
-/* Light Mode Canvas */
-html.light-mode,
-html.light-mode body {
-  background-color: #F8FAFC !important;
-  color: #0F172A !important;
-}
-
-/* Background Gradients & Glows in Light Mode */
-html.light-mode .bg-dot-grid {
-  opacity: 0.1 !important;
-}
-
-/* Layout Containers: Cards, Header, Sidebar, Main Area */
-html.light-mode header,
-html.light-mode aside,
-html.light-mode main,
-html.light-mode .bento-card,
-html.light-mode .ledger-card,
-html.light-mode .bg-slate-950,
-html.light-mode .bg-slate-900,
-html.light-mode .bg-slate-950\/80,
-html.light-mode .bg-slate-900\/80,
-html.light-mode .bg-slate-900\/90,
-html.light-mode .bg-slate-950\/90,
-html.light-mode .bg-slate-950\/40,
-html.light-mode .bg-slate-950\/50,
-html.light-mode .bg-slate-950\/60,
-html.light-mode .bg-slate-900\/30,
-html.light-mode .bg-slate-900\/50,
-html.light-mode .bg-slate-900\/95,
-html.light-mode .bg-paper-card,
-html.light-mode .bg-paper,
-html.light-mode .bg-gradient-to-b {
-  background-color: #FFFFFF !important;
-  background-image: none !important;
-  border-color: #E2E8F0 !important;
-  color: #0F172A !important;
-}
-
-/* Sub-panels and Secondary Surfaces in Light Mode */
-html.light-mode .bg-slate-800,
-html.light-mode .bg-slate-800\/40,
-html.light-mode .bg-slate-800\/50,
-html.light-mode .bg-slate-800\/60,
-html.light-mode .bg-slate-800\/80 {
-  background-color: #F1F5F9 !important;
-  border-color: #CBD5E1 !important;
-  color: #0F172A !important;
-}
-
-/* Typography Hierarchy in Light Mode */
-html.light-mode h1,
-html.light-mode h2,
-html.light-mode h3,
-html.light-mode h4,
-html.light-mode h5,
-html.light-mode h6 {
-  color: #0F172A !important;
-}
-
-html.light-mode .text-white,
-html.light-mode .text-slate-100,
-html.light-mode .text-slate-200 {
-  color: #0F172A !important;
-}
-
-html.light-mode p,
-html.light-mode label,
-html.light-mode span:not([class*="text-indigo"]):not([class*="text-emerald"]):not([class*="text-red"]):not([class*="text-amber"]):not([class*="text-purple"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]):not([class*="bg-red"]) {
-  color: #334155;
-}
-
-html.light-mode .text-slate-300,
-html.light-mode .text-slate-400 {
-  color: #475569 !important;
-}
-
-html.light-mode .text-slate-500,
-html.light-mode .text-slate-600 {
-  color: #64748B !important;
-}
-
-/* High Contrast Accent Text in Light Mode */
-html.light-mode .text-indigo-200,
-html.light-mode .text-indigo-300,
-html.light-mode .text-indigo-400 {
-  color: #4338CA !important;
-}
-
-html.light-mode .text-emerald-300,
-html.light-mode .text-emerald-400 {
-  color: #047857 !important;
-}
-
-html.light-mode .text-amber-300,
-html.light-mode .text-amber-400 {
-  color: #B45309 !important;
-}
-
-html.light-mode .text-red-300,
-html.light-mode .text-red-400 {
-  color: #B91C1C !important;
-}
-
-html.light-mode .text-purple-300,
-html.light-mode .text-purple-400 {
-  color: #6B21A8 !important;
-}
-
-/* Fix Unreadable Text Classes in Light Mode */
-html.light-mode .text-slate-100,
-html.light-mode .text-slate-200,
-html.light-mode .text-slate-300,
-html.light-mode .text-slate-400,
-html.light-mode .text-white,
-html.light-mode .text-ink-900,
-html.light-mode .text-ink-800 {
-  color: #0F172A !important;
-}
-
-html.light-mode .text-ink-700,
-html.light-mode .text-ink-600,
-html.light-mode .text-ink-500,
-html.light-mode .text-ink-400,
-html.light-mode .text-ink-300,
-html.light-mode .text-ink-200,
-html.light-mode .text-ink-100 {
-  color: #475569 !important;
-}
-
-/* Fix Unreadable Text Classes in Dark Mode */
-html:not(.light-mode) .text-slate-900,
-html:not(.light-mode) .text-slate-800,
-html:not(.light-mode) .text-slate-700,
-html:not(.light-mode) .text-black,
-html:not(.light-mode) .text-ink-900,
-html:not(.light-mode) .text-ink-800,
-html:not(.light-mode) .text-ink-700 {
-  color: #F8FAFC !important;
-}
-
-/* Scrollbars & Focus */
 :focus-visible {
-  outline: 2px solid #6366F1;
+  outline: 2px solid #4F46E5;
   outline-offset: 2px;
 }
 
+/* Elegant scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -268,84 +48,32 @@ html:not(.light-mode) .text-ink-700 {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(0, 0, 0, 0.2);
 }
 
-/* ==========================================================================
-   4. PRINT STYLES FOR FACTURES / DEVIS
-   ========================================================================== */
-@media print {
-  @page {
-    size: A4;
-    margin: 1.5cm;
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
-
-  /* Hide sidebar and navigation */
-  aside, nav, header, button, .print-hidden, a[href^="/"] {
+}
+@media print {
+  aside,
+  header,
+  nav,
+  button {
     display: none !important;
   }
-
-  /* Force light theme for printing */
-  html, body, main {
-    background-color: white !important;
-    color: black !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    min-height: auto !important;
-    font-size: 11pt !important;
+  main {
+    overflow: visible !important;
+    height: auto !important;
   }
-
-  /* Remove all shadows, borders, and dark backgrounds from cards */
-  .ledger-card, .bento-card, .bg-paper-card, .bg-slate-900, .bg-slate-800, .bg-indigo-900\/20, [class*="bg-"] {
-    background: transparent !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-    color: black !important;
+  body {
+    background: white !important;
   }
-  
-  /* If a card was used for layout, give it a subtle print border */
-  .ledger-card {
-    border: 1px solid #ddd !important;
-    padding: 1rem !important;
-    break-inside: avoid;
-  }
-
-  /* Force all text to black or dark gray */
-  * {
-    color: black !important;
-    border-color: #ccc !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .text-slate-400, .text-slate-500, .text-ink-400, .text-ink-500 {
-    color: #444 !important;
-  }
-
-  /* Table styling for print */
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    margin-top: 2rem !important;
-  }
-  
-  th {
-    border-bottom: 2px solid #000 !important;
-    padding: 0.5rem !important;
-    font-weight: bold !important;
-  }
-  
-  td {
-    border-bottom: 1px solid #eee !important;
-    padding: 0.5rem !important;
-  }
-
-  /* Specific alignments for total rows */
-  .text-right { text-align: right !important; }
 }

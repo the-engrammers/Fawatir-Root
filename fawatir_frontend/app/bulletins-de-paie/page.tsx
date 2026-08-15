@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Settings, ChevronDown, Download, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Settings, ChevronDown, Download } from "lucide-react";
+import { bulletinsList, employesList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 const CNSS_PCT = 4.48;
@@ -10,13 +11,13 @@ const AMO_PCT = 2.26;
 const TAUX_IR = 20; // simplified single-bracket display matching the cartography's example
 
 function computeBulletin(salaireBase: number, personnesACharge: number) {
-  const salaireBrut = salaireBase || 0;
+  const salaireBrut = salaireBase;
   const cnssBase = Math.min(salaireBrut, CNSS_PLAFOND);
   const cnss = cnssBase * (CNSS_PCT / 100);
   const amo = salaireBrut * (AMO_PCT / 100);
   const fraisPro = salaireBrut * 0.191;
   const baseImposableIR = salaireBrut - cnss - amo - fraisPro;
-  const deductionPersonnes = (personnesACharge || 0) * (360 / 12);
+  const deductionPersonnes = personnesACharge * (360 / 12);
   const ir = Math.max(0, baseImposableIR * (TAUX_IR / 100) - deductionPersonnes);
   const totalRetenues = cnss + amo + ir;
   const netAPayer = salaireBrut - totalRetenues;
@@ -25,43 +26,12 @@ function computeBulletin(salaireBase: number, personnesACharge: number) {
 }
 
 export default function BulletinsPaiePage() {
-  const [employesList, setEmployesList] = useState<any[]>([]);
-  const [bulletinsList, setBulletinsList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   const [modalOpen, setModalOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const fetchData = async () => {
-    try {
-      const [empRes, bulRes] = await Promise.all([
-        fetch(`/api/employes?t=${Date.now()}`),
-        fetch(`/api/bulletins?t=${Date.now()}`)
-      ]);
-      const empData = await empRes.json();
-      const bulData = await bulRes.json();
-      
-      setEmployesList(empData);
-      setBulletinsList(bulData);
-      if (bulData.length > 0 && !selected) setSelected(bulData[0].id);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    const handleUpdate = () => fetchData();
-    window.addEventListener("dataUpdated", handleUpdate);
-    return () => window.removeEventListener("dataUpdated", handleUpdate);
-  }, []);
+  const [selected, setSelected] = useState<string | null>(bulletinsList[0]?.id ?? null);
 
   const rows = bulletinsList.map((b) => {
-    const emp = employesList.find((e) => e.id === b.employeId) || { prenom: "Inconnu", nom: "", salaire_base: 0, personnesACharge: 0 };
-    return { ...b, emp, calc: computeBulletin(emp.salaire_base, emp.personnesACharge) };
+    const emp = employesList.find((e) => e.id === b.employeId)!;
+    return { ...b, emp, calc: computeBulletin(emp.salaireBase, emp.personnesACharge) };
   });
 
   const selectedRow = rows.find((r) => r.id === selected);
@@ -82,10 +52,7 @@ export default function BulletinsPaiePage() {
           <div className="flex items-center gap-1 rounded-md border border-ink-200 px-3 py-2 text-[13px] text-ink-700">
             avril <ChevronDown size={13} className="text-ink-400" /> 2026
           </div>
-          <button 
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-2 rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50"
-          >
+          <button className="flex items-center gap-2 rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
             <Settings size={15} /> Paramètres de paie
           </button>
           <button
@@ -115,10 +82,8 @@ export default function BulletinsPaiePage() {
       )}
 
       <div className="ledger-card !p-4">
-        {isLoading ? (
-          <div className="flex justify-center p-12"><Loader2 className="animate-spin text-ink-300" size={32} /></div>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center">
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-14 text-center">
             <p className="text-[13.5px] font-medium text-ink-700">Aucun bulletin de paie</p>
             <p className="text-[12px] text-ink-400">
               Créez des bulletins ou générez un mois complet pour tous les employés actifs
@@ -182,10 +147,7 @@ export default function BulletinsPaiePage() {
                 {selectedRow.emp.prenom} {selectedRow.emp.nom}
               </p>
             </div>
-            <button 
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded-md bg-ink-900 px-3 py-2 text-[12.5px] font-medium text-white hover:bg-ink-800"
-            >
+            <button className="flex items-center gap-1.5 rounded-md bg-ink-900 px-3 py-2 text-[12.5px] font-medium text-white hover:bg-ink-800">
               <Download size={14} /> Télécharger PDF
             </button>
           </div>
@@ -252,36 +214,6 @@ export default function BulletinsPaiePage() {
                 className="rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
               >
                 Confirmer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {settingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
-          <div className="w-full max-w-md rounded-card bg-paper-card p-5 shadow-panel space-y-4">
-            <h2 className="text-[15px] font-semibold text-ink-900">Paramètres de paie (Loi Marocaine 2025/2026)</h2>
-            <div className="space-y-3 text-[13px]">
-              <div>
-                <label className="block text-[12px] text-ink-600 mb-1">Plafond CNSS (MAD)</label>
-                <input defaultValue="6000" className="w-full rounded border border-ink-200 px-3 py-1.5" />
-              </div>
-              <div>
-                <label className="block text-[12px] text-ink-600 mb-1">Taux AMO Salarié (%)</label>
-                <input defaultValue="2.26" className="w-full rounded border border-ink-200 px-3 py-1.5" />
-              </div>
-              <div>
-                <label className="block text-[12px] text-ink-600 mb-1">Abattement Frais Pro (%)</label>
-                <input defaultValue="19.1" className="w-full rounded border border-ink-200 px-3 py-1.5" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-ink-100">
-              <button
-                onClick={() => setSettingsOpen(false)}
-                className="rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
-              >
-                Enregistrer
               </button>
             </div>
           </div>

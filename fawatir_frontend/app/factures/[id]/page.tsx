@@ -1,186 +1,239 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ChevronLeft, Pencil, Download, CheckCircle2, MessageSquare, MoreHorizontal, Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ChevronLeft, Download, CheckCircle2, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
-import WhatsAppSendModal from "@/components/WhatsAppSendModal";
+import { fetchAPI } from "@/lib/api";
 
-export default function FactureDetailPage({ params }: { params: { id: string } }) {
-  const [showWhatsApp, setShowWhatsApp] = useState(false);
+export default function FactureDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+
   const [facture, setFacture] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [clientName, setClientName] = useState("—");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const loadFacture = () => {
-      fetch(`/api/invoices?t=${Date.now()}`)
-        .then(res => res.json())
-        .then(data => {
-          const list = Array.isArray(data) ? data : (data.results || []);
-          const found = list.find((f: any) => f.id === params.id);
-          setFacture(found);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    };
-    loadFacture();
-    const handleUpdate = () => loadFacture();
-    window.addEventListener("dataUpdated", handleUpdate);
-    return () => window.removeEventListener("dataUpdated", handleUpdate);
-  }, [params.id]);
+    fetchData();
+  }, [id]);
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
-  if (!facture) return <div className="p-12 text-center text-white">Facture introuvable (404)</div>;
+  const fetchData = async () => {
+    setError("");
+    try {
+      const [facRes, itemsRes, prodRes] = await Promise.all([
+        fetchAPI(`api/invoices/${id}/`),
+        fetchAPI("api/invoice-items/"),
+        fetchAPI("api/products/"),
+      ]);
 
-  const clientInfo = { telephone: facture.phone || "" }; // Fallback
+      if (!facRes.ok) {
+        setError("Facture introuvable");
+        setLoading(false);
+        return;
+      }
 
-  const lignes = facture.lignes || [];
-  const sousTotal = lignes.reduce((sum: any, l: any) => sum + (l.quantite || l.qte || 1) * (l.prix_unitaire || l.prix || 0), 0);
-  const remiseAmount = 0; // Remise is not yet natively supported in Scanner
-  const taxe = sousTotal * 0.2; // Default 20%
-  const total = sousTotal - remiseAmount + taxe;
+      const facData = await facRes.json();
+      const itemsData = await itemsRes.json();
+      const prodData = await prodRes.json();
+
+      const itemsList = (Array.isArray(itemsData) ? itemsData : itemsData.results || []).filter(
+        (it: any) => it.invoice === id
+      );
+      const prodList = Array.isArray(prodData) ? prodData : prodData.results || [];
+      const prodMap: Record<string, string> = {};
+      prodList.forEach((p: any) => (prodMap[p.id] = p.name));
+
+      setFacture(facData);
+      setItems(itemsList.map((it: any) => ({ ...it, articleName: prodMap[it.product] || "Article" })));
+
+      if (facData.client) {
+        const cliRes = await fetchAPI(`api/clients/${facData.client}/`);
+        if (cliRes.ok) {
+          const cli = await cliRes.json();
+          setClientName(cli.company_name || cli.contact_name || "—");
+        }
+      }
+    } catch (err) {
+      setError("Erreur de connexion au serveur");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsPaid = async () => {
+    setUpdating(true);
+    try {
+      await fetchAPI(`api/invoices/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "Payée", balance_due: "0.00" }),
+      });
+      fetchData();
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-ink-300" size={24} />
+      </div>
+    );
+  }
+
+  if (error || !facture) {
+    return (
+      <div className="mx-auto max-w-[1100px] space-y-5">
+        <Link href="/factures" className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-500 hover:text-ink-800">
+          <ChevronLeft size={14} /> Factures
+        </Link>
+        <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+          {error || "Facture introuvable"}
+        </div>
+      </div>
+    );
+  }
+
+  const sousTotal = parseFloat(facture.subtotal || 0);
+  const remiseAmount = parseFloat(facture.discount_amount || 0);
+  const taxe = parseFloat(facture.tax_amount || 0);
+  const total = parseFloat(facture.total_amount || 0);
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/factures"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white transition-all"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-ink-200 text-ink-500 hover:border-brass/50 hover:text-ink-800"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-[22px] font-bold text-white tracking-tight">
+              <h1 className="font-display text-[20px] font-semibold text-ink-900">
                 {facture.invoice_number}
               </h1>
               <StatusChip tone={statusTone(facture.status)}>{facture.status}</StatusChip>
             </div>
-            <p className="text-[12.5px] text-slate-400">Créée le {facture.date}</p>
+            <p className="text-[12.5px] text-ink-400">Créée le {facture.issue_date}</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowWhatsApp(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/30 transition-all active:scale-95"
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50"
           >
-            <MessageSquare size={15} /> Envoyer WhatsApp
+            <Download size={14} /> PDF
           </button>
-          <Link
-            href={`/factures/${facture.id || params.id}/print`}
-            target="_blank"
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all"
-          >
-            <Download size={15} /> Télécharger PDF
-          </Link>
+          {facture.status !== "Payée" && (
+            <button
+              onClick={markAsPaid}
+              disabled={updating}
+              className="flex items-center gap-1.5 rounded-md bg-status-success px-3 py-2 text-[13px] font-medium text-white hover:bg-status-success/90 disabled:opacity-50"
+            >
+              <CheckCircle2 size={14} /> {updating ? "..." : "Marquer comme payée"}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="ledger-card">
-          <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-400">Client</p>
-          <p className="mt-1 text-[15px] font-bold text-white">{facture.client_name}</p>
-          {clientInfo?.telephone && (
-            <p className="text-[12px] text-emerald-400 font-mono mt-0.5">📞 {clientInfo.telephone}</p>
-          )}
+          <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Client</p>
+          <p className="mt-1 text-[15px] font-medium text-ink-900">{clientName}</p>
         </div>
         <div className="ledger-card">
-          <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-400">Dates</p>
-          <div className="mt-1 flex justify-between text-[13px] text-slate-300">
-            <span>Émise :</span>
-            <span className="font-semibold text-white">{facture.date}</span>
+          <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Dates</p>
+          <div className="mt-1 flex justify-between text-[13px] text-ink-700">
+            <span>Émise</span>
+            <span>{facture.issue_date}</span>
           </div>
-          <div className="flex justify-between text-[13px] text-slate-300">
-            <span>Échéance :</span>
-            <span className="font-semibold text-white">À réception</span>
+          <div className="flex justify-between text-[13px] text-ink-700">
+            <span>Échéance</span>
+            <span>{facture.due_date}</span>
           </div>
         </div>
         <div className="ledger-card">
-          <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-400">Total à payer</p>
-          <p className="figure mt-1 text-[22px] font-extrabold text-white">{mad(total)}</p>
+          <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Total</p>
+          <p className="figure mt-1 text-[20px] font-semibold text-ink-900">{mad(total)}</p>
         </div>
-      </div>
-
-      <div className="ledger-card flex items-center justify-between">
-        <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">
-          Coordonnées bancaires
-        </p>
-        <p className="figure text-[13px] font-mono font-bold text-slate-200">007 780 0001234567890123 45</p>
       </div>
 
       <div className="ledger-card">
-        <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-3">
-          <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[12px] font-medium uppercase tracking-wide text-ink-400">
             Lignes de facture
           </p>
-          <span className="text-[12px] text-slate-400">{lignes.length} article(s)</span>
+          <span className="text-[12px] text-ink-400">{items.length} article(s)</span>
         </div>
         <table className="w-full text-[13px]">
           <thead>
-            <tr className="border-b border-slate-800 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              <th className="pb-2">#</th>
-              <th className="pb-2">Article</th>
-              <th className="pb-2 text-right">Qté</th>
-              <th className="pb-2 text-right">Prix U</th>
-              <th className="pb-2 text-right">Total</th>
+            <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
+              <th className="pb-2 font-medium">#</th>
+              <th className="pb-2 font-medium">Article</th>
+              <th className="pb-2 font-medium text-right">Qté</th>
+              <th className="pb-2 font-medium text-right">Prix</th>
+              <th className="pb-2 font-medium text-right">Total</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {lignes.map((l: any, idx: number) => {
-              const qte = l.quantite || l.qte || 1;
-              const prix = l.prix_unitaire || l.prix || 0;
-              return (
-                <tr key={idx}>
-                  <td className="py-2.5 text-slate-500 font-mono">{idx + 1}</td>
-                  <td className="py-2.5 text-slate-200 font-semibold">{l.description || l.article || "Article inconnu"}</td>
-                  <td className="figure py-2.5 text-right text-slate-300">{qte}</td>
-                  <td className="figure py-2.5 text-right text-slate-300">{mad(prix)}</td>
-                  <td className="figure py-2.5 text-right font-bold text-white">
-                    {mad(qte * prix)}
-                  </td>
-                </tr>
-              );
-            })}
+          <tbody className="divide-y divide-ink-200/60">
+            {items.map((l, idx) => (
+              <tr key={l.id}>
+                <td className="py-2.5 text-ink-400">{idx + 1}</td>
+                <td className="py-2.5 text-ink-700">{l.articleName}</td>
+                <td className="figure py-2.5 text-right text-ink-700">{l.quantity}</td>
+                <td className="figure py-2.5 text-right text-ink-700">{mad(l.unit_price)}</td>
+                <td className="figure py-2.5 text-right font-medium text-ink-900">
+                  {mad(l.line_total)}
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-ink-400">
+                  Aucun article
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
-        <div className="ml-auto mt-4 w-full max-w-xs space-y-2 text-[13px] border-t border-slate-800 pt-3">
-          <div className="flex justify-between text-slate-400">
+        <div className="ml-auto mt-3 w-full max-w-xs space-y-1.5 text-[13px]">
+          <div className="flex justify-between text-ink-500">
             <span>Sous-total</span>
-            <span className="figure font-mono">{mad(sousTotal)}</span>
+            <span className="figure">{mad(sousTotal)}</span>
           </div>
-          <div className="flex justify-between text-slate-400">
-            <span>TVA (20%)</span>
-            <span className="figure font-mono">{mad(taxe)}</span>
+          <div className="flex justify-between text-ink-500">
+            <span>Taxe</span>
+            <span className="figure">{mad(taxe)}</span>
           </div>
           {remiseAmount > 0 && (
-            <div className="flex justify-between text-slate-400">
+            <div className="flex justify-between text-ink-500">
               <span>Remise</span>
-              <span className="figure font-mono">-{mad(remiseAmount)}</span>
+              <span className="figure">-{mad(remiseAmount)}</span>
             </div>
           )}
-          <div className="flex justify-between border-t border-slate-800 pt-2 text-[16px] font-extrabold text-white">
-            <span>Total TTC</span>
-            <span className="figure font-mono text-indigo-400">{mad(total)}</span>
+          <div className="flex justify-between border-t border-ink-200/60 pt-2 text-[15px] font-semibold text-ink-900">
+            <span>Total</span>
+            <span className="figure">{mad(total)}</span>
           </div>
         </div>
       </div>
 
-      {/* WhatsApp Modal */}
-      <WhatsAppSendModal
-        isOpen={showWhatsApp}
-        onClose={() => setShowWhatsApp(false)}
-        documentType={facture.status === "En retard" ? "relance" : "facture"}
-        recipientName={facture.client_name || "Client"}
-        recipientPhone={clientInfo?.telephone || ""}
-        documentNumber={facture.invoice_number}
-        amount={total}
-        dueDate={"À réception"}
-      />
+      {facture.notes && (
+        <div className="ledger-card">
+          <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ink-400">Notes</p>
+          <p className="text-[13px] text-ink-700">{facture.notes}</p>
+        </div>
+      )}
     </div>
   );
 }

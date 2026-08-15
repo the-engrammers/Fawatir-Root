@@ -20,12 +20,6 @@ export default function ModeleFacturePage() {
   const [longueur, setLongueur] = useState(4);
   const [accent, setAccent] = useState(accentColors[4]);
   const [template, setTemplate] = useState("moderne");
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
 
   const prefixesEtNumeros = [
     { doc: "Factures", prefixe: "FAC", prochain: 47 },
@@ -185,16 +179,8 @@ export default function ModeleFacturePage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3">
-        {saved && (
-          <span className="text-[13px] text-status-success font-medium animate-fade-in">
-            ✓ Modèle de facture enregistré !
-          </span>
-        )}
-        <button
-          onClick={handleSave}
-          className="rounded-md bg-ink-900 px-5 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
-        >
+      <div className="flex justify-end">
+        <button className="rounded-md bg-ink-900 px-5 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800">
           Enregistrer
         </button>
       </div>

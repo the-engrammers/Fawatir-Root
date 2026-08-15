@@ -1,8 +1,8 @@
 const styles: Record<string, string> = {
-  success: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold",
-  warning: "bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold",
-  danger: "bg-red-500/15 text-red-300 border border-red-500/30 font-semibold",
-  info: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold",
+  success: "bg-status-successBg text-status-success",
+  warning: "bg-status-warningBg text-status-warning",
+  danger: "bg-status-dangerBg text-status-danger",
+  info: "bg-status-infoBg text-status-info",
 };
 
 export default function StatusChip({
@@ -14,7 +14,7 @@ export default function StatusChip({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] ${styles[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${styles[tone]}`}
     >
       {children}
     </span>

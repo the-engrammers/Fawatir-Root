@@ -1,142 +1,137 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import Modal from "./Modal";
-import FormAlert from "./FormAlert";
+import { X } from "lucide-react";
+import { fetchAPI } from "@/lib/api";
+import { useAuthStore } from "@/lib/store/authStore";
 
-const fieldsByCountry: Record<string, { label: string; placeholder: string; key: string }[]> = {
+const fieldsByCountry: Record<string, { label: string; placeholder: string }[]> = {
   Maroc: [
-    { label: "Identifiant Fiscal (IF)", placeholder: "IF XXXXXXX", key: "if" },
-    { label: "ICE", placeholder: "000XXXXXXXXXXXX", key: "ice" },
-    { label: "Registre de Commerce (RC)", placeholder: "RC XXXXX", key: "rc" },
+    { label: "Identifiant Fiscal (IF)", placeholder: "IF XXXXXXX" },
+    { label: "ICE", placeholder: "000XXXXXXXXXXXX" },
+    { label: "Registre de Commerce (RC)", placeholder: "RC XXXXX" },
   ],
   France: [
-    { label: "SIREN", placeholder: "XXX XXX XXX", key: "siren" },
-    { label: "SIRET", placeholder: "XXX XXX XXX XXXXX", key: "siret" },
-    { label: "Numéro RCS", placeholder: "RCS Ville XXXXXXXXX", key: "rcs" },
-    { label: "N° TVA intracommunautaire", placeholder: "FR XX XXX XXX XXX", key: "tva_intra" },
+    { label: "SIREN", placeholder: "XXX XXX XXX" },
+    { label: "SIRET", placeholder: "XXX XXX XXX XXXXX" },
+    { label: "Numéro RCS", placeholder: "RCS Ville XXXXXXXXX" },
+    { label: "N° TVA intracommunautaire", placeholder: "FR XX XXX XXX XXX" },
   ],
 };
 
-export default function AddClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
-  const [companyName, setCompanyName] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [pays, setPays] = useState("Maroc");
-  const [fiscalData, setFiscalData] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+export default function AddClientModal({ onClose }: { onClose: () => void }) {
+  const [pays, setPays] = useState("");
   const fiscalFields = fieldsByCountry[pays] ?? [];
+  const companyId = useAuthStore((s) => s.user?.company);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyName.trim()) {
-      setError("Le nom de l'entreprise est obligatoire.");
+  const [nom, setNom] = useState("");
+  const [entreprise, setEntreprise] = useState("");
+  const [email, setEmail] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [adresse, setAdresse] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!nom && !entreprise) {
+      setError("Nom ou entreprise requis");
       return;
     }
-
-    setIsSubmitting(true);
-    setError(null);
-
+    setError("");
+    setLoading(true);
     try {
-      const res = await fetch("/api/clients", {
+      const res = await fetchAPI("api/clients/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company_name: companyName,
-          contact_name: contactName,
-          email,
-          phone,
-          city: address,
+          company: companyId,
+          contact_name: nom,
+          company_name: entreprise,
+          email: email,
+          phone: telephone,
+          address: adresse,
           country: pays,
-          metadata: fiscalData,
         }),
       });
-
-      if (!res.ok) throw new Error("Échec de la création du client");
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setError("Erreur: " + JSON.stringify(errData));
+        setLoading(false);
+        return;
       }
-      if (onSuccess) onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue lors de l'enregistrement");
-    } finally {
-      setIsSubmitting(false);
+    } catch (err) {
+      setError("Erreur de connexion au serveur");
+      setLoading(false);
     }
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Ajouter un Client">
-      <FormAlert error={error} onClose={() => setError(null)} title="Erreur de formulaire" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
+      <div className="w-full max-w-md rounded-card bg-paper-card p-5 shadow-panel">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold text-ink-900">Ajouter un client</h2>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-800">
+            <X size={18} />
+          </button>
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom de l'entreprise *</label>
+            <label className="mb-1.5 block text-[12.5px] text-ink-600">Nom</label>
             <input
-              required
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Ex: Atlas Tech SARL"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Nom du client"
+              className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />
           </div>
-
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom du contact</label>
+            <label className="mb-1.5 block text-[12.5px] text-ink-600">Entreprise</label>
             <input
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-              placeholder="Ex: Youssef Bennani"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              value={entreprise}
+              onChange={(e) => setEntreprise(e.target.value)}
+              placeholder="Nom de l'entreprise"
+              className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">E-mail</label>
+              <label className="mb-1.5 block text-[12.5px] text-ink-600">E-mail</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="contact@exemple.ma"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                placeholder="Adresse e-mail"
+                className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Téléphone</label>
+              <label className="mb-1.5 block text-[12.5px] text-ink-600">Téléphone</label>
               <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+212 661 000000"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+                placeholder="Numéro de téléphone"
+                className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
               />
             </div>
           </div>
-
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Ville / Adresse</label>
+            <label className="mb-1.5 block text-[12.5px] text-ink-600">Adresse</label>
             <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Casablanca"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              value={adresse}
+              onChange={(e) => setAdresse(e.target.value)}
+              placeholder="Adresse du client"
+              className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             />
           </div>
-
           <div>
-            <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Pays</label>
+            <label className="mb-1.5 block text-[12.5px] text-ink-600">Pays</label>
             <select
               value={pays}
               onChange={(e) => setPays(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
             >
+              <option value="">—</option>
               <option value="Maroc">Maroc</option>
               <option value="France">France</option>
               <option value="Belgique">Belgique</option>
@@ -147,40 +142,42 @@ export default function AddClientModal({ onClose, onSuccess }: { onClose: () => 
           </div>
 
           {fiscalFields.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3.5">
+            <div className="grid grid-cols-2 gap-3 rounded-md border border-brass/20 bg-brass/5 p-3">
               {fiscalFields.map((f) => (
-                <div key={f.key} className={fiscalFields.length % 2 !== 0 && f === fiscalFields[fiscalFields.length - 1] ? "col-span-2" : ""}>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-indigo-300">{f.label}</label>
+                <div key={f.label} className={fiscalFields.length % 2 !== 0 && f === fiscalFields[fiscalFields.length - 1] ? "col-span-2" : ""}>
+                  <label className="mb-1.5 block text-[12px] text-ink-600">{f.label}</label>
                   <input
                     placeholder={f.placeholder}
-                    value={fiscalData[f.key] || ""}
-                    onChange={(e) => setFiscalData({ ...fiscalData, [f.key]: e.target.value })}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-md border border-ink-200 bg-paper-card px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
                   />
                 </div>
               ))}
             </div>
           )}
+
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+              {error}
+            </div>
+          )}
         </div>
 
-        <div className="mt-5 flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="mt-4 flex justify-end gap-2">
           <button
-            type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+            className="rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50"
           >
             Annuler
           </button>
           <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 disabled:opacity-60 transition-all active:scale-95"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800 disabled:opacity-50"
           >
-            {isSubmitting && <Loader2 size={15} className="animate-spin" />}
-            Ajouter le client
+            {loading ? "Ajout..." : "Ajouter un client"}
           </button>
         </div>
-      </form>
-    </Modal>
+      </div>
+    </div>
   );
 }

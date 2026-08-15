@@ -1,43 +1,89 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ChevronLeft, Share2, Pencil, Mail, Phone, MapPin, Building2, Hash, Loader2 } from "lucide-react";
+import { useParams, notFound } from "next/navigation";
+import { ChevronLeft, Share2, Mail, Phone, MapPin, Building2, Hash, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
+import { fetchAPI } from "@/lib/api";
 
-export default function ClientFichePage({ params }: { params: { id: string } }) {
+export default function ClientFichePage() {
+  const params = useParams();
+  const id = params.id as string;
+
   const [client, setClient] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [error, setError] = useState("");
   const [tab, setTab] = useState<"factures" | "devis">("factures");
   const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/clients`)
-      .then(res => res.json())
-      .then(data => {
-        const list = Array.isArray(data) ? data : (data.results || []);
-        const found = list.find((c: any) => c.id === params.id);
-        setClient(found);
+    const fetchData = async () => {
+      try {
+        const [clientRes, invRes, devRes] = await Promise.all([
+          fetchAPI(`api/clients/${id}/`),
+          fetchAPI("api/invoices/"),
+          fetchAPI("api/quotations/"),
+        ]);
+
+        if (!clientRes.ok) {
+          setError("Client introuvable");
+          setLoading(false);
+          return;
+        }
+
+        const clientData = await clientRes.json();
+        const invData = await invRes.json();
+        const devData = await devRes.json();
+
+        setClient(clientData);
+        setInvoices((Array.isArray(invData) ? invData : invData.results || []).filter((f: any) => f.client === id));
+        setQuotations((Array.isArray(devData) ? devData : devData.results || []).filter((d: any) => d.client === id));
+      } catch (err) {
+        setError("Erreur de connexion au serveur");
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [params.id]);
+      }
+    };
+    fetchData();
+  }, [id]);
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>;
-  if (!client) return <div className="p-12 text-center text-white">Client introuvable (404)</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-ink-300" size={24} />
+      </div>
+    );
+  }
 
-  // client is always available
+  if (error || !client) {
+    return (
+      <div className="mx-auto max-w-[1100px] space-y-5">
+        <Link href="/clients" className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-500 hover:text-ink-800">
+          <ChevronLeft size={14} /> Clients
+        </Link>
+        <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-[13px] text-red-600">
+          {error || "Client introuvable"}
+        </div>
+      </div>
+    );
+  }
 
-  // In a real app, these would be fetched via API too
-  const clientFactures: any[] = [];
-  const clientDevis: any[] = [];
-  const revenuTotal = 0;
-  const enAttente = 0;
-  
-  const clientNameDisplay = client.company_name || client.contact_name || client.nom || "Client";
+  const displayName = client.contact_name || client.company_name || "—";
+  const revenuTotal = invoices
+    .filter((f) => f.status === "Payée")
+    .reduce((s, f) => s + parseFloat(f.total_amount || 0), 0);
+  const enAttente = invoices
+    .filter((f) => f.status === "Envoyée" || f.status === "En retard")
+    .reduce((s, f) => s + parseFloat(f.total_amount || 0), 0);
+
+  const fiscal: Record<string, string> = {};
+  if (client.tax_identifier) fiscal["Identifiant Fiscal"] = client.tax_identifier;
+  if (client.ice) fiscal["ICE"] = client.ice;
+  if (client.rc) fiscal["Registre de Commerce"] = client.rc;
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-5">
@@ -48,12 +94,12 @@ export default function ClientFichePage({ params }: { params: { id: string } }) 
       <div className="ledger-card flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brass/15 text-[16px] font-medium text-brass">
-            {clientNameDisplay.charAt(0)}
+            {displayName.charAt(0).toUpperCase()}
           </span>
           <div>
-            <p className="text-[16px] font-medium text-ink-900">{clientNameDisplay}</p>
+            <p className="text-[16px] font-medium text-ink-900">{displayName}</p>
             <p className="text-[12.5px] text-ink-400">
-              {client.customer_code || client.entreprise} · Client depuis {client.dateClient || new Date().getFullYear()}
+              {client.company_name} · Client depuis {client.created_at ? new Date(client.created_at).toLocaleDateString("fr-FR") : "—"}
             </p>
           </div>
         </div>
@@ -64,39 +110,33 @@ export default function ClientFichePage({ params }: { params: { id: string } }) 
           >
             <Share2 size={14} /> Partager le portail
           </button>
-          <button className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
-            <Pencil size={14} /> Modifier
-          </button>
         </div>
       </div>
 
       <div className="ledger-card grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Coord icon={Mail} label="E-mail" value={client.email} />
-        <Coord icon={Phone} label="Téléphone" value={client.phone || client.telephone} />
-        <Coord icon={MapPin} label="Adresse/Ville" value={client.city || client.adresse} />
-        <Coord icon={Building2} label="Entreprise" value={client.company_name || client.entreprise} />
-        {Object.entries(client.metadata || client.fiscal || {}).map(([label, value]) => {
-          if (typeof value === "string" || typeof value === "number") {
-            return <Coord key={label} icon={Hash} label={label.toUpperCase()} value={String(value)} />;
-          }
-          return null;
-        })}
+        <Coord icon={Mail} label="E-mail" value={client.email || "—"} />
+        <Coord icon={Phone} label="Téléphone" value={client.phone || client.mobile || "—"} />
+        <Coord icon={MapPin} label="Adresse" value={client.address || "—"} />
+        <Coord icon={Building2} label="Entreprise" value={client.company_name || "—"} />
+        {Object.entries(fiscal).map(([label, value]) => (
+          <Coord key={label} icon={Hash} label={label} value={value} />
+        ))}
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Total des factures" value={String(clientFactures.length)} />
+        <Stat label="Total des factures" value={String(invoices.length)} />
         <Stat label="Revenu total" value={mad(revenuTotal)} sub="Payées" />
         <Stat label="En attente" value={mad(enAttente)} />
-        <Stat label="Total des devis" value={String(clientDevis.length)} />
+        <Stat label="Total des devis" value={String(quotations.length)} />
       </div>
 
       <div className="ledger-card">
         <div className="mb-3 flex gap-1 border-b border-ink-200/60">
           <TabButton active={tab === "factures"} onClick={() => setTab("factures")}>
-            Factures {clientFactures.length}
+            Factures {invoices.length}
           </TabButton>
           <TabButton active={tab === "devis"} onClick={() => setTab("devis")}>
-            Devis & Estimations {clientDevis.length}
+            Devis & Estimations {quotations.length}
           </TabButton>
         </div>
 
@@ -112,22 +152,22 @@ export default function ClientFichePage({ params }: { params: { id: string } }) 
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200/60">
-              {clientFactures.map((f) => (
+              {invoices.map((f) => (
                 <tr key={f.id}>
                   <td className="py-2.5">
                     <Link href={`/factures/${f.id}`} className="font-medium text-brass hover:underline">
-                      {f.numero}
+                      {f.invoice_number}
                     </Link>
                   </td>
-                  <td className="py-2.5 text-ink-500">{f.dateEmission}</td>
-                  <td className="py-2.5 text-ink-500">{f.dateEcheance}</td>
-                  <td className="figure py-2.5 text-ink-900">{mad(f.montant)}</td>
+                  <td className="py-2.5 text-ink-500">{f.issue_date}</td>
+                  <td className="py-2.5 text-ink-500">{f.due_date}</td>
+                  <td className="figure py-2.5 text-ink-900">{mad(f.total_amount)}</td>
                   <td className="py-2.5">
-                    <StatusChip tone={statusTone(f.statut)}>{f.statut}</StatusChip>
+                    <StatusChip tone={statusTone(f.status)}>{f.status}</StatusChip>
                   </td>
                 </tr>
               ))}
-              {clientFactures.length === 0 && (
+              {invoices.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-ink-400">
                     Aucune facture pour ce client
@@ -141,29 +181,27 @@ export default function ClientFichePage({ params }: { params: { id: string } }) 
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wide text-ink-400">
                 <th className="pb-2 font-medium">Devis N°</th>
-                <th className="pb-2 font-medium">Valide jusqu'au</th>
                 <th className="pb-2 font-medium">Montant</th>
                 <th className="pb-2 font-medium">Statut</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200/60">
-              {clientDevis.map((d) => (
+              {quotations.map((d) => (
                 <tr key={d.id}>
                   <td className="py-2.5">
                     <Link href={`/devis/${d.id}`} className="font-medium text-brass hover:underline">
-                      {d.numero}
+                      {d.quotation_number}
                     </Link>
                   </td>
-                  <td className="py-2.5 text-ink-500">{d.validiteJusquau}</td>
-                  <td className="figure py-2.5 text-ink-900">{mad(d.montant)}</td>
+                  <td className="figure py-2.5 text-ink-900">{mad(d.total_amount)}</td>
                   <td className="py-2.5">
-                    <StatusChip tone={statusTone(d.statut)}>{d.statut}</StatusChip>
+                    <StatusChip tone={statusTone(d.status)}>{d.status}</StatusChip>
                   </td>
                 </tr>
               ))}
-              {clientDevis.length === 0 && (
+              {quotations.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-ink-400">
+                  <td colSpan={3} className="py-8 text-center text-ink-400">
                     Aucun devis pour ce client
                   </td>
                 </tr>

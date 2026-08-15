@@ -1,33 +1,9 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Settings, Plus, MoreHorizontal, Users, Loader2 } from "lucide-react";
+import { Settings, Plus, MoreHorizontal, Users } from "lucide-react";
+import { employesList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 export default function EmployesPage() {
-  const [employesList, setEmployesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchEmployees = async () => {
-    try {
-      const res = await fetch(`/api/employes?t=${Date.now()}`);
-      const data = await res.json();
-      setEmployesList(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEmployees();
-    const handleUpdate = () => fetchEmployees();
-    window.addEventListener("dataUpdated", handleUpdate);
-    return () => window.removeEventListener("dataUpdated", handleUpdate);
-  }, []);
-
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div className="flex items-center justify-between">
@@ -57,9 +33,7 @@ export default function EmployesPage() {
           className="mb-4 w-64 rounded-md border border-ink-200 bg-paper px-3 py-1.5 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
         />
 
-        {isLoading ? (
-          <div className="flex justify-center p-12"><Loader2 className="animate-spin text-ink-300" size={32} /></div>
-        ) : employesList.length === 0 ? (
+        {employesList.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-14 text-center">
             <Users size={22} className="text-ink-300" />
             <p className="text-[13.5px] font-medium text-ink-700">Aucun employé</p>
@@ -84,11 +58,10 @@ export default function EmployesPage() {
                 <tr key={e.id} className="group">
                   <td className="py-3 font-medium text-ink-900">
                     {e.prenom} {e.nom}
-                    <div className="text-[11.5px] font-normal text-ink-400 font-mono mt-0.5">{e.cin || "-"}</div>
                   </td>
                   <td className="py-3 text-ink-700">{e.poste}</td>
                   <td className="py-3 text-ink-500">{e.departement}</td>
-                  <td className="figure py-3 text-ink-900">{mad(e.salaire_base)}/mois</td>
+                  <td className="figure py-3 text-ink-900">{mad(e.salaireBase)}/mois</td>
                   <td className="py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

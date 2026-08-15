@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   Search,
   Minus,
@@ -12,66 +12,31 @@ import {
   MessageCircle,
   X,
 } from "lucide-react";
+import { produitsList, posCategories } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
-import { fetchAPI } from "@/lib/api";
 
 type CartLine = { produitId: string; nom: string; sku: string; prix: number; qte: number; remise: number };
 
 export default function PosPage() {
-  const [sessionOpen, setSessionOpen] = useState(true);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const [openModal, setOpenModal] = useState(false);
-  const [fondCaisse, setFondCaisse] = useState(2000);
+  const [fondCaisse, setFondCaisse] = useState(0);
 
   const [category, setCategory] = useState("Tous");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
 
   const [remisePanierPct, setRemisePanierPct] = useState(0);
   const [tvaPct, setTvaPct] = useState(20);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("Espèces");
   const [montantRemis, setMontantRemis] = useState<number>(0);
-  const [receipt, setReceipt] = useState<null | { id?: string; transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
+  const [receipt, setReceipt] = useState<null | { transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
 
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
-
-  const showToast = (message: string, type: "success" | "error") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
-  };
-
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const res = await fetchAPI("api/products/");
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : data.results || [];
-        if (list.length > 0) {
-          const apiFormatted = list.map((p: any) => ({
-            id: p.id,
-            nom: p.name || "Produit",
-            sku: p.sku || "SKU-000",
-            prix: p.selling_price || 0,
-            categorie: p.category_name || "Général",
-          }));
-          setAllProducts(apiFormatted);
-        }
-      } catch (err) {}
-    };
-    loadProducts();
-  }, []);
-
-  const dynamicCategories = useMemo(() => {
-    const cats = new Set(allProducts.map(p => p.categorie));
-    return ["Tous", ...Array.from(cats)];
-  }, [allProducts]);
-
-  const filtered = allProducts.filter(
+  const filtered = produitsList.filter(
     (p) =>
       (category === "Tous" || p.categorie === category) &&
-      (p.nom || "").toLowerCase().includes(search.toLowerCase())
+      p.nom.toLowerCase().includes(search.toLowerCase())
   );
 
   const sousTotal = useMemo(
@@ -82,7 +47,7 @@ export default function PosPage() {
   const tva = (sousTotal - remisePanier) * (tvaPct / 100);
   const total = sousTotal - remisePanier + tva;
 
-  function addToCart(produit: any) {
+  function addToCart(produit: (typeof produitsList)[number]) {
     setCart((prev) => {
       const existing = prev.find((l) => l.produitId === produit.id);
       if (existing) {
@@ -104,54 +69,20 @@ export default function PosPage() {
     setCart((prev) => prev.filter((l) => l.produitId !== produitId));
   }
 
-  async function encaisser() {
-    try {
-      const transactionId = `TXN-${Date.now().toString().slice(-9)}`;
-      
-      // Save as a paid invoice in the database
-      const invoiceLignes = cart.map(l => ({
-        description: l.nom,
-        quantite: l.qte,
-        prix_unitaire: l.prix
-      }));
-
-      const res = await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoice_number: transactionId,
-          client_name: 'Client Comptoir',
-          status: 'Payée',
-          total_amount: total,
-          date: new Date().toISOString().split("T")[0],
-          lignes: invoiceLignes
-        })
-      });
-
-      const created = await res.json();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
-      }
-
-      setReceipt({
-        id: created.id,
-        transactionId,
-        total: total,
-        rendu: Math.max(0, montantRemis - total),
-        lignes: cart,
-      });
-      setCheckoutOpen(false);
-    } catch (err) {
-      console.error("Erreur d'encaissement:", err);
-    }
+  function encaisser() {
+    setReceipt({
+      transactionId: `TXN-${Date.now().toString().slice(-9)}`,
+      total,
+      rendu: Math.max(0, montantRemis - total),
+      lignes: cart,
+    });
+    setCheckoutOpen(false);
   }
 
   function nouvelleVente() {
     setCart([]);
     setRemisePanierPct(0);
     setMontantRemis(0);
-    setPaymentMethod("Espèces");
     setReceipt(null);
   }
 
@@ -169,7 +100,7 @@ export default function PosPage() {
           {!sessionOpen && (
             <button
               onClick={() => setOpenModal(true)}
-              className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-indigo-700"
+              className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
             >
               Ouvrir la session
             </button>
@@ -186,31 +117,27 @@ export default function PosPage() {
           />
         </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {dynamicCategories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${
-                  category === c
-                    ? "bg-indigo-600 text-white"
-                    : "bg-paper text-ink-600 hover:bg-slate-200 hover:text-slate-900"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-1.5">
+          {posCategories.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
+                category === c ? "bg-ink-900 text-white" : "bg-paper-card text-ink-600 hover:bg-ink-200/50"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => (
             <button
               key={p.id}
-              onClick={() => {
-                if (!sessionOpen) setSessionOpen(true);
-                addToCart(p);
-              }}
-              className="ledger-card !p-3 text-left hover:border-brass/60 transition-colors"
+              onClick={() => sessionOpen && addToCart(p)}
+              disabled={!sessionOpen}
+              className="ledger-card !p-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
             >
               <div className="mb-2 flex h-20 items-center justify-center rounded-md bg-brass/10 text-[11px] text-brass/60">
                 {p.categorie}
@@ -319,7 +246,7 @@ export default function PosPage() {
               setMontantRemis(total);
               setCheckoutOpen(true);
             }}
-            className="flex-1 rounded-md bg-indigo-600 py-2 text-[12.5px] font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+            className="flex-1 rounded-md bg-ink-900 py-2 text-[12.5px] font-medium text-white hover:bg-ink-800 disabled:opacity-40"
           >
             Encaisser
           </button>
@@ -382,12 +309,11 @@ export default function PosPage() {
             </div>
 
             <div className="mb-3 grid grid-cols-4 gap-1.5 text-[11.5px]">
-              {["Espèces", "Carte", "Virement", "Autre"].map((m) => (
+              {["Espèces", "Carte", "Virement", "Autre"].map((m, i) => (
                 <button
                   key={m}
-                  onClick={() => setPaymentMethod(m)}
-                  className={`rounded-md border py-1.5 transition-colors ${
-                    paymentMethod === m ? "border-brass bg-brass/10 text-brass" : "border-ink-200 text-ink-500 hover:border-brass/50 hover:bg-brass/5"
+                  className={`rounded-md border py-1.5 ${
+                    i === 0 ? "border-brass bg-brass/10 text-brass" : "border-ink-200 text-ink-500"
                   }`}
                 >
                   {m}
@@ -414,7 +340,7 @@ export default function PosPage() {
 
             <div className="mb-4 space-y-1 text-[13px]">
               <div className="flex justify-between text-ink-500">
-                <span>Total à payer</span>
+                <span>Total</span>
                 <span className="figure">{mad(total)}</span>
               </div>
               <div className="flex justify-between text-ink-500">
@@ -431,7 +357,7 @@ export default function PosPage() {
 
             <button
               onClick={encaisser}
-              className="w-full rounded-md bg-indigo-600 py-2.5 text-[13px] font-medium text-white hover:bg-indigo-700"
+              className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
             >
               Encaisser {mad(total)}
             </button>
@@ -446,31 +372,13 @@ export default function PosPage() {
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[13.5px] font-medium text-ink-900">Reçu</p>
               <div className="flex gap-1.5">
-                <button onClick={() => window.print()} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50">
                   <Printer size={12} /> Imprimer
                 </button>
-                <button onClick={async () => {
-                  try {
-                    if(!receipt?.id) return;
-                    const res = await fetchAPI(`api/invoices/${receipt.id}/send_email/`, { method: "POST" });
-                    if(res.ok) showToast("Email envoyé avec succès !", "success");
-                    else showToast("Veuillez configurer vos accès SMTP (Email) dans Paramètres > Entreprise.", "error");
-                  } catch(e) {
-                    showToast("Erreur réseau.", "error");
-                  }
-                }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50">
                   <Mail size={12} />
                 </button>
-                <button onClick={async () => {
-                  try {
-                    if(!receipt?.id) return;
-                    const res = await fetchAPI(`api/invoices/${receipt.id}/send_whatsapp/`, { method: "POST" });
-                    if(res.ok) showToast("Message WhatsApp envoyé avec succès !", "success");
-                    else showToast("Veuillez configurer vos accès Twilio (WhatsApp) dans Paramètres > Entreprise.", "error");
-                  } catch(e) {
-                    showToast("Erreur réseau.", "error");
-                  }
-                }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
+                <button className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50">
                   <MessageCircle size={12} />
                 </button>
               </div>
@@ -511,28 +419,11 @@ export default function PosPage() {
 
             <button
               onClick={nouvelleVente}
-              className="mt-4 w-full rounded-md bg-indigo-600 py-2.5 text-[13px] font-medium text-white hover:bg-indigo-700"
+              className="mt-4 w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
             >
               Nouvelle vente
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Custom Toast Notification */}
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-[100] flex animate-fade-in items-center gap-3 rounded-lg px-4 py-3 shadow-xl ${
-          toast.type === 'success' ? 'bg-status-successBg border border-emerald-500/20 text-emerald-800' : 'bg-red-50 border border-red-500/20 text-red-800'
-        }`}>
-          {toast.type === 'success' ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">✓</div>
-          ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">!</div>
-          )}
-          <p className="text-[13px] font-medium leading-relaxed max-w-[280px]">{toast.message}</p>
-          <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
-            <X size={16} />
-          </button>
         </div>
       )}
     </div>

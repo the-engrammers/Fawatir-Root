@@ -1,38 +1,14 @@
-"use client";
-
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { ChevronLeft, Send, PackageCheck, Trash2, Loader2 } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ChevronLeft, Send, PackageCheck, Trash2 } from "lucide-react";
+import { bonsCommandeList } from "@/lib/mock-data";
 import { mad } from "@/lib/format";
 
 export default function BonCommandeDetailPage({ params }: { params: { id: string } }) {
-  const [po, setPo] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const po = bonsCommandeList.find((p) => p.id === params.id);
+  if (!po) notFound();
 
-  const fetchPo = async () => {
-    try {
-      const res = await fetch(`/api/bons-commande?t=${Date.now()}`);
-      const data = await res.json();
-      const found = data.find((p: any) => p.id === params.id);
-      setPo(found);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPo();
-    const handleUpdate = () => fetchPo();
-    window.addEventListener("dataUpdated", handleUpdate);
-    return () => window.removeEventListener("dataUpdated", handleUpdate);
-  }, [params.id]);
-
-  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-ink-300" size={32} /></div>;
-  if (!po) return <div className="p-12 text-center text-ink-500">Bon de commande introuvable</div>;
-
-  const sousTotal = po.articles?.reduce((s: any, a: any) => s + (a.qte || 1) * (a.prixUnitaire || 0), 0) || 0;
+  const sousTotal = po.articles.reduce((s, a) => s + a.qte * a.prixUnitaire, 0);
   const taxe = sousTotal * 0.2;
   const total = sousTotal + taxe;
 
@@ -97,7 +73,7 @@ export default function BonCommandeDetailPage({ params }: { params: { id: string
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-200/60">
-            {po.articles.map((a: any, idx: number) => (
+            {po.articles.map((a, idx) => (
               <tr key={idx}>
                 <td className="py-2.5 text-ink-700">{a.nom}</td>
                 <td className="figure py-2.5 text-right text-ink-700">{a.qte}</td>
