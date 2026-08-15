@@ -47,9 +47,9 @@ jobs:
           bun-version: latest
 
       - name: Install Frontend Dependencies
-        working-directory: ./fawatir_frontend # Forces Bun to install in the frontend folder
+        working-directory: .
         run: bun install
 
       - name: Build Next.js App
-        working-directory: ./fawatir_frontend # Forces Next.js to build in the frontend folder
+        working-directory: .
         run: bun run build

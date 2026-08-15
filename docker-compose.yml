@@ -19,7 +19,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.frontend
     container_name: fawatir_frontend
     ports:
       - "3000:3000"
