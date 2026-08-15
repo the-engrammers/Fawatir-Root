@@ -16,6 +16,7 @@
     "react-dom": "^18",
     "react-markdown": "latest",
     "remark-gfm": "latest",
+    "xlsx": "latest",
     "zustand": "latest"
   },
   "devDependencies": {
