@@ -282,7 +282,7 @@ export async function POST(req: Request) {
         total_amount: amount,
         status: "Brouillon",
         date: new Date().toISOString().split("T")[0],
-        lignes: [{ description: "Prestation / Article", quantity: 1, unit_price: amount }]
+        items: [{ description: "Prestation / Article", quantity: 1, unit_price: amount }]
       });
 
       return NextResponse.json({
