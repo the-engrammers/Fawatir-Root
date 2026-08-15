@@ -481,7 +481,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
       reply = `### 👋 Bonjour !\n\nJe suis Fatourati AI, votre assistant connecté à la base de données. \n\nQue puis-je faire pour vous aujourd'hui ? (Exemples : *Crée le client Hassan*, *Affiche mes factures*, *Cherche le clavier en stock*).`;
     // --- DEFAULT / GENERAL ---
     } else {
-      reply = `### 🤖 Assistant Fatourati\n\nJe suis connecté à votre base de données en temps réel. Voici votre tableau de bord :\n\n` +
+      const fallbackReply = `### 🤖 Assistant Fatourati\n\nJe suis connecté à votre base de données en temps réel. Voici votre tableau de bord :\n\n` +
         `| Module | Données |\n| :--- | :--- |\n` +
         `| 👥 Clients | ${dbContext.clientsCount} enregistrés |\n` +
         `| 📦 Produits / Stocks | ${dbContext.produitsCount} références |\n` +
@@ -490,6 +490,31 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
         `| 👥 Employés | ${dbContext.employes.length} |\n\n` +
         `**Je comprends vos messages même avec des fautes d'orthographe !** 😊\n\n` +
         `**Posez-moi une question** du type :\n- *"Le clavier est-il en stock ?"*\n- *"Montre mes clients"*\n- *"Crée une facture pour Client X de 5000 MAD"*\n- *"Ajoute un client Mohamed Amine"*`;
+
+      try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          reply = fallbackReply;
+        } else {
+          const ai = new GoogleGenAI({ apiKey });
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain (Facturation, CRM, Stock). 
+Réponds de manière professionnelle, très concise et en français. Voici le contexte de la base de données de l'utilisateur:
+- Clients: ${dbContext.clientsCount}
+- Produits: ${dbContext.produitsCount}
+- Factures: ${dbContext.facturesCount} (dont ${dbContext.kpis.facturesPayeesCount} payées)
+- Devis: ${dbContext.devisCount}
+- Chiffre d'affaires: ${dbContext.kpis.revenuTotal} MAD
+
+L'utilisateur te dit : "${prompt}"`
+          });
+          reply = response.text || fallbackReply;
+        }
+      } catch (err) {
+        console.error("Gemini AI API Error:", err);
+        reply = fallbackReply;
+      }
     }
 
     return NextResponse.json({ reply });
