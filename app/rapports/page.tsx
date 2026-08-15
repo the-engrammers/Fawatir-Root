@@ -27,8 +27,8 @@ export default function RapportsPage() {
         fetch(`/api/invoices?t=${Date.now()}`).then(res => res.json()),
         fetch(`/api/clients?t=${Date.now()}`).then(res => res.json())
       ]).then(([invs, clis]) => {
-        setInvoices(invs);
-        setClientsData(clis);
+        setInvoices(Array.isArray(invs) ? invs : []);
+        setClientsData(Array.isArray(clis) ? clis : []);
         setIsLoading(false);
       }).catch(() => setIsLoading(false));
     };

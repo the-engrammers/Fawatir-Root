@@ -59,9 +59,9 @@ export default function DashboardPage() {
         fetch(`/api/clients?t=${Date.now()}`).then(res => res.json()),
         fetch(`/api/products?t=${Date.now()}`).then(res => res.json())
       ]).then(([invs, clis, prods]) => {
-        setInvoices(invs);
-        setClients(clis);
-        setProducts(prods);
+        setInvoices(Array.isArray(invs) ? invs : []);
+        setClients(Array.isArray(clis) ? clis : []);
+        setProducts(Array.isArray(prods) ? prods : []);
         setIsLoadingData(false);
       }).catch(err => {
         console.error(err);
