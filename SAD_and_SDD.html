@@ -4,30 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAD & SDD - Fawatir</title>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 40px 20px;
         }
-        h1, h2, h3 {
+        h1, h2, h3, h4 {
             color: #24292e;
             border-bottom: 1px solid #eaecef;
             padding-bottom: 0.3em;
             margin-top: 24px;
             margin-bottom: 16px;
         }
+        h3 { border-bottom: none; }
+        h4 { border-bottom: none; font-size: 1.1em; color: #555; }
         table {
             border-collapse: collapse;
             width: 100%;
             margin-bottom: 20px;
+            font-size: 0.95em;
         }
         th, td {
             border: 1px solid #dfe2e5;
-            padding: 6px 13px;
+            padding: 8px 13px;
             text-align: left;
         }
         th {
@@ -46,185 +53,218 @@
             overflow: auto;
             border-radius: 3px;
         }
-        .mermaid {
+        pre.mermaid {
+            background-color: transparent;
+            border: none;
             text-align: center;
-            margin: 20px 0;
+        }
+        .page-break {
+            page-break-after: always;
         }
         @media print {
-            body {
-                padding: 0;
-            }
-            .page-break {
-                page-break-before: always;
-            }
+            body { padding: 0; max-width: 100%; }
+            pre.mermaid { page-break-inside: avoid; }
         }
     </style>
-    <script type="module">
-      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-      mermaid.initialize({ startOnLoad: true, theme: 'default' });
-    </script>
 </head>
 <body>
+    <h1>Software Architecture &amp; Detailed Design Document (SAD &amp; SDD)</h1>
+<p><strong>Project:</strong> Fawatir (Intelligent ERP, CRM, &amp; Invoicing System)<br />
+<strong>Version:</strong> 2.0.0<br />
+<strong>Date:</strong> August 2026  </p>
+<hr />
+<h2>1. Executive Summary</h2>
+<p>Fawatir is a highly advanced, enterprise-grade Resource Planning (ERP) platform designed specifically for modern Moroccan businesses. It combines core business management modules—including Accounting, Inventory, Human Resources, Point of Sale, and CRM—with cutting-edge Artificial Intelligence capabilities. Features such as Automated OCR Document Parsing, AI-Driven Chatbots, and WhatsApp Integration automate data entry and provide businesses with strategic, actionable insights.</p>
+<hr />
+<h2>2. Software Architecture Design (SAD)</h2>
+<h3>2.1 Architectural Patterns</h3>
+<p>The system operates on a <strong>Decoupled Client-Server Architecture</strong> utilizing RESTful API communication, ensuring scalability and maintainability.</p>
+<ul>
+<li><strong>Frontend Subsystem:</strong> A Server-Side Rendered (SSR) Component-Based Architecture powered by <strong>Next.js 14</strong> (React). It utilizes the Next.js App Router paradigm.</li>
+<li><strong>Backend Subsystem:</strong> Follows the Model-Template-View (MTV) architectural pattern inherent to <strong>Django</strong>, exposing a secure REST API via the <strong>Django REST Framework (DRF)</strong>.</li>
+<li><strong>AI/ML Layer:</strong> Operates as a specialized subsystem within the backend to handle asynchronous, computationally heavy tasks (OCR processing, LLM prompting).</li>
+<li><strong>Database Layer:</strong> A relational database management system using <strong>SQLite</strong> (development) / <strong>PostgreSQL</strong> (production) managed via the Django ORM.</li>
+</ul>
+<h3>2.2 High-Level Architecture Diagram</h3>
+<pre class="mermaid">graph TD
+    User((User / Client)) -->|HTTPS| NextJS[Frontend: Next.js 14]
 
-    <h1>Software Architecture & Detailed Design Document (SAD & SDD)</h1>
-    <p><strong>Project:</strong> Fawatir (Intelligent ERP, CRM, & Invoicing System)<br>
-    <strong>Version:</strong> 1.0.0</p>
+    subgraph "Railway Production Environment"
+        NextJS -->|REST API Requests| Django[Backend: Django REST Framework]
 
-    <h2>1. Executive Summary</h2>
-    <p>Fawatir is a comprehensive Enterprise Resource Planning (ERP) platform designed for modern Moroccan businesses. It combines core business management modules (Accounting, Inventory, HR, CRM) with advanced Artificial Intelligence capabilities (OCR document parsing, time-series forecasting, and generative AI) to automate data entry and provide strategic insights.</p>
+        Django -->|SQL Queries| DB[(PostgreSQL Database)]
 
-    <h2>2. Software Architecture Design (SAD)</h2>
-
-    <h3>2.1 Architectural Patterns</h3>
-    <p>The system relies on a <strong>Decoupled Client-Server Architecture</strong> utilizing RESTful communication.</p>
-    <ul>
-        <li><strong>Frontend:</strong> Follows a Component-Based Architecture using React (Next.js).</li>
-        <li><strong>Backend:</strong> Follows the Model-Template-View (MTV) architectural pattern inherent to Django, exposing data via a robust REST API (Django REST Framework).</li>
-        <li><strong>AI/ML Layer:</strong> Operates as a specialized subsystem within the backend, executing computationally heavy tasks (OCR processing, LLM prompting) asynchronously.</li>
-    </ul>
-
-    <h3>2.2 High-Level Architecture Diagram</h3>
-    <div class="mermaid">
-    graph TD
-        User((User / Client)) -->|HTTPS| NextJS[Frontend Container: Next.js 14]
-        
-        subgraph "Dockerized Cloud Environment (Railway)"
-            NextJS -->|REST API Request| Nginx[Reverse Proxy]
-            Nginx --> Django[Backend Container: Django/DRF]
-            
-            Django -->|SQL Queries| DB[(SQLite / PostgreSQL)]
-            
-            subgraph "AI Subsystem"
-                Django -->|Image/PDF| OCR[OCR Engine - Pillow/PyTesseract]
-                Django -->|Prompt| LLM[Google Gemini API / Ollama]
-                Django -->|Time-Series Data| Prophet[Facebook Prophet Forecaster]
-            end
+        subgraph "AI Subsystem"
+            Django -->|Image/PDF| OCR[OCR Engine - Pillow/PyTesseract]
+            Django -->|Prompts| LLM[Google Gemini API / Ollama]
+            Django -->|Time-Series Data| Prophet[Facebook Prophet Forecaster]
         end
-        
-        User -->|WhatsApp Message| Twilio[WhatsApp API Integration]
-        Twilio -->|Webhook| Django
+    end
 
-        classDef frontend fill:#000,stroke:#fff,stroke-width:2px,color:#fff;
-        classDef backend fill:#092E20,stroke:#fff,stroke-width:2px,color:#fff;
-        classDef db fill:#336791,stroke:#fff,stroke-width:2px,color:#fff;
-        classDef ai fill:#4F46E5,stroke:#fff,stroke-width:2px,color:#fff;
-        
-        class NextJS frontend;
-        class Django backend;
-        class DB db;
-        class OCR,LLM,Prophet ai;
-    </div>
+    User -->|WhatsApp Message| Twilio[WhatsApp API Integration]
+    NextJS -->|Client-Side AI| LLM
+    Django -->|Send Message| Twilio
 
-    <h3>2.3 Containerization & Deployment</h3>
-    <p>The system is fully containerized using <strong>Docker</strong> and deployed on <strong>Railway</strong>.</p>
-    <ul>
-        <li><code>Dockerfile.frontend</code>: Uses a multi-stage build (<code>node:18-alpine</code>) optimized for Next.js <code>standalone</code> output, significantly reducing container size.</li>
-        <li><code>Dockerfile</code> (Backend): Containerizes the Python 3 environment, installing system dependencies required for data science libraries (Pandas, Numpy) before installing pip requirements.</li>
-    </ul>
+    classDef frontend fill:#1E293B,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef backend fill:#064E3B,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef db fill:#1E3A8A,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef ai fill:#4F46E5,stroke:#fff,stroke-width:2px,color:#fff;
 
-    <div class="page-break"></div>
+    class NextJS frontend;
+    class Django backend;
+    class DB db;
+    class OCR,LLM,Prophet ai;</pre>
 
-    <h2>3. Software Detailed Design (SDD)</h2>
+<h3>2.3 Containerization &amp; Deployment Architecture</h3>
+<p>The system is deployed on <strong>Railway</strong>, utilizing a Monorepo deployment strategy optimized for cloud execution:
+- <strong>Frontend Build (Nixpacks):</strong> The Next.js application is located at the root of the repository. Railway's Nixpacks automatically detects the <code>package.json</code>, installs dependencies using <code>npm</code>, and builds the standalone Next.js server. This avoids Docker Out-Of-Memory (OOM) issues and results in a highly optimized deployment.
+- <strong>Backend Build (Docker):</strong> The backend is containerized using <code>fawatir_backend/Dockerfile</code>. It provisions a Python 3.12 Alpine environment, installs system-level dependencies for data science tools, and serves the Django application via Gunicorn.
+- <strong>CI/CD Pipeline:</strong> GitHub Actions automatically tests the backend (<code>python manage.py test</code>) and validates the frontend build on every push.</p>
+<div class="page-break"></div>
 
-    <h3>3.1 Frontend Subsystem (Presentation Layer)</h3>
-    <p>The frontend utilizes the Next.js <strong>App Router</strong> (<code>app/</code> directory paradigm) for layouts and routing.</p>
-    <ul>
-        <li><strong>UI Architecture:</strong> Built using functional React components styled with <strong>TailwindCSS</strong> and <code>clsx</code> for conditional classes. The UI follows a modern "Bento Grid" spatial design language.</li>
-        <li><strong>State Management:</strong> <strong>Zustand</strong> is used for lightweight, globally accessible state stores without the boilerplate of Redux.</li>
-        <li><strong>Data Rendering:</strong> Uses <code>react-markdown</code> and <code>remark-gfm</code> for rendering rich AI responses in the chatbot widget.</li>
-        <li><strong>Excel Export:</strong> Integrates <code>xlsx</code> to allow clients to download reports locally.</li>
-    </ul>
+<hr />
+<h2>3. Software Detailed Design (SDD)</h2>
+<h3>3.1 Frontend Subsystem (Presentation Layer)</h3>
+<p>The frontend is engineered for extreme performance and UX excellence.</p>
+<ul>
+<li><strong>UI Architecture:</strong> Built using functional React components styled with <strong>TailwindCSS</strong>. The UI adheres to a modern "Bento Grid" spatial design language, ensuring responsiveness across desktop and mobile.</li>
+<li><strong>State Management:</strong> <strong>Zustand</strong> is used for lightweight, globally accessible state stores. This removes the boilerplate of Redux while providing powerful hooks.</li>
+<li><strong>Data Fetching:</strong> Hybrid approach utilizing Next.js Server Components for initial data load (SEO optimization) and Client Components for dynamic interactivity (e.g., modifying invoices).</li>
+<li><strong>AI Rendering:</strong> Integrates <code>react-markdown</code> and <code>remark-gfm</code> to elegantly render rich markdown responses generated by the AI chatbot.</li>
+</ul>
+<h3>3.2 Backend API Modules (Application Layer)</h3>
+<p>The Django backend defines distinct, robust modules managed by <code>rest_framework.routers.DefaultRouter</code>. These endpoints map directly to underlying relational models.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Module</th>
+<th style="text-align: left;">Core Endpoints &amp; Responsibilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>CRM</strong></td>
+<td style="text-align: left;"><code>/api/clients/</code>, <code>/api/suppliers/</code><br>Manages customer relationships. Includes custom actions like <code>/clear/</code> to flush mock data.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Inventory</strong></td>
+<td style="text-align: left;"><code>/api/products/</code><br>Tracks inventory levels, categories, and SKU generation.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Accounting</strong></td>
+<td style="text-align: left;"><code>/api/invoices/</code>, <code>/api/quotations/</code><br>Core financial ledger. Supports custom actions like <code>/send_whatsapp/</code> for instant client communication and <code>/send_email/</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>HR &amp; Payroll</strong></td>
+<td style="text-align: left;"><code>/api/employees/</code>, <code>/api/bulletins/</code><br>Staff management, attendance, and payslip generation.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Point of Sale</strong></td>
+<td style="text-align: left;"><code>/api/pos-sessions/</code><br>In-store transaction handling.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AI Hub</strong></td>
+<td style="text-align: left;"><code>/api/ai-conversations/</code><br>Manages asynchronous AI tasks and prompt history.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.3 Database Entity-Relationship Model (Core Modules)</h3>
+<pre class="mermaid">erDiagram
+    COMPANY ||--o{ CLIENT : manages
+    COMPANY ||--o{ SUPPLIER : manages
+    COMPANY ||--o{ PRODUCT : owns
 
-    <h3>3.2 Backend API Modules (Application Layer)</h3>
-    <p>The Django backend defines 10 core modules managed by <code>rest_framework.routers.DefaultRouter</code>. These endpoints map directly to underlying relational database models:</p>
+    CLIENT ||--o{ INVOICE : receives
+    CLIENT ||--o{ QUOTATION : requests
 
-    <table>
-        <thead>
-            <tr>
-                <th>Module</th>
-                <th>Core Endpoints & Responsibilities</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><strong>Core Admin</strong></td>
-                <td><code>/users</code>, <code>/companies</code>, <code>/permissions</code>, <code>/audit-logs</code><br>Manages multi-tenant configurations and RBAC (Role-Based Access Control).</td>
-            </tr>
-            <tr>
-                <td><strong>CRM</strong></td>
-                <td><code>/clients</code>, <code>/suppliers</code>, <code>/marketing-campaigns</code>, <code>/whatsapp-messages</code><br>Handles external relationships and messaging.</td>
-            </tr>
-            <tr>
-                <td><strong>Inventory</strong></td>
-                <td><code>/products</code>, <code>/product-variants</code>, <code>/stock-movements</code><br>Tracks inventory levels and warehouse movements.</td>
-            </tr>
-            <tr>
-                <td><strong>Accounting</strong></td>
-                <td><code>/invoices</code>, <code>/payments</code>, <code>/bank-transactions</code>, <code>/bank-reconciliations</code><br>Core financial ledger and invoice generation.</td>
-            </tr>
-            <tr>
-                <td><strong>Quotations</strong></td>
-                <td><code>/quotations</code>, <code>/quotation-items</code><br>Pre-sale proposals and estimates.</td>
-            </tr>
-            <tr>
-                <td><strong>Purchasing</strong></td>
-                <td><code>/purchase-orders</code><br>Supply chain and procurement tracking.</td>
-            </tr>
-            <tr>
-                <td><strong>Point of Sale</strong></td>
-                <td><code>/pos-sessions</code>, <code>/pos-sales</code><br>In-store transaction handling.</td>
-            </tr>
-            <tr>
-                <td><strong>HR</strong></td>
-                <td><code>/employees</code>, <code>/payrolls</code><br>Staff management and salary generation.</td>
-            </tr>
-            <tr>
-                <td><strong>AI Hub</strong></td>
-                <td><code>/ocr-documents</code>, <code>/ai-conversations</code>, <code>/ai-recommendations</code><br>Manages asynchronous AI tasks and prompt history.</td>
-            </tr>
-            <tr>
-                <td><strong>Support</strong></td>
-                <td><code>/tickets</code><br>Internal helpdesk for users.</td>
-            </tr>
-        </tbody>
-    </table>
+    INVOICE ||--o{ INVOICE_ITEM : contains
+    QUOTATION ||--o{ QUOTATION_ITEM : contains
 
-    <div class="page-break"></div>
+    PRODUCT ||--o{ INVOICE_ITEM : referenced_by
+    PRODUCT ||--o{ QUOTATION_ITEM : referenced_by
 
-    <h3>3.3 AI Pipeline Detailed Workflow</h3>
-    <p>One of the most complex subsystems is the Automated Invoice Extraction.</p>
-    <ol>
-        <li><strong>Ingestion:</strong> User uploads a scanned invoice image or PDF.</li>
-        <li><strong>Preprocessing:</strong> The image is processed using <code>Pillow</code> to enhance contrast for OCR.</li>
-        <li><strong>Extraction:</strong> The backend's <code>manual_ocr.py</code> script attempts initial text layout detection.</li>
-        <li><strong>Semantics:</strong> The extracted raw text is sent to the LLM (<code>google-generativeai</code> or local <code>Ollama</code>) with a strict system prompt demanding a JSON return format defining the <code>client</code>, <code>total_amount</code>, <code>date</code>, and line <code>items</code>.</li>
-        <li><strong>Validation:</strong> Pydantic is utilized to validate the structured JSON against the expected schema before saving it to the SQLite database via the Django ORM.</li>
-    </ol>
+    COMPANY {
+        int id PK
+        string name
+        string tax_id
+    }
+    CLIENT {
+        int id PK
+        string name
+        string phone
+    }
+    INVOICE {
+        int id PK
+        date issue_date
+        float total_amount
+        string status
+    }
+    INVOICE_ITEM {
+        int id PK
+        int quantity
+        float unit_price
+    }</pre>
 
-    <h2>4. Technology Stack & Dependencies</h2>
+<div class="page-break"></div>
 
-    <h3>4.1 Frontend Stack</h3>
-    <ul>
-        <li><strong>Framework:</strong> Next.js 14 (<code>next</code>, <code>react</code>, <code>react-dom</code>)</li>
-        <li><strong>UI / Styling:</strong> TailwindCSS, <code>lucide-react</code> (iconography), <code>clsx</code></li>
-        <li><strong>State & Utils:</strong> <code>zustand</code>, <code>@google/genai</code> (direct client-side AI integration), <code>xlsx</code></li>
-    </ul>
+<h3>3.4 Feature Deep-Dive: WhatsApp Integration Workflow</h3>
+<p>The system provides one-click WhatsApp invoice delivery, bypassing manual communication.</p>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant NextJS as Frontend
+    participant Django as Backend
+    participant Twilio as WhatsApp API
+    participant Client
 
-    <h3>4.2 Backend Stack</h3>
-    <ul>
-        <li><strong>Web Framework:</strong> Django 6.x, Django REST Framework (<code>djangorestframework</code>)</li>
-        <li><strong>Data Science & ML:</strong> <code>pandas</code>, <code>numpy</code>, <code>prophet</code> (time-series forecasting for revenue), <code>plotly</code> (graph generation)</li>
-        <li><strong>Image & AI:</strong> <code>pillow</code>, <code>google-generativeai</code></li>
-        <li><strong>Validation:</strong> <code>pydantic</code></li>
-        <li><strong>API Documentation:</strong> <code>drf-spectacular</code> (generates automated OpenAPI schema mapped to <code>/api/schema/</code> and <code>/api/docs/</code>)</li>
-    </ul>
+    User->>NextJS: Clicks "Send via WhatsApp" on Invoice #102
+    NextJS->>Django: POST /api/invoices/102/send_whatsapp/
+    Django->>Django: Retrieve Invoice & Client Phone Number
+    Django->>Django: Format WhatsApp Message Template
+    Django->>Twilio: HTTP POST API Request (Twilio Credentials)
+    Twilio-->>Django: Success (Message SID)
+    Django-->>NextJS: 200 OK {"status": "success"}
+    NextJS-->>User: Display Green Success Toast
+    Twilio->>Client: WhatsApp Message Received!</pre>
 
-    <h2>5. Security & Considerations</h2>
-    <ul>
-        <li><strong>Environment Management:</strong> Sensitive keys (<code>SECRET_KEY</code>, <code>GEMINI_API_KEY</code>) are injected via <code>.env.local</code> locally and via Railway Variables in production.</li>
-        <li><strong>CORS:</strong> Controlled via <code>django-cors-headers</code> to ensure only the Next.js frontend origin can query the backend.</li>
-        <li><strong>Next.js Telemetry:</strong> Disabled via <code>ENV NEXT_TELEMETRY_DISABLED 1</code> in the Dockerfile to comply with enterprise data privacy standards.</li>
-    </ul>
+<h3>3.5 Feature Deep-Dive: System Data Clearing (Testing Mode)</h3>
+<p>To allow the user to easily wipe mock data and prepare the system for production, specific administrative endpoints were engineered.</p>
+<pre class="mermaid">sequenceDiagram
+    participant Admin
+    participant NextJS as Frontend
+    participant Django as Backend
+    participant SQLite as Database
 
+    Admin->>NextJS: Clicks "Clear Fake Data" in Settings
+    NextJS->>Django: POST /api/clients/clear/
+    Django->>SQLite: DELETE FROM api_client;
+    SQLite-->>Django: Rows deleted
+    Django-->>NextJS: 200 OK {"status": "cleared"}
+    NextJS->>NextJS: Clear Local Zustand State
+    NextJS-->>Admin: UI Updates to empty lists</pre>
+
+<hr />
+<h2>4. Technology Stack &amp; Dependencies</h2>
+<h3>4.1 Frontend Stack</h3>
+<ul>
+<li><strong>Core:</strong> Next.js 14, React 18</li>
+<li><strong>Styling:</strong> TailwindCSS, <code>clsx</code></li>
+<li><strong>Iconography:</strong> <code>lucide-react</code></li>
+<li><strong>State Management:</strong> <code>zustand</code></li>
+<li><strong>Utilities:</strong> <code>xlsx</code> (Excel generation), <code>date-fns</code> (Date formatting)</li>
+</ul>
+<h3>4.2 Backend Stack</h3>
+<ul>
+<li><strong>Core:</strong> Python 3.12, Django 6.x, Django REST Framework</li>
+<li><strong>Data Science:</strong> <code>pandas</code>, <code>numpy</code>, <code>prophet</code> (Time-series forecasting)</li>
+<li><strong>AI &amp; Integrations:</strong> <code>google-generativeai</code>, <code>twilio</code></li>
+<li><strong>Database:</strong> SQLite3 / PostgreSQL</li>
+</ul>
+<hr />
+<h2>5. Security &amp; System Integrity</h2>
+<ul>
+<li><strong>Environment Injection:</strong> Sensitive cryptographic keys (<code>SECRET_KEY</code>, <code>GEMINI_API_KEY</code>, <code>TWILIO_AUTH_TOKEN</code>) are never hardcoded. They are injected at runtime via Railway Environment Variables.</li>
+<li><strong>Data Validation:</strong> Both incoming requests and AI-generated outputs are rigorously validated using DRF Serializers and Pydantic schemas to prevent injection attacks and ensure database integrity.</li>
+<li><strong>Cross-Origin Resource Sharing (CORS):</strong> Strictly configured via <code>django-cors-headers</code> to ensure that only the trusted Next.js frontend origin can execute mutations on the database.</li>
+</ul>
 </body>
 </html>
