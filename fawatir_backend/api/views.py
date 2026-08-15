@@ -1,5 +1,7 @@
 from rest_framework import viewsets
 from . import models, serializers
+from rest_framework.decorators import action
+from rest_framework.response import Response
 # foundation
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Company.objects.all(), serializers.CompanySerializer
@@ -46,8 +48,18 @@ class PdfTemplateViewSet(viewsets.ModelViewSet):
 class ClientViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Client.objects.all(), serializers.ClientSerializer
 
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({"status": "cleared"})
+
 class SupplierViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Supplier.objects.all(), serializers.SupplierSerializer
+
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({"status": "cleared"})
 
 class MarketingCampaignViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.MarketingCampaign.objects.all(), serializers.MarketingCampaignSerializer
@@ -82,6 +94,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Product.objects.all(), serializers.ProductSerializer
 
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({"status": "cleared"})
+
 class ProductVariantViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.ProductVariant.objects.all(), serializers.ProductVariantSerializer
 
@@ -96,6 +113,21 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 # Accounting 
 class InvoiceViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Invoice.objects.all(), serializers.InvoiceSerializer
+
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({"status": "cleared"})
+
+    @action(detail=True, methods=['post'])
+    def send_whatsapp(self, request, pk=None):
+        invoice = self.get_object()
+        return Response({"success": True, "message": f"WhatsApp request received for invoice {invoice.id}."})
+
+    @action(detail=True, methods=['post'])
+    def send_email(self, request, pk=None):
+        invoice = self.get_object()
+        return Response({"success": True, "message": f"Email request received for invoice {invoice.id}."})
 
 class InvoiceItemViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.InvoiceItem.objects.all(), serializers.InvoiceItemSerializer
@@ -117,6 +149,11 @@ class BankReconciliationViewSet(viewsets.ModelViewSet):
 #Quotation
 class QuotationViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.Quotation.objects.all(), serializers.QuotationSerializer
+
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        self.get_queryset().delete()
+        return Response({"status": "cleared"})
 class QuotationItemViewSet(viewsets.ModelViewSet):
     queryset, serializer_class = models.QuotationItem.objects.all(), serializers.QuotationItemSerializer
 
