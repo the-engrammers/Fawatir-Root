@@ -22,14 +22,14 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #FAFAFA;
-  color: #09090b;
+  background-color: #020617; /* Slate 950 */
+  color: #F8FAFC;
   font-size: 85%; /* Scales down rem units to mimic ~80% zoom density */
 }
 
 body {
-  background-color: #FAFAFA;
-  color: #09090b;
+  background-color: #020617;
+  color: #F8FAFC;
   font-family: inherit;
   min-height: 100vh;
   position: relative;

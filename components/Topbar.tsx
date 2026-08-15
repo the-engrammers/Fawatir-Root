@@ -21,28 +21,7 @@ export default function Topbar() {
   const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
 
-  // Light / Dark mode state
-  const [isLightMode, setIsLightMode] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("fawatir_theme");
-    if (saved === "light" || document.documentElement.classList.contains("light-mode")) {
-      setIsLightMode(true);
-      document.documentElement.classList.add("light-mode");
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    if (isLightMode) {
-      document.documentElement.classList.remove("light-mode");
-      localStorage.setItem("fawatir_theme", "dark");
-      setIsLightMode(false);
-    } else {
-      document.documentElement.classList.add("light-mode");
-      localStorage.setItem("fawatir_theme", "light");
-      setIsLightMode(true);
-    }
-  };
 
   useEffect(() => {
     fetchStockAlerts();
@@ -160,52 +139,11 @@ export default function Topbar() {
                   </div>
                   Facture Rapide
                 </button>
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    setIsScannerModalOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30">
-                    <Scan size={15} />
-                  </div>
-                  Numériser Doc
-                </button>
-                <button
-                  onClick={() => {
-                    setOpenDropdown(null);
-                    setIsExcelModalOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-colors"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30">
-                    <FileSpreadsheet size={15} />
-                  </div>
-                  Importer Excel
-                </button>
               </div>
             )}
           </div>
 
-          {/* Theme Mode Toggle Button */}
-          <button 
-            onClick={toggleTheme}
-            title={isLightMode ? "Passer au Mode Sombre" : "Passer au Mode Clair"}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-[12px] font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-all active:scale-95 shadow-xs"
-          >
-            {isLightMode ? (
-              <>
-                <Moon size={15} className="text-amber-400" />
-                <span className="hidden sm:inline">Sombre</span>
-              </>
-            ) : (
-              <>
-                <Sun size={15} className="text-amber-400" />
-                <span className="hidden sm:inline">Clair</span>
-              </>
-            )}
-          </button>
+
 
           {/* Notifications */}
           <div className="relative">
