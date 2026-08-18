@@ -11,6 +11,12 @@ npm install
 npm run dev
 ```
 
+### Environment Configuration (.env.local)
+To enable Gemini AI features (Chatbot, Document OCR, Spreadsheet Analyzer), ensure your `.env.local` contains:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
 Open http://localhost:3000 — you'll see the Dashboard (Tableau de bord) fully built.
 
 ## What's in here
