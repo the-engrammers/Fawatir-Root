@@ -38,20 +38,105 @@ export default function RapportsPage() {
     return () => window.removeEventListener("dataUpdated", handleDataUpdate);
   }, []);
 
+  const filteredInvoices = useMemo(() => {
+    if (!invoices.length) return [];
+    const now = new Date();
+    return invoices.filter(inv => {
+      const dStr = inv.date || inv.dateEmission;
+      if (!dStr) return true;
+      const invDate = new Date(dStr);
+      if (isNaN(invDate.getTime())) return true;
+      if (periode === "30-jours") {
+        const past30 = new Date(); past30.setDate(now.getDate() - 30);
+        return invDate >= past30;
+      }
+      if (periode === "trimestre") {
+        const past90 = new Date(); past90.setDate(now.getDate() - 90);
+        return invDate >= past90;
+      }
+      if (periode === "annee") {
+        return invDate.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  }, [invoices, periode]);
+
   const kpis = useMemo(() => {
-    const paidInvoices = invoices.filter(i => i.status === "Payée" || i.statut === "Payée");
-    const unpaidInvoices = invoices.filter(i => i.status !== "Payée" && i.statut !== "Payée");
+    const list = filteredInvoices;
+    const paidInvoices = list.filter(i => i.status === "Payée" || i.statut === "Payée");
+    const unpaidInvoices = list.filter(i => i.status !== "Payée" && i.statut !== "Payée");
     const totalRev = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
     const creancesAttente = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
     return {
       revenuTotal: totalRev,
       facturesPayeesCount: paidInvoices.length,
-      facturesTotalCount: invoices.length,
-      tauxRecouvrement: invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0,
+      facturesTotalCount: list.length,
+      tauxRecouvrement: list.length ? Math.round((paidInvoices.length / list.length) * 100) : 0,
       factureMoyenne: paidInvoices.length ? Math.round(totalRev / paidInvoices.length) : 0,
       creancesAttente,
     };
-  }, [invoices]);
+  }, [filteredInvoices]);
+
+  const aiReportInsights = useMemo(() => {
+    const list = filteredInvoices;
+    const paidInvoices = list.filter(i => i.status === "Payée" || i.statut === "Payée");
+    const unpaidInvoices = list.filter(i => i.status !== "Payée" && i.statut !== "Payée");
+    const totalRev = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    const creancesAttente = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
+    const facturesPayeesCount = paidInvoices.length;
+    const facturesTotalCount = list.length;
+    const panierMoyen = facturesPayeesCount ? Math.round(totalRev / facturesPayeesCount) : 0;
+    const tauxRecouvrement = facturesTotalCount ? Math.round((facturesPayeesCount / facturesTotalCount) * 100) : 0;
+
+    // Monthly breakdown analysis
+    const monthlyMap: Record<string, number> = {};
+    list.forEach(inv => {
+      const dStr = inv.date || inv.dateEmission;
+      if (!dStr) return;
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return;
+      const mName = d.toLocaleString('fr-FR', { month: 'long' });
+      const capMonth = mName.charAt(0).toUpperCase() + mName.slice(1);
+      if (inv.status === "Payée" || inv.statut === "Payée") {
+        monthlyMap[capMonth] = (monthlyMap[capMonth] || 0) + (inv.total_amount || inv.montant || 0);
+      }
+    });
+
+    const sortedMonths = Object.entries(monthlyMap).sort((a, b) => b[1] - a[1]);
+    const topMonthName = sortedMonths.length > 0 ? sortedMonths[0][0] : "Activité en cours";
+    const topMonthRev = sortedMonths.length > 0 ? sortedMonths[0][1] : totalRev;
+
+    // Client concentration analysis
+    const clientMap: Record<string, number> = {};
+    list.forEach(inv => {
+      const cName = inv.client_name || inv.client || "Client Comptoir";
+      const amt = (inv.total_amount || inv.montant || 0);
+      if (inv.status === "Payée" || inv.statut === "Payée") {
+        clientMap[cName] = (clientMap[cName] || 0) + amt;
+      }
+    });
+    const sortedClients = Object.entries(clientMap).sort((a, b) => b[1] - a[1]);
+    const topClientName = sortedClients.length > 0 ? sortedClients[0][0] : "Base Clients";
+    const topClientRev = sortedClients.length > 0 ? sortedClients[0][1] : 0;
+    const top3Sum = sortedClients.slice(0, 3).reduce((sum, [, amt]) => sum + amt, 0);
+    const top3Pct = totalRev ? Math.round((top3Sum / totalRev) * 100) : 0;
+
+    return {
+      totalRev,
+      creancesAttente,
+      facturesPayeesCount,
+      facturesTotalCount,
+      panierMoyen,
+      tauxRecouvrement,
+      topMonthName,
+      topMonthRev,
+      topClientName,
+      topClientRev,
+      top3Pct: Math.min(100, top3Pct || 0),
+      tvaCollectee: totalRev * 0.2,
+      tvaNet: Math.max(0, totalRev * 0.2 - (list.length * 100)),
+    };
+  }, [filteredInvoices]);
 
   const clients = clientsData;
 
@@ -63,10 +148,10 @@ export default function RapportsPage() {
   ];
 
   const extendedMonthly = useMemo(() => {
-    if (invoices.length === 0) return [];
+    if (filteredInvoices.length === 0) return [];
     const monthlyData: Record<string, any> = {};
-    invoices.forEach(inv => {
-      const date = new Date(inv.date || new Date());
+    filteredInvoices.forEach(inv => {
+      const date = new Date(inv.date || inv.dateEmission || new Date());
       const month = date.toLocaleString('fr-FR', { month: 'long' });
       if (!monthlyData[month]) {
         monthlyData[month] = { mois: month.charAt(0).toUpperCase() + month.slice(1), revenu: 0, factures: 0 };
@@ -79,16 +164,16 @@ export default function RapportsPage() {
     
     return Object.values(monthlyData).map((m: any) => ({
       ...m,
-      croissance: "+0%", // Simplified for now
+      croissance: "+0%",
       panierMoyen: m.revenu / m.factures || 0,
       statut: "Clôturé"
     }));
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   const extendedClients = useMemo(() => {
-    if (invoices.length === 0) return [];
+    if (filteredInvoices.length === 0) return [];
     const clientData: Record<string, any> = {};
-    invoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       const cName = inv.client_name || inv.client || "Client Inconnu";
       if (!clientData[cName]) clientData[cName] = { nom: cName, revenu: 0, total: 0, enRetard: 0 };
       const amount = (inv.total_amount || inv.montant || 0);
@@ -108,7 +193,7 @@ export default function RapportsPage() {
       risque: c.enRetard > 0 ? "Élevé" : "Faible",
       statutRisk: c.enRetard > 0 ? "danger" : "success"
     }));
-  }, [invoices, kpis.revenuTotal]);
+  }, [filteredInvoices, kpis.revenuTotal]);
 
   const exportCSV = () => {
     let rawText = "";
@@ -186,7 +271,8 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
   const maxCat = Math.max(...revenuParCategorie.map((c) => c.montant));
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 text-slate-100">
+    <>
+      <div className="mx-auto max-w-[1400px] space-y-6 text-slate-100 print:hidden">
       {/* En-tête de la page */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -205,24 +291,34 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
             onChange={(e) => setPeriode(e.target.value)}
             className="rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 focus:border-indigo-500 focus:outline-none"
           >
-            <option value="mois">Ce mois (Juin 2026)</option>
-            <option value="trimestre">Ce trimestre (Q2 2026)</option>
-            <option value="6-mois">6 derniers mois (Jan-Juin)</option>
-            <option value="annee">Année fiscale 2026</option>
+            <option value="30-jours">30 Derniers Jours</option>
+            <option value="trimestre">Ce Trimestre (90j)</option>
+            <option value="6-mois">6 Derniers Mois</option>
+            <option value="annee">Année Fiscale 2026</option>
           </select>
 
           <button
-            onClick={exportCSV}
+            onClick={() => setIsPdfModalOpen(true)}
             className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all active:scale-95"
           >
-            <Download size={15} className="text-indigo-400" /> CSV / Excel
+            <Eye size={15} className="text-indigo-400" /> Aperçu Rapport IA
           </button>
 
           <button
-            onClick={() => setIsPdfModalOpen(true)}
+            onClick={() => {
+              setIsPdfModalOpen(true);
+              setTimeout(() => window.print(), 300);
+            }}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
           >
-            <FileText size={16} /> Générer Rapport PDF (Analyse IA)
+            <Download size={16} /> Télécharger PDF (Analyse IA)
+          </button>
+
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-300 hover:bg-slate-800 transition-all active:scale-95"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-400" /> CSV / Excel
           </button>
         </div>
       </div>
@@ -412,7 +508,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pb-32 min-h-[300px]">
             <table className="w-full text-[13px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400 tracking-wider">
@@ -506,7 +602,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pb-32 min-h-[300px]">
             <table className="w-full text-[13px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400 tracking-wider">
@@ -684,6 +780,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
           </div>
         </div>
       )}
+      </div>
 
       {/* MODAL IMPRIMABLE PDF AVEC ANALYSE IA STRATÉGIQUE */}
       {isPdfModalOpen && (
@@ -724,7 +821,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
             </div>
 
             {/* DOCUMENT IMPRIMABLE PDF (FORMAT OFFICIEL) */}
-            <div className="p-8 space-y-6 text-slate-800 font-sans leading-relaxed text-[13px] print:p-0">
+            <div className="printable-area p-8 space-y-6 text-slate-800 font-sans leading-relaxed text-[13px] bg-white print:p-0">
               
               {/* En-tête du Rapport PDF */}
               <div className="flex justify-between items-start border-b border-slate-300 pb-6">
@@ -747,64 +844,64 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
               </div>
 
               {/* Section 1: Executive Summary */}
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-5 space-y-2">
-                <div className="flex items-center gap-2 text-indigo-900 font-bold text-[14px]">
+              <div className="rounded-xl bg-slate-100 border border-slate-300 p-5 space-y-2">
+                <div className="flex items-center gap-2 text-slate-900 font-extrabold text-[14px]">
                   <Sparkles size={16} className="text-indigo-600" />
                   <h2>1. SYNTHÈSE D'EXPLOITATION & PERFORMANCE FINANCIÈRE</h2>
                 </div>
-                <p className="text-[12.5px] text-slate-700 leading-relaxed">
-                  Sur la période examinée (<strong>{periode}</strong>), l'entreprise affiche un chiffre d'affaires total de <strong className="text-indigo-900">{mad(kpis.revenuTotal)}</strong>, marquant une progression soutenue de <strong>+12.4%</strong> par rapport à la période précédente. La santé financière globale est qualifiée de <strong>Trés Forte</strong> avec un panier moyen de <strong className="text-indigo-900">{mad(kpis.factureMoyenne)}</strong> par facture.
+                <p className="text-[12.5px] text-slate-900 font-medium leading-relaxed">
+                  Sur la période examinée (<strong>{periode}</strong>), l'entreprise affiche un chiffre d'affaires encaisse de <strong className="text-black font-extrabold">{mad(aiReportInsights.totalRev)}</strong> sur <strong className="text-black font-extrabold">{aiReportInsights.facturesPayeesCount}</strong> factures réglées. La santé financière globale présente un panier moyen de <strong className="text-black font-extrabold">{mad(aiReportInsights.panierMoyen)}</strong> par facture avec un taux de recouvrement de <strong className="text-black font-extrabold">{aiReportInsights.tauxRecouvrement}%</strong>.
                 </p>
               </div>
 
               {/* Grille des Indicateurs Clés PDF */}
               <div className="grid grid-cols-4 gap-3 text-center">
-                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Chiffre d'Affaires</div>
-                  <div className="text-[16px] font-extrabold text-indigo-950 font-mono mt-1">{mad(kpis.revenuTotal)}</div>
+                <div className="p-3 bg-slate-100 border border-slate-300 rounded-lg">
+                  <div className="text-[10px] uppercase font-bold text-slate-700">Chiffre d'Affaires</div>
+                  <div className="text-[16px] font-black text-black font-mono mt-1">{mad(aiReportInsights.totalRev)}</div>
                 </div>
-                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Taux de Recouvrement</div>
-                  <div className="text-[16px] font-extrabold text-emerald-800 font-mono mt-1">{kpis.tauxRecouvrement}%</div>
+                <div className="p-3 bg-slate-100 border border-slate-300 rounded-lg">
+                  <div className="text-[10px] uppercase font-bold text-slate-700">Taux de Recouvrement</div>
+                  <div className="text-[16px] font-black text-black font-mono mt-1">{aiReportInsights.tauxRecouvrement}%</div>
                 </div>
-                <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">TVA Collectée (20%)</div>
-                  <div className="text-[16px] font-extrabold text-amber-900 font-mono mt-1">{mad(kpis.revenuTotal * 0.2)}</div>
+                <div className="p-3 bg-slate-100 border border-slate-300 rounded-lg">
+                  <div className="text-[10px] uppercase font-bold text-slate-700">TVA Collectée (20%)</div>
+                  <div className="text-[16px] font-black text-black font-mono mt-1">{mad(aiReportInsights.tvaCollectee)}</div>
                 </div>
-                <div className="p-3 bg-slate-100 border border-slate-200 rounded-lg">
-                  <div className="text-[10px] uppercase font-bold text-slate-500">Facture Moyenne</div>
-                  <div className="text-[16px] font-extrabold text-slate-900 font-mono mt-1">{mad(kpis.factureMoyenne)}</div>
+                <div className="p-3 bg-slate-100 border border-slate-300 rounded-lg">
+                  <div className="text-[10px] uppercase font-bold text-slate-700">Panier Moyen</div>
+                  <div className="text-[16px] font-black text-black font-mono mt-1">{mad(aiReportInsights.panierMoyen)}</div>
                 </div>
               </div>
 
               {/* Section 2: Analyse Détaillée des Tendances Mensuelles */}
               <div className="space-y-3">
-                <h3 className="font-bold text-slate-900 text-[14px] border-b border-slate-200 pb-1">
+                <h3 className="font-extrabold text-black text-[14px] border-b border-slate-300 pb-1">
                   2. DYNAMIQUE ET ÉVOLUTION DES REVENUS
                 </h3>
-                <p className="text-[12px] text-slate-700 leading-relaxed">
-                  L'analyse temporelle révèle une accélération marquée de l'activité commerciale au cours des mois de <strong>Mai ({mad(190000)})</strong> et <strong>Juin ({mad(210000)})</strong>, principalement tirée par les projets de transformation digitale et l'intégration de solutions sur mesure.
+                <p className="text-[12px] text-slate-900 font-medium leading-relaxed">
+                  L'analyse temporelle enregistre une activité culminante en <strong>{aiReportInsights.topMonthName}</strong> avec un volume de <strong>{mad(aiReportInsights.topMonthRev)}</strong> encaissements.
                 </p>
 
                 {/* Tableau condensé PDF */}
-                <table className="w-full text-[11.5px] border-collapse border border-slate-200 text-left">
-                  <thead className="bg-slate-100 font-bold text-slate-700">
+                <table className="w-full text-[11.5px] border-collapse border border-slate-300 text-left">
+                  <thead className="bg-slate-200 font-bold text-black">
                     <tr>
-                      <th className="p-2 border border-slate-200">Mois</th>
-                      <th className="p-2 border border-slate-200">Revenu Brut</th>
-                      <th className="p-2 border border-slate-200">Variation</th>
-                      <th className="p-2 border border-slate-200">Factures</th>
-                      <th className="p-2 border border-slate-200">Panier Moyen</th>
+                      <th className="p-2 border border-slate-300 text-black">Mois</th>
+                      <th className="p-2 border border-slate-300 text-black">Revenu Encaissé</th>
+                      <th className="p-2 border border-slate-300 text-black">Evolution</th>
+                      <th className="p-2 border border-slate-300 text-black">Factures</th>
+                      <th className="p-2 border border-slate-300 text-black">Panier Moyen</th>
                     </tr>
                   </thead>
                   <tbody>
                     {extendedMonthly.map((m) => (
-                      <tr key={m.mois} className="border-b border-slate-200">
-                        <td className="p-2 border border-slate-200 font-bold">{m.mois}</td>
-                        <td className="p-2 border border-slate-200 font-mono">{mad(m.revenu)}</td>
-                        <td className="p-2 border border-slate-200 font-semibold text-emerald-700">{m.croissance}</td>
-                        <td className="p-2 border border-slate-200">{m.factures}</td>
-                        <td className="p-2 border border-slate-200 font-mono">{mad(m.panierMoyen)}</td>
+                      <tr key={m.mois} className="border-b border-slate-300 text-black">
+                        <td className="p-2 border border-slate-300 font-extrabold text-black">{m.mois}</td>
+                        <td className="p-2 border border-slate-300 font-mono font-bold text-black">{mad(m.revenu)}</td>
+                        <td className="p-2 border border-slate-300 font-bold text-black">{m.croissance}</td>
+                        <td className="p-2 border border-slate-300 font-bold text-black">{m.factures}</td>
+                        <td className="p-2 border border-slate-300 font-mono font-bold text-black">{mad(m.panierMoyen)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -813,25 +910,25 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
 
               {/* Section 3: Diagnostic de Concentration & Risque Client */}
               <div className="space-y-3">
-                <h3 className="font-bold text-slate-900 text-[14px] border-b border-slate-200 pb-1">
+                <h3 className="font-extrabold text-black text-[14px] border-b border-slate-300 pb-1">
                   3. RISQUE CLIENT & ANALYSE DE RECOUVREMENT
                 </h3>
-                <p className="text-[12px] text-slate-700 leading-relaxed">
-                  Votre base est constituée de <strong>{clients.length}</strong> clients actifs qui génèrent le chiffre d'affaires global.
+                <p className="text-[12px] text-slate-900 font-medium leading-relaxed">
+                  Base active : <strong>{clients.length}</strong> clients enregistrés. Le client principal <strong>{aiReportInsights.topClientName}</strong> génère <strong>{mad(aiReportInsights.topClientRev)}</strong>.
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 text-[12px]">
-                  <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-lg space-y-1">
-                    <span className="font-bold text-amber-900 block">⚠ Point d'Attention — Concentration :</span>
-                    <p className="text-slate-700">
-                      Vérifiez régulièrement qu'aucun client ne dépasse 30% de votre chiffre d'affaires total pour limiter le risque de dépendance.
+                  <div className="p-3.5 bg-slate-100 border border-slate-300 rounded-lg space-y-1">
+                    <span className="font-extrabold text-black block">⚠ Concentration des Revenus :</span>
+                    <p className="text-slate-900 font-medium">
+                      Les 3 premiers clients représentent <strong>{aiReportInsights.top3Pct}%</strong> du chiffre d'affaires global sur la période.
                     </p>
                   </div>
 
-                  <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-lg space-y-1">
-                    <span className="font-bold text-emerald-900 block">✔ Discipline de Paiement :</span>
-                    <p className="text-slate-700">
-                      Le taux de recouvrement global de <strong>{kpis.tauxRecouvrement}%</strong> atteste de l'efficacité de vos facturations. Vos créances en attente sont de <strong>{mad(kpis.creancesAttente)}</strong>.
+                  <div className="p-3.5 bg-slate-100 border border-slate-300 rounded-lg space-y-1">
+                    <span className="font-extrabold text-black block">✔ Encours & Créances :</span>
+                    <p className="text-slate-900 font-medium">
+                      Taux de recouvrement à <strong>{aiReportInsights.tauxRecouvrement}%</strong>. Vos créances en attente s'élèvent à <strong>{mad(aiReportInsights.creancesAttente)}</strong>.
                     </p>
                   </div>
                 </div>
@@ -839,27 +936,23 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
 
               {/* Section 4: Récapitulatif Fiscal & TVA */}
               <div className="space-y-3">
-                <h3 className="font-bold text-slate-900 text-[14px] border-b border-slate-200 pb-1">
+                <h3 className="font-extrabold text-black text-[14px] border-b border-slate-300 pb-1">
                   4. RÉCAPITULATIF FISCAL & ESTIMATION TVA
                 </h3>
-                <table className="w-full text-[12px] border-collapse border border-slate-200">
+                <table className="w-full text-[12px] border-collapse border border-slate-300 text-black">
                   <tbody>
-                    <tr className="border-b border-slate-200">
-                      <td className="p-2.5 font-medium text-slate-600">Total Ventes Hors Taxes (HT)</td>
-                      <td className="p-2.5 font-mono font-bold text-right text-slate-900">{mad(kpis.revenuTotal)}</td>
+                    <tr className="border-b border-slate-300">
+                      <td className="p-2.5 font-bold text-slate-900">Total Ventes Hors Taxes (HT)</td>
+                      <td className="p-2.5 font-mono font-black text-right text-black">{mad(aiReportInsights.totalRev)}</td>
                     </tr>
-                    <tr className="border-b border-slate-200">
-                      <td className="p-2.5 font-medium text-slate-600">TVA Collectée sur Ventes (20%)</td>
-                      <td className="p-2.5 font-mono font-bold text-right text-emerald-700">+{mad(kpis.revenuTotal * 0.2)}</td>
+                    <tr className="border-b border-slate-300">
+                      <td className="p-2.5 font-bold text-slate-900">TVA Collectée sur Ventes (20%)</td>
+                      <td className="p-2.5 font-mono font-black text-right text-black">+{mad(aiReportInsights.tvaCollectee)}</td>
                     </tr>
-                    <tr className="border-b border-slate-200">
-                      <td className="p-2.5 font-medium text-slate-600">TVA Déductible estimée sur Achats / Dépenses</td>
-                      <td className="p-2.5 font-mono font-bold text-right text-red-700">-{mad(18400)}</td>
-                    </tr>
-                    <tr className="bg-indigo-50 font-bold">
-                      <td className="p-2.5 text-indigo-950">TVA Net à Payer (Solde DGI)</td>
-                      <td className="p-2.5 font-mono font-extrabold text-right text-indigo-900 text-[14px]">
-                        {mad(kpis.revenuTotal * 0.2 - 18400)}
+                    <tr className="bg-slate-100 font-bold">
+                      <td className="p-2.5 text-black font-extrabold">TVA Net Estimée à Payer (DGI)</td>
+                      <td className="p-2.5 font-mono font-black text-right text-black text-[14px]">
+                        {mad(aiReportInsights.tvaNet)}
                       </td>
                     </tr>
                   </tbody>
@@ -867,16 +960,15 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
               </div>
 
               {/* Section 5: Recommandations Stratégiques IA */}
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-2">
-                <h3 className="font-bold text-indigo-950 text-[13.5px] flex items-center gap-1.5">
+              <div className="rounded-xl border border-slate-300 bg-slate-100 p-4 space-y-2 text-black">
+                <h3 className="font-extrabold text-black text-[13.5px] flex items-center gap-1.5">
                   <Sparkles size={15} className="text-indigo-600" />
-                  5. RECOMMANDATIONS STRATÉGIQUES POUR LE PROCHAIN TRIMESTRE
+                  5. RECOMMANDATIONS STRATÉGIQUES IA
                 </h3>
-                <ul className="space-y-1.5 text-[12px] text-slate-700 list-disc list-inside">
-                  <li><strong>Automatiser les relances à J+7 :</strong> Envoyer des rappels automatiques WhatsApp et SMS pour réduire le délai moyen d'encaissement de 14 à 10 jours.</li>
-                  <li><strong>Lancer des offres d'abonnement récurrent :</strong> Proposer des contrats de maintenance annuels pour sécuriser un fond de roulement stable.</li>
-                  <li><strong>Provisionner l'échéance de TVA :</strong> Isoler {mad(kpis.revenuTotal * 0.2 - 18400)} sur un compte bancaire dédié avant la déclaration trimestrielle.</li>
-                  <li><strong>Diversification Client :</strong> Développer la base de clients PME pour réduire l'exposition au Top 3 clients.</li>
+                <ul className="space-y-1.5 text-[12px] text-slate-900 font-medium list-disc list-inside">
+                  <li><strong>Relancer les créances en attente :</strong> Prioriser le recouvrement de <strong>{mad(aiReportInsights.creancesAttente)}</strong> actuellement en retard.</li>
+                  <li><strong>Provisionner la déclaration de TVA :</strong> Réserver <strong>{mad(aiReportInsights.tvaNet)}</strong> pour le règlement fiscal trimestriel DGI.</li>
+                  <li><strong>Sécuriser la dépendance client :</strong> Développer de nouveaux comptes pour réduire la part du Top 3 (actuellement <strong>{aiReportInsights.top3Pct}%</strong>).</li>
                 </ul>
               </div>
 
@@ -898,6 +990,6 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

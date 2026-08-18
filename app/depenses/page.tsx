@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, X, Search, MoreHorizontal, Check, Trash2, Loader2 } from "lucide-react";
 import StatusChip from "@/components/StatusChip";
+import ConfirmModal from "@/components/ConfirmModal";
 import { mad, statusTone } from "@/lib/format";
 
 type Depense = {
@@ -24,6 +25,7 @@ export default function DepensesPage() {
   const [search, setSearch] = useState("");
   const [statutFilter, setStatutFilter] = useState("Tous");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: "", message: "", onConfirm: async () => {} });
 
   const fetchDepenses = async () => {
     try {
@@ -147,7 +149,7 @@ export default function DepensesPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-44 min-h-[360px]">
           <table className="w-full text-[13.5px] border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -186,7 +188,7 @@ export default function DepensesPage() {
                         <MoreHorizontal size={16} />
                       </button>
                       {actionMenuOpen === d.id && (
-                        <div className="absolute right-2 top-10 z-20 w-44 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
+                        <div className="absolute right-2 top-10 z-50 w-48 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
                           <button
                             onClick={async () => {
                               const newStatus = d.statut === "Payée" ? "En attente" : "Payée";
@@ -213,13 +215,20 @@ export default function DepensesPage() {
                             Marquer comme {d.statut === "Payée" ? "Non payée" : "Payée"}
                           </button>
                           <button
-                            onClick={async () => {
-                              try {
-                                await fetch(`/api/depenses/${d.id}`, { method: 'DELETE' });
-                              } catch (err) {
-                                console.error('Failed to delete depense:', err);
-                              }
-                              setList((prev) => prev.filter((item) => item.id !== d.id));
+                            onClick={() => {
+                              setConfirmConfig({
+                                isOpen: true,
+                                title: `Supprimer la dépense`,
+                                message: "Voulez-vous vraiment supprimer cette dépense ? Cette action est irréversible.",
+                                onConfirm: async () => {
+                                  try {
+                                    await fetch(`/api/depenses/${d.id}`, { method: 'DELETE' });
+                                  } catch (err) {
+                                    console.error('Failed to delete depense:', err);
+                                  }
+                                  setList((prev) => prev.filter((item) => item.id !== d.id));
+                                }
+                              });
                               setActionMenuOpen(null);
                             }}
                             className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"
@@ -302,6 +311,14 @@ export default function DepensesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+      />
     </div>
   );
 }

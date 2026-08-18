@@ -75,12 +75,20 @@ Réponds avec un tableau JSON strict au format :
 ]
 Si un champ ne correspond à aucun champ disponible, utilise "UNMAPPED". Réponds UNIQUEMENT avec le tableau JSON brut.`;
 
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: promptText
-        });
+        let response: any = null;
+        for (const modelName of ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]) {
+          try {
+            response = await ai.models.generateContent({
+              model: modelName,
+              contents: promptText
+            });
+            if (response && response.text) break;
+          } catch (e) {
+            // keep trying next model
+          }
+        }
 
-        if (response.text) {
+        if (response && response.text) {
           const cleanText = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
           const parsed = JSON.parse(cleanText);
           if (Array.isArray(parsed)) {

@@ -222,7 +222,7 @@ export default function RapprochementPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-32 min-h-[300px]">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">

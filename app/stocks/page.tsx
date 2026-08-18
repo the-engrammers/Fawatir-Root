@@ -157,7 +157,7 @@ export default function StocksPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto flex-1">
+            <div className="overflow-x-auto flex-1 pb-44 min-h-[360px]">
               <table className="w-full text-[13px] min-w-max">
                 <thead>
                   <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
@@ -226,7 +226,7 @@ export default function StocksPage() {
                             <MoreHorizontal size={16} />
                           </button>
                           {actionMenuOpen === p.id && (
-                            <div className="absolute right-2 top-10 z-20 w-44 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
+                            <div className="absolute right-2 top-10 z-50 w-48 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
                               <button
                                 onClick={async () => {
                                   const newQtyStr = prompt("Ajuster la quantité en stock :", String(p.quantity || 0));

@@ -168,12 +168,12 @@ export default function BonsCommandePage() {
                       <MoreHorizontal size={16} />
                     </button>
                     {actionMenuOpen === po.id && (
-                      <div className="absolute right-4 top-12 z-20 w-44 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
+                      <div className="absolute right-4 top-12 z-50 w-48 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
                         <Link
                           href={`/bons-de-commande/${po.id}`}
                           className="block rounded-lg px-3 py-2 text-[12.5px] text-slate-200 hover:bg-slate-800 font-medium"
                         >
-                          Voir le bon
+                          Voir les détails
                         </Link>
                         <button
                           onClick={async () => {
@@ -181,16 +181,45 @@ export default function BonsCommandePage() {
                               await fetch(`/api/bons-commande/${po.id}`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'Reçu' }),
+                                body: JSON.stringify({ statut: 'Envoyé', status: 'Envoyé' }),
                               });
-                            } catch (err) {
-                              console.error('Failed to update bon status:', err);
-                            }
-                            setList((prev) =>
-                              prev.map((item) =>
-                                item.id === po.id ? { ...item, statut: "Reçu" } : item
-                              )
-                            );
+                            } catch (err) {}
+                            setList((prev) => prev.map((item) => item.id === po.id ? { ...item, statut: "Envoyé" } : item));
+                            if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
+                            setActionMenuOpen(null);
+                          }}
+                          className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-amber-300 hover:bg-amber-500/10 font-medium"
+                        >
+                          Marquer Envoyé
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/bons-commande/${po.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ statut: 'Validé', status: 'Validé' }),
+                              });
+                            } catch (err) {}
+                            setList((prev) => prev.map((item) => item.id === po.id ? { ...item, statut: "Validé" } : item));
+                            if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
+                            setActionMenuOpen(null);
+                          }}
+                          className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-indigo-300 hover:bg-indigo-500/10 font-medium"
+                        >
+                          Marquer Validé
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/bons-commande/${po.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ statut: 'Reçu', status: 'Reçu' }),
+                              });
+                            } catch (err) {}
+                            setList((prev) => prev.map((item) => item.id === po.id ? { ...item, statut: "Reçu" } : item));
+                            if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
                             setActionMenuOpen(null);
                           }}
                           className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-emerald-400 hover:bg-emerald-500/10 font-medium"
@@ -201,10 +230,9 @@ export default function BonsCommandePage() {
                           onClick={async () => {
                             try {
                               await fetch(`/api/bons-commande/${po.id}`, { method: 'DELETE' });
-                            } catch (err) {
-                              console.error('Failed to delete bon:', err);
-                            }
+                            } catch (err) {}
                             setList((prev) => prev.filter((item) => item.id !== po.id));
+                            if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
                             setActionMenuOpen(null);
                           }}
                           className="block w-full text-left rounded-lg px-3 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium"

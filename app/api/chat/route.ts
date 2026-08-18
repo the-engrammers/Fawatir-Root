@@ -113,12 +113,84 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Le message est vide." }, { status: 400 });
     }
 
+    const lowerPrompt = prompt.toLowerCase().trim();
+
     // 1. Gather Live Database Context
     const storeClients = getClients();
     const storeSuppliers = getSuppliers();
     const storeProducts = getProducts();
     const storeQuotations = getQuotations();
     const storeInvoices = getInvoices();
+    const isCreateAction = containsAny(prompt, ["crée", "creer", "ajoute", "ajouter", "fais", "nouvel", "nouveau"]);
+    const isClientAction = containsAny(prompt, ["client"]);
+    const isInvoiceAction = containsAny(prompt, ["facture"]);
+    const isQuotationAction = containsAny(prompt, ["devis"]);
+    const isMarkPaidAction = containsAny(prompt, ["marque", "marquer", "regle", "régler", "payer"]) && containsAny(prompt, ["payée", "payee", "réglée", "reglee"]);
+
+    // 1. Create Client Action
+    if (isCreateAction && isClientAction) {
+      const clientName = extractName(prompt) || "Nouveau Client";
+      const newCli = addClient({
+        company_name: clientName,
+        contact_name: "Contact " + clientName,
+        phone: "+212 6" + Math.floor(10000000 + Math.random() * 90000000),
+        city: "Casablanca"
+      });
+
+      return NextResponse.json({
+        reply: `### ✅ Client créé avec succès en base de données !\n\n- **Code Client :** \`${newCli.customer_code}\`\n- **Entreprise :** **${newCli.company_name}**\n- **Ville :** Casablanca\n\n👉 Vos tables se synchronisent en temps réel. [Voir tous les Clients](/clients).`,
+        event: "clients"
+      });
+    }
+
+    // 2. Create Invoice Action
+    if (isCreateAction && isInvoiceAction) {
+      const amount = extractAmount(prompt) || 2500;
+      const clientName = extractName(prompt) || (storeClients[0]?.company_name) || "Client";
+      const newInv = addInvoice({
+        client_name: clientName,
+        total_amount: amount,
+        status: "Brouillon",
+        date: new Date().toISOString().split("T")[0],
+        lignes: [{ description: "Prestation de service / Vente", quantite: 1, prix_unitaire: amount }]
+      });
+
+      return NextResponse.json({
+        reply: `### ✅ Facture créée avec succès !\n\n- **Numéro :** **${newInv.invoice_number}**\n- **Client :** ${clientName}\n- **Montant Total :** **${amount.toLocaleString("fr-FR")} MAD**\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n👉 [Voir les Factures](/factures)`,
+        event: "invoices"
+      });
+    }
+
+    // 3. Create Quotation Action
+    if (isCreateAction && isQuotationAction) {
+      const amount = extractAmount(prompt) || 1800;
+      const clientName = extractName(prompt) || (storeClients[0]?.company_name) || "Client";
+      const newQ = addQuotation({
+        client_name: clientName,
+        total_amount: amount,
+        status: "Brouillon",
+        date: new Date().toISOString().split("T")[0],
+        lignes: [{ description: "Offre / Devis commercial", quantite: 1, prix_unitaire: amount }]
+      });
+
+      return NextResponse.json({
+        reply: `### 📑 Devis créé avec succès !\n\n- **Numéro :** **${newQ.quotation_number}**\n- **Client :** ${clientName}\n- **Montant estimé :** **${amount.toLocaleString("fr-FR")} MAD**\n- **Statut :** Brouillon\n\n👉 [Consulter les Devis](/devis)`,
+        event: "quotations"
+      });
+    }
+
+    // 4. Mark Invoice Paid Action
+    if (isMarkPaidAction || (containsAny(prompt, ["payée", "payee"]) && containsAny(prompt, ["facture"]))) {
+      const unpaidInvs = storeInvoices.filter(i => i.status !== "Payée");
+      if (unpaidInvs.length > 0) {
+        const targetInv = unpaidInvs[0];
+        updateInvoice(targetInv.id, { status: "Payée" });
+        return NextResponse.json({
+          reply: `### 💰 Facture marquée comme Payée avec succès !\n\n- **Facture N° :** **${targetInv.invoice_number}**\n- **Client :** ${targetInv.client_name}\n- **Montant encaissé :** **${targetInv.total_amount.toLocaleString("fr-FR")} MAD**\n- **Nouveau Statut :** ✅ Payée\n\n👉 Le chiffre d'affaires du tableau de bord a été mis à jour instantanément. [Voir les Factures](/factures)`,
+          event: "invoices"
+        });
+      }
+    }
 
     // Consolidated Clients
     const allClients = storeClients.map((c) => ({
@@ -199,97 +271,8 @@ export async function POST(req: Request) {
     };
 
     // =========================================================
-    // 2. SMART INTENT DETECTION (flexible, typo-tolerant)
+    // 2. CALL GEMINI API
     // =========================================================
-    const lowerPrompt = prompt.toLowerCase();
-    const normalizedPrompt = normalize(prompt);
-
-    // Helper to check if text contains at least one word from two different sets
-    function hasKeywords(text: string, setA: string[], setB: string[]): boolean {
-      const words = normalize(text).split(/\s+/);
-      const hasA = setA.some(a => words.some(w => w.includes(a)));
-      const hasB = setB.some(b => words.some(w => w.includes(b)));
-      return hasA && hasB;
-    }
-
-    const createVerbs = ["cree", "creer", "ajoute", "ajouter", "ajout", "nouveau", "faire", "fais", "enregistr", "inscri"];
-
-    // --- CLIENT CREATION ---
-    if (hasKeywords(prompt, createVerbs, ["client", "acheteur"])) {
-      const clientName = extractName(prompt) || "Nouveau Client IA";
-      
-      // Check if client already exists (fuzzy)
-      const existingClient = allClients.find(c =>
-        similarity(c.nom, clientName) > 0.75 ||
-        similarity(c.entreprise || "", clientName) > 0.75 ||
-        similarity(c.contact || "", clientName) > 0.75
-      );
-
-      if (existingClient) {
-        return NextResponse.json({
-          reply: `⚠️ **Un client similaire existe déjà !**\n\n- **Nom :** ${existingClient.entreprise || existingClient.nom}\n- **Contact :** ${existingClient.contact}\n- **Tél :** ${existingClient.tel}\n- **Ville :** ${existingClient.ville}\n\nVoulez-vous dire ce client ? Sinon, précisez un nom différent.\n\n👉 [Voir les Clients](/clients)`
-        });
-      }
-
-      const newCli = addClient({
-        company_name: clientName,
-        contact_name: clientName,
-        city: "Casablanca",
-        phone: "+212 660 000000",
-      });
-      return NextResponse.json({
-        reply: `✅ **Client créé avec succès dans la base de données Fatourati !**\n\n- **Nom / Entreprise :** ${newCli.company_name}\n- **Code Client :** ${newCli.customer_code}\n- **Ville :** Casablanca\n\nVous pouvez retrouver ce client dans le module [Clients](/clients).`,
-        event: "clients"
-      });
-    }
-
-    // --- PRODUCT CREATION ---
-    if (hasKeywords(prompt, createVerbs, ["produit", "article", "marchandise"])) {
-      const productName = extractName(prompt.replace(/produit/gi, "client").replace(/article/gi, "client")) || "Produit Ajouté via Assistant IA";
-      const amount = extractAmount(prompt);
-      
-      const newProd = addProduct({
-        name: productName.replace(/client/gi, "").trim() || "Produit Ajouté via Assistant IA",
-        selling_price: amount || 500,
-        quantity: 10,
-        category_name: "Général"
-      });
-      return NextResponse.json({
-        reply: `✅ **Produit ajouté avec succès dans vos stocks !**\n\n- **Désignation :** ${newProd.name}\n- **Référence SKU :** ${newProd.sku}\n- **Prix Vente :** ${newProd.selling_price} MAD\n- **Quantité initiale :** ${newProd.quantity} unités\n\nRetrouvez cet article dans [Gestion des stocks](/stocks).`,
-        event: "stocks"
-      });
-    }
-
-    // --- INVOICE CREATION VIA CHAT ---
-    if (hasKeywords(prompt, createVerbs, ["facture", "devis", "recu", "ticket", "reçu"])) {
-      const amount = extractAmount(prompt) || 1000;
-      
-      // Try to find client name in the prompt (fuzzy match against existing clients)
-      let matchedClient = null;
-      const words = normalize(prompt).split(" ").filter(w => w.length > 2);
-      
-      for (const client of allClients) {
-        if (fuzzyWordMatch(prompt, client.nom) || fuzzyWordMatch(prompt, client.entreprise || "") || fuzzyWordMatch(prompt, client.contact || "")) {
-          matchedClient = client;
-          break;
-        }
-      }
-
-      const clientName = matchedClient?.entreprise || matchedClient?.nom || extractName(prompt) || "Client";
-
-      const newInv = addInvoice({
-        client_name: clientName,
-        total_amount: amount,
-        status: "Brouillon",
-        date: new Date().toISOString().split("T")[0],
-        items: [{ description: "Prestation / Article", quantity: 1, unit_price: amount }]
-      });
-
-      return NextResponse.json({
-        reply: `✅ **Facture créée avec succès !**\n\n- **Numéro :** ${newInv.invoice_number}\n- **Client :** ${clientName}\n- **Montant :** ${amount.toLocaleString("fr-FR")} MAD\n- **Statut :** Brouillon\n- **Date :** ${new Date().toLocaleDateString("fr-FR")}\n\n${matchedClient ? `📌 Client trouvé dans votre base : **${matchedClient.entreprise || matchedClient.nom}**` : `⚠️ Client "${clientName}" non trouvé dans votre base. Pensez à l'ajouter !`}\n\n👉 [Voir les Factures](/factures)`,
-        event: "factures"
-      });
-    }
 
     // Call Gemini API if Key is present
     const apiKey = process.env.GEMINI_API_KEY;
@@ -497,9 +480,11 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
           reply = fallbackReply;
         } else {
           const ai = new GoogleGenAI({ apiKey });
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain (Facturation, CRM, Stock). 
+          let response;
+          try {
+            response = await ai.models.generateContent({
+              model: 'gemini-3.6-flash',
+              contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain (Facturation, CRM, Stock). 
 Réponds de manière professionnelle, très concise et en français. Voici le contexte de la base de données de l'utilisateur:
 - Clients: ${dbContext.clientsCount}
 - Produits: ${dbContext.produitsCount}
@@ -508,7 +493,13 @@ Réponds de manière professionnelle, très concise et en français. Voici le co
 - Chiffre d'affaires: ${dbContext.kpis.revenuTotal} MAD
 
 L'utilisateur te dit : "${prompt}"`
-          });
+            });
+          } catch (e) {
+            response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain. Réponds brièvement à : "${prompt}"`
+            });
+          }
           reply = response.text || fallbackReply;
         }
       } catch (err) {

@@ -69,10 +69,10 @@ export default function AssistantWidget() {
       </button>
 
       {open && (
-        <div className="fixed bottom-[96px] right-6 z-50 flex h-[600px] w-[420px] flex-col overflow-hidden rounded-[24px] border border-white/80 bg-paper-card backdrop-blur-3xl shadow-bento animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div className="fixed bottom-[96px] right-6 z-50 flex h-[600px] w-[420px] flex-col overflow-hidden rounded-[24px] border border-slate-800 bg-slate-900 shadow-2xl backdrop-blur-3xl animate-in slide-in-from-bottom-5 fade-in duration-300">
           
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/10 bg-ink-900 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brass/20 text-brass shadow-glow">
                 <Sparkles size={18} />

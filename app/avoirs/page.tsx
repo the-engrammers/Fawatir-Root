@@ -151,7 +151,7 @@ export default function AvoirsPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-44 min-h-[360px]">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
@@ -202,7 +202,7 @@ export default function AvoirsPage() {
                         <MoreHorizontal size={16} />
                       </button>
                       {actionMenuOpen === a.id && (
-                        <div className="absolute right-2 top-9 z-20 w-44 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
+                        <div className="absolute right-2 top-9 z-50 w-48 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
                           <button
                             onClick={() => {
                               window.print();

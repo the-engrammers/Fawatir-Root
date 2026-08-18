@@ -77,8 +77,32 @@ export default function DashboardPage() {
     return () => window.removeEventListener("dataUpdated", handleDataUpdate);
   }, []);
 
+  const filteredInvoices = useMemo(() => {
+    if (!invoices.length) return [];
+    const now = new Date();
+    return invoices.filter(inv => {
+      const dStr = inv.date || inv.dateEmission;
+      if (!dStr) return true;
+      const invDate = new Date(dStr);
+      if (isNaN(invDate.getTime())) return true;
+      if (period === "30j") {
+        const past30 = new Date(); past30.setDate(now.getDate() - 30);
+        return invDate >= past30;
+      }
+      if (period === "90j") { // Trimester
+        const past90 = new Date(); past90.setDate(now.getDate() - 90);
+        return invDate >= past90;
+      }
+      if (period === "2026") {
+        return invDate.getFullYear() === 2026;
+      }
+      return true;
+    });
+  }, [invoices, period]);
+
   const kpis = useMemo(() => {
-    if (invoices.length === 0) return {
+    const list = filteredInvoices;
+    if (list.length === 0) return {
       revenuTotal: 0,
       revenuVariation: 0,
       facturesPayeesCount: 0,
@@ -90,28 +114,28 @@ export default function DashboardPage() {
       clientsActifs: clients.length,
       clientsVariation: 0
     };
-    const paidInvoices = invoices.filter(i => i.status === "Payée" || i.statut === "Payée");
-    const unpaidInvoices = invoices.filter(i => i.status !== "Payée" && i.statut !== "Payée");
-    const retardInvoices = invoices.filter(i => i.status === "En retard" || i.statut === "En retard");
+    const paidInvoices = list.filter(i => i.status === "Payée" || i.statut === "Payée");
+    const unpaidInvoices = list.filter(i => i.status !== "Payée" && i.statut !== "Payée");
+    const retardInvoices = list.filter(i => i.status === "En retard" || i.statut === "En retard");
     const totalRev = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
     const totalAttente = unpaidInvoices.reduce((sum, inv) => sum + (inv.total_amount || inv.montant || 0), 0);
     return {
       revenuTotal: totalRev,
       revenuVariation: 12.4,
       facturesPayeesCount: paidInvoices.length,
-      facturesTotalCount: invoices.length,
+      facturesTotalCount: list.length,
       facturesRetardCount: retardInvoices.length,
-      tauxRecouvrement: invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0,
+      tauxRecouvrement: list.length ? Math.round((paidInvoices.length / list.length) * 100) : 0,
       creancesAttente: totalAttente,
       creancesVariation: -2.1,
       clientsActifs: clients.length,
       clientsVariation: 5.2
     };
-  }, [invoices, clients]);
+  }, [filteredInvoices, clients]);
 
   const facturesRecentes = useMemo(() => {
-    if (invoices.length === 0) return [];
-    return invoices.slice(0, 5).map(inv => ({
+    if (filteredInvoices.length === 0) return [];
+    return filteredInvoices.slice(0, 5).map(inv => ({
       id: inv.id,
       numero: inv.invoice_number || "FAC-000",
       client: inv.client_name || "Client",
@@ -119,12 +143,12 @@ export default function DashboardPage() {
       statut: inv.status || "Brouillon",
       date: inv.date || new Date().toISOString().split("T")[0]
     }));
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   const activiteRecente: any[] = [];
 
   const repartitionStatuts = useMemo(() => {
-    if (invoices.length === 0) return [];
+    if (filteredInvoices.length === 0) return [];
     const stats: Record<string, { count: number; color: string }> = {
       "Payée": { count: 0, color: "#1F8A5F" },
       "Brouillon": { count: 0, color: "#3E5C82" },
@@ -134,7 +158,7 @@ export default function DashboardPage() {
       "Annulée": { count: 0, color: "#C77C22" }
     };
     
-    invoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       const s = inv.status || inv.statut;
       if (stats[s]) stats[s].count++;
     });
@@ -144,11 +168,11 @@ export default function DashboardPage() {
       .map(([label, data]) => ({
         label,
         value: data.count,
-        pct: Math.round((data.count / invoices.length) * 100),
+        pct: Math.round((data.count / filteredInvoices.length) * 100),
         color: data.color
       }))
       .sort((a, b) => b.value - a.value);
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   // Interactive AI Terminal State
   const [aiPrompt, setAiPrompt] = useState("");
@@ -485,7 +509,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-32 min-h-[300px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/80 text-[11px] font-bold uppercase tracking-wider text-slate-400">

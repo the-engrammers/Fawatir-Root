@@ -1,5 +1,7 @@
-export function mad(n: number) {
-  return new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 2 }).format(n) + " MAD";
+export function mad(n: any) {
+  const val = Number(n);
+  const safeVal = isNaN(val) || val === null || val === undefined ? 0 : val;
+  return new Intl.NumberFormat("fr-MA", { maximumFractionDigits: 2 }).format(safeVal) + " MAD";
 }
 
 export function statusTone(statut: string): "success" | "warning" | "danger" | "info" {

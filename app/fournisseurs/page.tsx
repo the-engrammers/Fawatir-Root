@@ -136,7 +136,7 @@ export default function FournisseursPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto flex-1">
+            <div className="overflow-x-auto flex-1 pb-44 min-h-[360px]">
               <table className="w-full text-[13.5px] min-w-max border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -181,7 +181,7 @@ export default function FournisseursPage() {
                             <MoreHorizontal size={16} />
                           </button>
                           {actionMenuOpen === f.id && (
-                            <div className="absolute right-2 top-10 z-20 w-36 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
+                            <div className="absolute right-2 top-10 z-50 w-48 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95">
                               <button
                                 onClick={() => {
                                   setConfirmConfig({

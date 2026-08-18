@@ -14,7 +14,16 @@ export default function FacturePrintView({ id }: { id: string }) {
         const list = Array.isArray(data) ? data : (data.results || []);
         const found = list.find((f: any) => f.id === id || f.invoice_number === id);
         setFacture(found);
+        
+        // Setup afterprint listener to close the tab
+        const handleAfterPrint = () => {
+          window.close();
+        };
+        window.addEventListener('afterprint', handleAfterPrint);
+        
         setTimeout(() => window.print(), 500);
+        
+        return () => window.removeEventListener('afterprint', handleAfterPrint);
       });
   }, [id]);
 
@@ -26,8 +35,27 @@ export default function FacturePrintView({ id }: { id: string }) {
   const total = sousTotal + taxe;
 
   return (
-    <div className="bg-white text-black min-h-screen p-10 font-sans">
-      <div className="flex justify-between items-start border-b border-gray-200 pb-8 mb-8">
+    <div className="printable-area bg-white text-black min-h-screen p-10 font-sans relative">
+      <div className="sticky top-0 z-50 mb-6 print:hidden flex items-center justify-between bg-slate-900 text-white p-4 rounded-xl shadow-xl border border-slate-800">
+        <button 
+          onClick={() => {
+            if (window.history.length > 1) window.history.back();
+            else window.location.href = "/factures";
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-all"
+        >
+          ← Retour à l'application
+        </button>
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400 font-medium hidden sm:inline">PDF Facture #{facture.invoice_number}</span>
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all">
+            📥 Télécharger / Imprimer PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-start border-b border-gray-200 pb-8 mb-8 mt-8">
         <div>
           <h1 className="text-4xl font-bold text-gray-900">FACTURE</h1>
           <p className="text-gray-500 mt-1">{facture.invoice_number}</p>

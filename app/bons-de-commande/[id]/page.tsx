@@ -53,16 +53,51 @@ export default function BonCommandeDetailPage({ params }: { params: { id: string
         </div>
         <div className="flex items-center gap-2">
           {po.statut === "Brouillon" && (
-            <button className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
-              <Send size={14} /> Envoyé
+            <button 
+              onClick={async () => {
+                try {
+                  await fetch(`/api/bons-commande/${po.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ statut: 'Envoyé', status: 'Envoyé' }),
+                  });
+                  setPo({ ...po, statut: 'Envoyé' });
+                  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
+                } catch (e) {}
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-[13px] font-medium text-amber-300 hover:bg-slate-700"
+            >
+              <Send size={14} /> Marquer Envoyé
             </button>
           )}
           {po.statut !== "Reçu" && (
-            <button className="flex items-center gap-1.5 rounded-md bg-status-success px-3 py-2 text-[13px] font-medium text-white hover:bg-status-success/90">
-              <PackageCheck size={14} /> Réceptionner
+            <button 
+              onClick={async () => {
+                try {
+                  await fetch(`/api/bons-commande/${po.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ statut: 'Reçu', status: 'Reçu' }),
+                  });
+                  setPo({ ...po, statut: 'Reçu' });
+                  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
+                } catch (e) {}
+              }}
+              className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-emerald-500 shadow-md"
+            >
+              <PackageCheck size={14} /> Marquer Reçu
             </button>
           )}
-          <button className="rounded-md border border-ink-200 p-2 text-status-danger hover:border-status-danger/50">
+          <button 
+            onClick={async () => {
+              try {
+                await fetch(`/api/bons-commande/${po.id}`, { method: 'DELETE' });
+                if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("dataUpdated"));
+                window.location.href = "/bons-de-commande";
+              } catch (e) {}
+            }}
+            className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-red-400 hover:bg-red-500/20"
+          >
             <Trash2 size={16} />
           </button>
         </div>

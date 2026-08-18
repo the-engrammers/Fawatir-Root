@@ -1,4 +1,4 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 
 const DATA_FILE = path.join(process.cwd(), 'data.json');
@@ -132,27 +132,25 @@ const syncRef = (target: any[], source: any[]) => {
 };
 
 export const loadData = () => {
-  if (g.__dataLoaded) return;
   try {
     if (fs.existsSync(DATA_FILE)) {
       const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-      if (data.companiesStore) syncRef(g.companiesStore, data.companiesStore);
-      if (data.clientsStore) syncRef(g.clientsStore, data.clientsStore);
-      if (data.suppliersStore) syncRef(g.suppliersStore, data.suppliersStore);
-      if (data.productsStore) syncRef(g.productsStore, data.productsStore);
-      if (data.quotationsStore) syncRef(g.quotationsStore, data.quotationsStore);
-      if (data.invoicesStore) syncRef(g.invoicesStore, data.invoicesStore);
-      if (data.employeesStore) syncRef(g.employeesStore, data.employeesStore);
-      if (data.avoirsStore) syncRef(g.avoirsStore, data.avoirsStore);
-      if (data.depensesStore) syncRef(g.depensesStore, data.depensesStore);
-      if (data.bulletinsStore) syncRef(g.bulletinsStore, data.bulletinsStore);
-      if (data.bonsCommandeStore) syncRef(g.bonsCommandeStore, data.bonsCommandeStore);
-      if (data.equipeStore) syncRef(g.equipeStore, data.equipeStore);
+      syncRef(g.companiesStore, data.companiesStore || []);
+      syncRef(g.clientsStore, data.clientsStore || []);
+      syncRef(g.suppliersStore, data.suppliersStore || []);
+      syncRef(g.productsStore, data.productsStore || []);
+      syncRef(g.quotationsStore, data.quotationsStore || []);
+      syncRef(g.invoicesStore, data.invoicesStore || []);
+      syncRef(g.employeesStore, data.employeesStore || []);
+      syncRef(g.avoirsStore, data.avoirsStore || []);
+      syncRef(g.depensesStore, data.depensesStore || []);
+      syncRef(g.bulletinsStore, data.bulletinsStore || []);
+      syncRef(g.bonsCommandeStore, data.bonsCommandeStore || []);
+      syncRef(g.equipeStore, data.equipeStore || []);
     }
   } catch (err) {
     console.error("Error loading data.json", err);
   }
-  g.__dataLoaded = true;
 };
 
 export const saveData = () => {
@@ -348,12 +346,27 @@ g.avoirsStore = g.avoirsStore || [];
 const avoirsStore: any[] = g.avoirsStore;
 export const getAvoirs = () => [...avoirsStore].reverse();
 export const addAvoir = (avoir: any) => { avoir.id = `AV-${Date.now()}`; avoirsStore.push(avoir); saveData(); return avoir; };
+export const updateAvoir = (id: string, patch: any) => {
+  const item = avoirsStore.find((a: any) => a.id === id);
+  if (item) Object.assign(item, patch); saveData();
+  return item;
+};
+export const deleteAvoir = (id: string) => {
+  const idx = avoirsStore.findIndex((a: any) => a.id === id);
+  if (idx !== -1) { avoirsStore.splice(idx, 1); saveData(); return true; }
+  return false;
+};
 
 // DEPENSES
 g.depensesStore = g.depensesStore || [];
 const depensesStore: any[] = g.depensesStore;
 export const getDepenses = () => [...depensesStore].reverse();
 export const addDepense = (dep: any) => { dep.id = `DEP-${Date.now()}`; depensesStore.push(dep); saveData(); return dep; };
+export const deleteDepense = (id: string) => {
+  const idx = depensesStore.findIndex((d: any) => d.id === id);
+  if (idx !== -1) { depensesStore.splice(idx, 1); saveData(); return true; }
+  return false;
+};
 
 // BULLETINS DE PAIE
 g.bulletinsStore = g.bulletinsStore || [];
@@ -365,7 +378,28 @@ export const addBulletin = (bul: any) => { bul.id = `BUL-${Date.now()}`; bulleti
 g.bonsCommandeStore = g.bonsCommandeStore || [];
 const bonsCommandeStore: any[] = g.bonsCommandeStore;
 export const getBonsCommande = () => [...bonsCommandeStore].reverse();
-export const addBonCommande = (bc: any) => { bc.id = `BC-${Date.now()}`; bonsCommandeStore.push(bc); saveData(); return bc; };
+export const getBonCommandeById = (id: string) => bonsCommandeStore.find((bc: any) => bc.id === id);
+export const addBonCommande = (bc: any) => { 
+  bc.id = bc.id || `BC-${Date.now()}`; 
+  bc.statut = bc.statut || bc.status || "Brouillon";
+  bonsCommandeStore.push(bc); saveData(); 
+  return bc; 
+};
+export const updateBonCommande = (id: string, patch: any) => {
+  const item = bonsCommandeStore.find((bc: any) => bc.id === id);
+  if (item) {
+    if (patch.status && !patch.statut) patch.statut = patch.status;
+    if (patch.statut && !patch.status) patch.status = patch.statut;
+    Object.assign(item, patch); 
+    saveData();
+  }
+  return item;
+};
+export const deleteBonCommande = (id: string) => {
+  const idx = bonsCommandeStore.findIndex((bc: any) => bc.id === id);
+  if (idx !== -1) { bonsCommandeStore.splice(idx, 1); saveData(); return true; }
+  return false;
+};
 
 // EQUIPE
 g.equipeStore = g.equipeStore || [];

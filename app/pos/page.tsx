@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { mad } from "@/lib/format";
 import { fetchAPI } from "@/lib/api";
+import { useAuth } from "@/components/AuthHydrator";
+import WhatsAppSendModal from "@/components/WhatsAppSendModal";
 
 type CartLine = { produitId: string; nom: string; sku: string; prix: number; qte: number; remise: number };
 
@@ -33,6 +35,7 @@ export default function PosPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Espèces");
   const [montantRemis, setMontantRemis] = useState<number>(0);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [receipt, setReceipt] = useState<null | { id?: string; transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -45,22 +48,45 @@ export default function PosPage() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const res = await fetchAPI("api/products/");
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : data.results || [];
-        if (list.length > 0) {
-          const apiFormatted = list.map((p: any) => ({
-            id: p.id,
-            nom: p.name || "Produit",
-            sku: p.sku || "SKU-000",
-            prix: p.selling_price || 0,
-            categorie: p.category_name || "Général",
-          }));
-          setAllProducts(apiFormatted);
+        let list: any[] = [];
+        // 1. Fetch from Next.js products API (same data source as Stocks table)
+        try {
+          const resLocal = await fetch(`/api/products?t=${Date.now()}`);
+          if (resLocal.ok) {
+            const dataLocal = await resLocal.json();
+            list = Array.isArray(dataLocal) ? dataLocal : dataLocal.results || [];
+          }
+        } catch (e) {}
+
+        // 2. If local list is empty, try Django backend endpoint
+        if (list.length === 0) {
+          try {
+            const resApi = await fetchAPI("api/products/");
+            if (resApi.ok) {
+              const dataApi = await resApi.json();
+              list = Array.isArray(dataApi) ? dataApi : dataApi.results || [];
+            }
+          } catch (e) {}
         }
-      } catch (err) {}
+
+        const formatted = list.map((p: any) => ({
+          id: p.id,
+          nom: p.name || p.nom || "Produit",
+          sku: p.sku || "SKU-000",
+          prix: Number(p.selling_price || p.prix || 0),
+          categorie: p.category_name || p.categorie || "Général",
+          stock: p.quantity !== undefined ? p.quantity : p.stock,
+        }));
+        setAllProducts(formatted);
+      } catch (err) {
+        console.error("Error loading POS products:", err);
+      }
     };
+
     loadProducts();
+    const handleUpdate = () => loadProducts();
+    window.addEventListener("dataUpdated", handleUpdate);
+    return () => window.removeEventListener("dataUpdated", handleUpdate);
   }, []);
 
   const dynamicCategories = useMemo(() => {
@@ -449,27 +475,17 @@ export default function PosPage() {
                 <button onClick={() => window.print()} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Printer size={12} /> Imprimer
                 </button>
-                <button onClick={async () => {
-                  try {
-                    if(!receipt?.id) return;
-                    const res = await fetchAPI(`api/invoices/${receipt.id}/send_email/`, { method: "POST" });
-                    if(res.ok) showToast("Email envoyé avec succès !", "success");
-                    else showToast("Veuillez configurer vos accès SMTP (Email) dans Paramètres > Entreprise.", "error");
-                  } catch(e) {
-                    showToast("Erreur réseau.", "error");
-                  }
+                <button onClick={() => {
+                  if (!receipt) return;
+                  const subject = encodeURIComponent(`Reçu FATOURATI #${receipt.transactionId}`);
+                  const body = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint les détails de votre reçu #${receipt.transactionId} d'un montant de ${receipt.total} MAD.\n\nMerci pour votre visite !`);
+                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
                 }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <Mail size={12} />
                 </button>
-                <button onClick={async () => {
-                  try {
-                    if(!receipt?.id) return;
-                    const res = await fetchAPI(`api/invoices/${receipt.id}/send_whatsapp/`, { method: "POST" });
-                    if(res.ok) showToast("Message WhatsApp envoyé avec succès !", "success");
-                    else showToast("Veuillez configurer vos accès Twilio (WhatsApp) dans Paramètres > Entreprise.", "error");
-                  } catch(e) {
-                    showToast("Erreur réseau.", "error");
-                  }
+                <button onClick={() => {
+                  if (!receipt) return;
+                  setIsWhatsAppModalOpen(true);
                 }} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
                   <MessageCircle size={12} />
                 </button>
@@ -534,6 +550,20 @@ export default function PosPage() {
             <X size={16} />
           </button>
         </div>
+      )}
+
+      {/* WhatsApp Send Modal */}
+      {receipt && (
+        <WhatsAppSendModal
+          isOpen={isWhatsAppModalOpen}
+          onClose={() => setIsWhatsAppModalOpen(false)}
+          documentType="recu"
+          recipientName="Client Comptoir"
+          recipientPhone=""
+          documentNumber={receipt.transactionId}
+          amount={receipt.total}
+          dueDate={new Date().toLocaleDateString("fr-FR")}
+        />
       )}
     </div>
   );
