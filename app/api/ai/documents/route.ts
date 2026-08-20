@@ -85,7 +85,7 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
         });
       }
 
-      const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      const candidateModels = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-2.5-flash"];
 
       for (const modelName of candidateModels) {
         try {
@@ -108,6 +108,27 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
             lastError = err;
             console.warn(`Gemini model ${modelName} attempt failed:`, err?.message || err);
           }
+        }
+      }
+
+      // Direct REST API Fallback to guarantee success
+      if (!response || !response.text) {
+        try {
+          const restRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: contentsParts }]
+            })
+          });
+          const restJson = await restRes.json();
+          if (restJson.candidates?.[0]?.content?.parts?.[0]?.text) {
+            response = { text: restJson.candidates[0].content.parts[0].text };
+          } else if (restJson.error) {
+            lastError = restJson.error;
+          }
+        } catch (restErr: any) {
+          console.warn("Direct REST API fallback error:", restErr);
         }
       }
     } catch (geminiInitErr: any) {
