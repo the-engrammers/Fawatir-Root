@@ -100,10 +100,10 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
       }
 
       const candidateModels = [
-        "gemini-1.5-flash",
+        "gemini-3.6-flash",
         "gemini-1.5-flash-latest",
-        "gemini-1.5-pro",
-        "gemini-2.0-flash"
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
       ];
 
       for (const modelName of candidateModels) {
@@ -132,10 +132,10 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
       // Direct REST API Fallback with snake_case payload for v1beta REST API
       if (!response || !response.text) {
         const restEndpoints = [
-          "gemini-1.5-flash",
+          "gemini-3.6-flash",
           "gemini-1.5-flash-latest",
-          "gemini-1.5-pro",
-          "gemini-2.0-flash"
+          "gemini-1.5-flash",
+          "gemini-1.5-pro"
         ];
 
         for (const ep of restEndpoints) {

@@ -307,7 +307,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
 9. Tu parles en Français (avec un style marocain professionnel). Tu peux comprendre le Darija et le Français mélangé.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash",
+          model: "gemini-3.6-flash",
           contents: prompt,
           config: {
             systemInstruction,
@@ -484,7 +484,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
           let response;
           try {
             response = await ai.models.generateContent({
-              model: 'gemini-2.0-flash',
+              model: 'gemini-3.6-flash',
               contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain (Facturation, CRM, Stock). 
 Réponds de manière professionnelle, très concise et en français. Voici le contexte de la base de données de l'utilisateur:
 - Clients: ${dbContext.clientsCount}
@@ -497,7 +497,7 @@ L'utilisateur te dit : "${prompt}"`
             });
           } catch (e) {
             response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
+              model: 'gemini-1.5-flash-latest',
               contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain. Réponds brièvement à : "${prompt}"`
             });
           }
