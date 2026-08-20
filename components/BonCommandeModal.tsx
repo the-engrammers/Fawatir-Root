@@ -137,28 +137,28 @@ export default function BonCommandeModal({
       <FormAlert error={error} onClose={() => setError(null)} title="Erreur de formulaire" />
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1 text-slate-100">
+        <div className="space-y-4 text-slate-100">
           
           {/* Header row: BC Number, Fournisseur, Statut */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-slate-300">N° Bon de Commande *</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-end">
+            <div className="flex flex-col justify-end">
+              <label className="mb-1.5 h-5 flex items-end text-[12px] font-semibold text-slate-300 truncate">N° Bon de Commande *</label>
               <input
                 required
                 value={bcNumber}
                 onChange={(e) => setBcNumber(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[13px] font-mono font-bold text-indigo-400 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] font-mono font-bold text-indigo-400 focus:border-indigo-500 focus:outline-none"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-slate-300">Fournisseur *</label>
+            <div className="flex flex-col justify-end">
+              <label className="mb-1.5 h-5 flex items-end text-[12px] font-semibold text-slate-300 truncate">Fournisseur *</label>
               <input
                 list="suppliers-list"
                 required
                 value={fournisseur}
                 onChange={(e) => setFournisseur(e.target.value)}
-                placeholder="Choisir ou saisir fournisseur..."
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
+                placeholder="Choisir ou saisir..."
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
               />
               <datalist id="suppliers-list">
                 {suppliers.map((s) => (
@@ -166,12 +166,12 @@ export default function BonCommandeModal({
                 ))}
               </datalist>
             </div>
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-slate-300">Statut Initial *</label>
+            <div className="flex flex-col justify-end">
+              <label className="mb-1.5 h-5 flex items-end text-[12px] font-semibold text-slate-300 truncate">Statut Initial *</label>
               <select
                 value={statut}
                 onChange={(e) => setStatut(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[13px] text-white font-semibold focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white font-semibold focus:border-indigo-500 focus:outline-none"
               >
                 <option value="Brouillon">📝 Brouillon</option>
                 <option value="Envoyé">📩 Envoyé</option>
@@ -183,31 +183,31 @@ export default function BonCommandeModal({
           </div>
 
           {/* Dates & Payment Terms */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-slate-300">Date d'émission</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-end">
+            <div className="flex flex-col justify-end">
+              <label className="mb-1.5 h-5 flex items-end text-[12px] font-semibold text-slate-300 truncate">Date d'émission</label>
               <input
                 type="date"
                 value={dateEmission}
                 onChange={(e) => setDateEmission(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-slate-300">Livraison Prévue</label>
+            <div className="flex flex-col justify-end">
+              <label className="mb-1.5 h-5 flex items-end text-[12px] font-semibold text-slate-300 truncate">Livraison Prévue</label>
               <input
                 type="date"
                 value={livraisonPrevue}
                 onChange={(e) => setLivraisonPrevue(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-[12px] font-semibold text-slate-300">Conditions de Paiement</label>
+            <div className="flex flex-col justify-end">
+              <label className="mb-1.5 h-5 flex items-end text-[12px] font-semibold text-slate-300 truncate">Conditions de Paiement</label>
               <select
                 value={conditionsPaiement}
                 onChange={(e) => setConditionsPaiement(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
               >
                 <option value="Net 30">Net 30 jours</option>
                 <option value="Net 60">Net 60 jours</option>
