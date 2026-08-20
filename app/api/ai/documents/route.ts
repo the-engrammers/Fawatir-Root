@@ -64,6 +64,7 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
         contentsParts.push({ text: promptText });
       }
 
+      let restParts: any[] = [];
       if (file) {
         const fileName = file.name || "document.pdf";
         const mimeType = file.type || "image/png";
@@ -83,14 +84,26 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
             data: base64Data
           }
         });
+
+        restParts.push({
+          inline_data: {
+            mime_type: effectiveMimeType,
+            data: base64Data
+          }
+        });
+      }
+
+      if (text) {
+        restParts.push({ text: `Document à analyser :\n"${text}"\n\n${promptText}` });
+      } else {
+        restParts.push({ text: promptText });
       }
 
       const candidateModels = [
+        "gemini-1.5-flash",
         "gemini-1.5-flash-latest",
-        "gemini-1.5-flash-002",
-        "gemini-1.5-flash-001",
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-pro-latest"
+        "gemini-1.5-pro",
+        "gemini-2.0-flash"
       ];
 
       for (const modelName of candidateModels) {
@@ -112,18 +125,17 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
             if (response && response.text) break;
           } catch (e: any) {
             lastError = err;
-            console.warn(`Gemini model ${modelName} attempt failed:`, err?.message || err);
           }
         }
       }
 
-      // Direct REST API Fallback across valid endpoints to guarantee success
+      // Direct REST API Fallback with snake_case payload for v1beta REST API
       if (!response || !response.text) {
         const restEndpoints = [
+          "gemini-1.5-flash",
           "gemini-1.5-flash-latest",
-          "gemini-1.5-flash-002",
-          "gemini-1.5-flash-001",
-          "gemini-2.0-flash-exp"
+          "gemini-1.5-pro",
+          "gemini-2.0-flash"
         ];
 
         for (const ep of restEndpoints) {
@@ -132,7 +144,7 @@ Renvoie STRICTEMENT un objet JSON valide sans texte supplémentaire.`;
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                contents: [{ parts: contentsParts }]
+                contents: [{ parts: restParts }]
               })
             });
             const restJson = await restRes.json();
