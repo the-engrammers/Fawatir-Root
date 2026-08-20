@@ -83,8 +83,14 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erreur lors de l'analyse : ${errorText}`);
+        let errStr = "Erreur lors du traitement par l'IA";
+        try {
+          const errData = await response.json();
+          errStr = errData.error_message || errData.error || errStr;
+        } catch (e) {
+          errStr = await response.text();
+        }
+        throw new Error(errStr);
       }
       
       const data = await response.json();
@@ -98,23 +104,27 @@ export default function ScannerModal({ isOpen, onClose, targetType }: ScannerMod
       const ext = data.extracted_data || {};
       
       setDocNumber(ext.numero_facture || (targetType === "devis" ? `DEV-${Math.floor(1000 + Math.random()*9000)}` : `FAC-${Math.floor(1000 + Math.random()*9000)}`));
-      setClientName(ext.client || ext.fournisseur || "Client Comptoir");
+      setClientName(ext.client || ext.fournisseur || "");
       setDocDate(ext.date || new Date().toISOString().split("T")[0]);
       
       const parsedLignes: ExtractedLine[] = Array.isArray(ext.lignes) && ext.lignes.length > 0
         ? ext.lignes.map((l: any) => ({
-            description: l.description || l.nom || "Article extrait par l'IA",
+            description: l.description || l.nom || "",
             quantite: Number(l.quantite || 1),
             prix_unitaire: Number(l.prix_unitaire || 0)
           }))
-        : [{ description: "Prestation / Vente (Extrait par l'IA)", quantite: 1, prix_unitaire: Number(ext.montant_ht || 1000) }];
+        : [];
       
       setLignes(parsedLignes);
       setStep("verify");
       setIsScanning(false);
       
     } catch (err: any) {
-      setError(err.message || "Une erreur est survenue lors de l'analyse par l'IA");
+      let friendly = err?.message || "Une erreur est survenue lors de l'analyse par l'IA";
+      if (friendly.includes("NetworkError") || friendly.includes("Failed to fetch") || friendly.includes("fetch")) {
+        friendly = "Problème de connexion réseau avec le serveur. Veuillez vérifier votre connexion ou réduire la taille de l'image/PDF.";
+      }
+      setError(friendly);
       setIsScanning(false);
     }
   };
