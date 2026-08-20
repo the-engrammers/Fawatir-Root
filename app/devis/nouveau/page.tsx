@@ -15,13 +15,20 @@ function DevisFormContent() {
   const docId = searchParams.get("doc_id");
 
   const [clientId, setClientId] = useState("");
+  const [customClientName, setCustomClientName] = useState("");
+  const [devisNumber, setDevisNumber] = useState(`DEV-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [validiteJusquau, setValiditeJusquau] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split("T")[0];
+  });
   const [taxePct, setTaxePct] = useState(20);
   const [clients, setClients] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   
   useEffect(() => {
-    fetch('/api/clients').then(r => r.json()).then(data => setClients(Array.isArray(data) ? data : (data.results || [])));
-    fetch('/api/products').then(r => r.json()).then(data => setProduits(Array.isArray(data) ? data : (data.results || [])));
+    fetch('/api/clients').then(r => r.json()).then(data => setClients(Array.isArray(data) ? data : (data.results || []))).catch(() => {});
+    fetch('/api/products').then(r => r.json()).then(data => setProduits(Array.isArray(data) ? data : (data.results || []))).catch(() => {});
   }, []);
 
   const [lignes, setLignes] = useState<Ligne[]>([{ id: 1, article: "", qte: 1, prix: 0 }]);
@@ -35,25 +42,43 @@ function DevisFormContent() {
     const fetchDoc = async () => {
       setIsLoadingOcr(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-        const res = await fetch(`${apiUrl}/api/ai/documents/${docId}/`);
+        const res = await fetch(`/api/ai/documents/${docId}`);
         if (!res.ok) throw new Error("Erreur lors de la récupération du document");
         const doc = await res.json();
         
-        if (doc.extracted_data && doc.extracted_data.lignes) {
-          const newLignes = doc.extracted_data.lignes.map((l: any, idx: number) => {
+        const ext = doc.extracted_data || {};
+
+        if (ext.numero_facture) {
+          setDevisNumber(ext.numero_facture);
+        }
+
+        if (ext.client || ext.fournisseur) {
+          const nameExtracted = ext.client || ext.fournisseur;
+          setCustomClientName(nameExtracted);
+          const matchedClient = clients.find((c: any) => 
+            (c.company_name || c.nom || "").toLowerCase().includes(nameExtracted.toLowerCase())
+          );
+          if (matchedClient) {
+            setClientId(matchedClient.id);
+          }
+        }
+
+        if (ext.taux_tva !== undefined) {
+          setTaxePct(Number(ext.taux_tva) || 20);
+        }
+        
+        if (ext.lignes && Array.isArray(ext.lignes) && ext.lignes.length > 0) {
+          const newLignes = ext.lignes.map((l: any) => {
             nextId++;
             return {
               id: nextId,
-              article: l.description || "Article inconnu",
-              qte: l.quantite || 1,
-              prix: l.prix_unitaire || l.montant || 0,
+              article: l.description || l.nom || "Article extrait par l'IA",
+              qte: Number(l.quantite || l.qte || 1),
+              prix: Number(l.prix_unitaire || l.prix || l.montant || 0),
             };
           });
-          if (newLignes.length > 0) {
-            setLignes(newLignes);
-            setOcrMessage("Les lignes ont été remplies par l'IA.");
-          }
+          setLignes(newLignes);
+          setOcrMessage("✨ Les données du document ont été analysées avec succès et pré-remplies dans les champs ci-dessous !");
         }
       } catch (err) {
         console.error(err);
@@ -63,9 +88,9 @@ function DevisFormContent() {
       }
     };
     fetchDoc();
-  }, [docId]);
+  }, [docId, clients]);
 
-  const sousTotal = useMemo(() => lignes.reduce((s, l) => s + l.qte * l.prix, 0), [lignes]);
+  const sousTotal = useMemo(() => lignes.reduce((s, l) => s + (l.qte * l.prix), 0), [lignes]);
   const taxe = sousTotal * (taxePct / 100);
   const total = sousTotal + taxe;
 
@@ -83,28 +108,34 @@ function DevisFormContent() {
   const handleSave = async (status: string) => {
     setIsSubmitting(true);
     try {
-      const selectedClient = clients.find(c => c.id === clientId);
+      const selectedClientObj = clients.find(c => c.id === clientId);
+      const clientFinalName = customClientName.trim() || (selectedClientObj ? (selectedClientObj.company_name || selectedClientObj.nom) : "Client Comptoir");
+
       const devisData = {
-        numero: `DEV-00${Math.floor(Math.random() * 1000)}`,
-        client: clientId,
-        client_name: selectedClient ? (selectedClient.company_name || selectedClient.nom) : "Client Inconnu",
+        quotation_number: devisNumber,
+        numero: devisNumber,
+        client: clientId || null,
+        client_name: clientFinalName,
+        status: status,
         statut: status,
+        total_amount: total,
         montant: total,
-        date: new Date().toISOString(),
-        validiteJusquau: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        date: new Date().toISOString().split("T")[0],
+        validiteJusquau,
         lignes,
       };
       
-      // Fetch in background to not block UI
-      fetch('/api/quotations', {
+      const res = await fetch('/api/quotations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(devisData)
-      }).then(() => {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
-        }
       });
+      
+      if (!res.ok) throw new Error("Échec de l'enregistrement du devis");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "quotations" } }));
+      }
       
       setSaveSuccess(true);
       router.push("/devis");
@@ -115,188 +146,231 @@ function DevisFormContent() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/devis"
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-ink-200 text-ink-500 hover:border-brass/50 hover:text-ink-800"
-        >
-          <ChevronLeft size={16} />
-        </Link>
-        <h1 className="font-display text-[22px] font-semibold text-ink-900">Créer un devis</h1>
+    <div className="mx-auto max-w-[1400px] space-y-5 text-slate-100">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/devis"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-all"
+          >
+            <ChevronLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="font-display text-[22px] font-bold text-white tracking-tight">Créer un devis</h1>
+            <p className="text-[12px] text-slate-400">Complétez ou ajustez les informations ci-dessous</p>
+          </div>
+        </div>
       </div>
 
       {isLoadingOcr && (
-        <div className="rounded-card bg-brass/10 border border-brass/30 p-4 flex items-center gap-3">
-          <Loader2 className="animate-spin text-brass-dark" size={20} />
-          <p className="text-[13.5px] font-medium text-brass-dark">Extraction des données du document en cours par l'IA...</p>
+        <div className="rounded-2xl bg-indigo-600/10 border border-indigo-500/30 p-4 flex items-center gap-3">
+          <Loader2 className="animate-spin text-indigo-400" size={20} />
+          <p className="text-[13.5px] font-bold text-indigo-300">Extraction Gemini 2.5 AI Vision en cours...</p>
         </div>
       )}
 
       {ocrMessage && !isLoadingOcr && (
-        <div className="rounded-card bg-green-50 border border-green-200 p-4 flex items-center gap-3">
-          <Sparkles className="text-green-600" size={20} />
-          <p className="text-[13.5px] font-medium text-green-800">{ocrMessage}</p>
+        <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-center gap-3">
+          <Sparkles className="text-emerald-400" size={20} />
+          <p className="text-[13.5px] font-bold text-emerald-300">{ocrMessage}</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
-          <div className="ledger-card space-y-4">
-            <p className="text-[12px] font-medium uppercase tracking-wide text-ink-400">
+          
+          {/* Header Details Card */}
+          <div className="bento-card space-y-4">
+            <p className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">
               Détails du devis
             </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-1.5 block text-[12.5px] text-ink-600">Client</label>
-                  <select
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    className="w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
-                  >
-                    <option value="">-- Choisir un client existant --</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.company_name || c.nom}
-                      </option>
-                    ))}
-                  </select>
-
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">N° Devis *</label>
+                <input
+                  required
+                  value={devisNumber}
+                  onChange={(e) => setDevisNumber(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] font-mono font-bold text-indigo-400 focus:border-indigo-500 focus:outline-none"
+                />
               </div>
+
               <div>
-                <label className="mb-1.5 block text-[12.5px] text-ink-600">Valide jusqu'au</label>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom du Client / Entreprise *</label>
+                <input
+                  required
+                  value={customClientName}
+                  onChange={(e) => setCustomClientName(e.target.value)}
+                  placeholder="Nom du client..."
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Valide jusqu'au</label>
                 <input
                   type="date"
-                  defaultValue="2026-05-12"
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
+                  value={validiteJusquau}
+                  onChange={(e) => setValiditeJusquau(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          <div className="ledger-card space-y-3">
-            <p className="text-[12px] font-medium uppercase tracking-wide text-ink-400">
-              Lignes du devis
-            </p>
+          {/* Line Items Card */}
+          <div className="bento-card space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">
+                Lignes d'articles / Prestations
+              </p>
+              <span className="text-[12px] text-slate-400">{lignes.length} article(s)</span>
+            </div>
+
             {lignes.map((l, idx) => (
-              <div key={l.id} className="rounded-md border border-ink-200 p-3 bg-paper">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[12px] font-medium text-ink-400">Ligne {idx + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeLigne(l.id)}
-                    className="text-ink-400 hover:text-status-danger"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+              <div key={l.id} className="rounded-xl border border-slate-800 p-3.5 bg-slate-950/70 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11.5px] font-bold text-slate-400">Ligne #{idx + 1}</span>
+                  {lignes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeLigne(l.id)}
+                      className="text-red-400 hover:text-red-300 p-1"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </div>
                 
                 {/* Product picker */}
-                <div className="mb-2">
-                  <label className="mb-1 block text-[11px] text-ink-500 font-medium">Sélectionner un produit du catalogue</label>
-                  <select
-                    onChange={(e) => {
-                      const selectedProd = produits.find((p: any) => p.id === e.target.value);
-                      if (selectedProd) {
-                        updateLigne(l.id, {
-                          article: selectedProd.name || selectedProd.nom,
-                          prix: selectedProd.selling_price || selectedProd.prix
-                        });
-                      }
-                    }}
-                    className="w-full rounded-md border border-ink-200 bg-white px-2 py-1.5 text-[12px] mb-1.5 focus:border-brass/60 focus:outline-none"
-                  >
-                    <option value="">-- Choisir dans le catalogue --</option>
-                    {produits.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name || p.nom} ({mad(p.selling_price || p.prix)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <input
-                  value={l.article}
-                  onChange={(e) => updateLigne(l.id, { article: e.target.value })}
-                  placeholder="Description / Désignation de l'article"
-                  className="mb-2 w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
-                />
-                <div className="grid grid-cols-2 gap-2">
+                {produits.length > 0 && (
                   <div>
-                    <label className="mb-1 block text-[11px] text-ink-400">Qté</label>
+                    <select
+                      onChange={(e) => {
+                        const selectedProd = produits.find((p: any) => p.id === e.target.value);
+                        if (selectedProd) {
+                          updateLigne(l.id, {
+                            article: selectedProd.name || selectedProd.nom,
+                            prix: selectedProd.selling_price || selectedProd.prix
+                          });
+                        }
+                      }}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-[12px] text-slate-300 mb-1.5 focus:border-indigo-500 focus:outline-none"
+                    >
+                      <option value="">-- Sélectionner depuis le catalogue de produits --</option>
+                      {produits.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name || p.nom} ({mad(p.selling_price || p.prix)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <div className="sm:col-span-2">
+                    <input
+                      value={l.article}
+                      onChange={(e) => updateLigne(l.id, { article: e.target.value })}
+                      placeholder="Description de la prestation / article..."
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[12.5px] text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
                     <input
                       type="number"
                       value={l.qte}
-                      onChange={(e) => updateLigne(l.id, { qte: Number(e.target.value) })}
-                      className="w-full rounded-md border border-ink-200 bg-white px-2 py-1.5 text-[13px] focus:border-brass/60 focus:outline-none"
+                      onChange={(e) => updateLigne(l.id, { qte: Math.max(1, Number(e.target.value)) })}
+                      placeholder="Qté"
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[12.5px] font-mono text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[11px] text-ink-400">Prix unitaire (MAD)</label>
                     <input
                       type="number"
                       value={l.prix}
-                      onChange={(e) => updateLigne(l.id, { prix: Number(e.target.value) })}
-                      className="w-full rounded-md border border-ink-200 bg-white px-2 py-1.5 text-[13px] focus:border-brass/60 focus:outline-none"
+                      onChange={(e) => updateLigne(l.id, { prix: Math.max(0, Number(e.target.value)) })}
+                      placeholder="Prix HT"
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-[12.5px] font-mono text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
+
+                <div className="flex justify-end text-[12px] text-slate-400 pt-1">
+                  <span>Total HT : <strong className="font-mono text-white">{mad(l.qte * l.prix)}</strong></span>
+                </div>
               </div>
             ))}
+
             <button
               type="button"
               onClick={addLigne}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-ink-200 py-2 text-[12.5px] text-ink-500 hover:border-brass/50 hover:text-brass"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-800 py-2.5 text-[12.5px] font-semibold text-indigo-400 hover:border-indigo-500 hover:bg-indigo-500/5 transition-all"
             >
-              <Plus size={14} /> Ajouter une ligne
+              <Plus size={15} /> Ajouter une ligne d'article
             </button>
           </div>
         </div>
 
-        <div className="h-fit space-y-4 lg:sticky lg:top-6">
-          <div className="ledger-card space-y-4">
-            <p className="text-[12px] font-medium uppercase tracking-wide text-ink-400">Résumé</p>
-            <div>
-              <label className="mb-1.5 block text-[12.5px] text-ink-600">Taxe %</label>
-              <input
-                type="number"
-                value={taxePct}
-                onChange={(e) => setTaxePct(Number(e.target.value))}
-                className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
-              />
+        {/* Right Summary Sidebar */}
+        <div className="space-y-5">
+          <div className="bento-card space-y-4 sticky top-6">
+            <p className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">
+              Récapitulatif Financier
+            </p>
+            
+            <div className="space-y-2 text-[13px]">
+              <div className="flex justify-between text-slate-400">
+                <span>Sous-total HT :</span>
+                <span className="font-mono font-bold text-slate-200">{mad(sousTotal)}</span>
+              </div>
+              
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Taux de TVA :</span>
+                <select
+                  value={taxePct}
+                  onChange={(e) => setTaxePct(Number(e.target.value))}
+                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[12px] font-bold text-indigo-400 focus:outline-none"
+                >
+                  <option value={20}>20% (Standard)</option>
+                  <option value={14}>14% (Transport)</option>
+                  <option value={10}>10% (Restauration)</option>
+                  <option value={7}>7% (Eau/Produits)</option>
+                  <option value={0}>0% (Exonéré)</option>
+                </select>
+              </div>
+
+              <div className="flex justify-between text-slate-400">
+                <span>TVA ({taxePct}%) :</span>
+                <span className="font-mono text-purple-300">+{mad(taxe)}</span>
+              </div>
+
+              <div className="flex justify-between border-t border-slate-800 pt-3 text-[16px] font-black text-white">
+                <span>TOTAL TTC :</span>
+                <span className="font-mono text-emerald-400">{mad(total)}</span>
+              </div>
             </div>
-            <div className="space-y-1.5 border-t border-ink-200/60 pt-3 text-[13px]">
-              <div className="flex justify-between text-ink-500">
-                <span>Sous-total</span>
-                <span className="figure">{mad(sousTotal)}</span>
-              </div>
-              <div className="flex justify-between text-ink-500">
-                <span>Taxe ({taxePct}%)</span>
-                <span className="figure">{mad(taxe)}</span>
-              </div>
-              <div className="flex justify-between border-t border-ink-200/60 pt-2 text-[15px] font-semibold text-ink-900">
-                <span>Total</span>
-                <span className="figure">{mad(total)}</span>
-              </div>
+
+            <div className="space-y-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleSave("Accepté")}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-[13px] font-bold text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 disabled:opacity-50 transition-all active:scale-95"
+              >
+                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                Enregistrer & Marquer Accepté
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSave("Brouillon")}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900 py-2.5 text-[13px] font-semibold text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50 transition-all"
+              >
+                Sauvegarder en Brouillon
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleSave("Brouillon")}
-              className="w-full rounded-md border border-ink-200 py-2.5 text-[13px] font-medium text-ink-700 hover:border-brass/50 flex items-center justify-center gap-2"
-            >
-              {saveSuccess ? <Check size={16} className="text-green-600" /> : null}
-              {saveSuccess ? "Brouillon enregistré !" : "Enregistrer comme brouillon"}
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleSave("Envoyée")}
-              className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800 flex items-center justify-center gap-2"
-            >
-              {saveSuccess ? <Check size={16} /> : null}
-              {saveSuccess ? "Devis créé et envoyé !" : "Créer et envoyer"}
-            </button>
           </div>
         </div>
       </div>
@@ -306,7 +380,7 @@ function DevisFormContent() {
 
 export default function NouveauDevisPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-ink-500">Chargement...</div>}>
+    <Suspense fallback={<div className="p-12 flex justify-center"><Loader2 className="animate-spin text-indigo-400" size={32} /></div>}>
       <DevisFormContent />
     </Suspense>
   );

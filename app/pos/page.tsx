@@ -14,8 +14,9 @@ import {
 } from "lucide-react";
 import { mad } from "@/lib/format";
 import { fetchAPI } from "@/lib/api";
-import { useAuth } from "@/components/AuthHydrator";
+import { useAuthStore } from "@/lib/store/authStore";
 import WhatsAppSendModal from "@/components/WhatsAppSendModal";
+import POSReceiptPrint, { printPOSReceiptWindow } from "@/components/POSReceiptPrint";
 
 type CartLine = { produitId: string; nom: string; sku: string; prix: number; qte: number; remise: number };
 
@@ -36,7 +37,7 @@ export default function PosPage() {
   const [paymentMethod, setPaymentMethod] = useState("Espèces");
   const [montantRemis, setMontantRemis] = useState<number>(0);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
-  const [receipt, setReceipt] = useState<null | { id?: string; transactionId: string; total: number; rendu: number; lignes: CartLine[] }>(null);
+  const [receipt, setReceipt] = useState<null | { id?: string; transactionId: string; total: number; rendu: number; paymentMethod?: string; montantRemis?: number; lignes: CartLine[] }>(null);
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -165,6 +166,8 @@ export default function PosPage() {
         transactionId,
         total: total,
         rendu: Math.max(0, montantRemis - total),
+        paymentMethod,
+        montantRemis,
         lignes: cart,
       });
       setCheckoutOpen(false);
@@ -472,8 +475,8 @@ export default function PosPage() {
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[13.5px] font-medium text-ink-900">Reçu</p>
               <div className="flex gap-1.5">
-                <button onClick={() => window.print()} className="flex items-center gap-1 rounded-md border border-ink-200 px-2 py-1 text-[11px] text-ink-600 hover:border-brass/50 transition-colors hover:text-ink-900">
-                  <Printer size={12} /> Imprimer
+                <button onClick={() => { if (receipt) printPOSReceiptWindow(receipt); else window.print(); }} className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-[12px] font-bold text-indigo-400 hover:bg-indigo-500/20 transition-all active:scale-95">
+                  <Printer size={13} /> Imprimer Reçu (Paper/80mm)
                 </button>
                 <button onClick={() => {
                   if (!receipt) return;
@@ -565,6 +568,9 @@ export default function PosPage() {
           dueDate={new Date().toLocaleDateString("fr-FR")}
         />
       )}
+
+      {/* Printable Receipt Component for Paper & Thermal Printers */}
+      <POSReceiptPrint receipt={receipt} />
     </div>
   );
 }

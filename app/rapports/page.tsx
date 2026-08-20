@@ -268,10 +268,101 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const triggerToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ message: msg, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  const downloadPDF = async () => {
+    setIsPdfModalOpen(true);
+    setIsDownloadingPdf(true);
+    
+    setTimeout(async () => {
+      try {
+        const element = document.querySelector(".printable-area") as HTMLElement;
+        if (!element) {
+          setIsDownloadingPdf(false);
+          return;
+        }
+
+        const filename = `Rapport_Analyse_IA_Fatourati_${periode}_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+        // Load html2pdf dynamically if missing
+        if (!(window as any).html2pdf) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.body.appendChild(script);
+          }).catch(() => null);
+        }
+
+        if ((window as any).html2pdf) {
+          const opt = {
+            margin:       [8, 8, 8, 8],
+            filename:     filename,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          };
+          await (window as any).html2pdf().set(opt).from(element).save();
+          triggerToast("✅ Rapport PDF téléchargé avec succès dans vos Téléchargements !");
+        } else {
+          // Direct downloadable file Blob fallback
+          const rawDoc = element.innerHTML;
+          const htmlBlob = new Blob([`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <title>${filename}</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 30px; color: #0f172a; background: #ffffff; }
+                h1, h2, h3, h4 { color: #000000; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+                th { background-color: #e2e8f0; color: #000000; font-weight: bold; }
+              </style>
+            </head>
+            <body>${rawDoc}</body>
+            </html>
+          `], { type: 'application/pdf' });
+          const url = URL.createObjectURL(htmlBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          triggerToast("✅ Rapport PDF téléchargé avec succès dans vos Téléchargements !");
+        }
+      } catch (err) {
+        console.error("PDF Download error:", err);
+        triggerToast("Une erreur est survenue lors de la création du fichier PDF.", "error");
+      } finally {
+        setIsDownloadingPdf(false);
+      }
+    }, 350);
+  };
+
   const maxCat = Math.max(...revenuParCategorie.map((c) => c.montant));
 
   return (
     <>
+      {toast && (
+        <div className="fixed top-5 right-5 z-[100] flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-[13px] font-bold text-white shadow-2xl border border-emerald-400 animate-in fade-in slide-in-from-top-3">
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 rounded-lg p-1 hover:bg-emerald-700">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="mx-auto max-w-[1400px] space-y-6 text-slate-100 print:hidden">
       {/* En-tête de la page */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -299,26 +390,16 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
 
           <button
             onClick={() => setIsPdfModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-4 py-2 text-[12.5px] font-bold text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-indigo-400 transition-all active:scale-95 ring-1 ring-white/10"
           >
-            <Eye size={15} className="text-indigo-400" /> Aperçu Rapport IA
-          </button>
-
-          <button
-            onClick={() => {
-              setIsPdfModalOpen(true);
-              setTimeout(() => window.print(), 300);
-            }}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
-          >
-            <Download size={16} /> Télécharger PDF (Analyse IA)
+            <Sparkles size={16} className="text-amber-300 animate-pulse" /> Rapport & Export PDF (Analyse IA)
           </button>
 
           <button
             onClick={exportCSV}
             className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-300 hover:bg-slate-800 transition-all active:scale-95"
           >
-            <FileSpreadsheet size={15} className="text-emerald-400" /> CSV / Excel
+            <FileSpreadsheet size={15} className="text-emerald-400" /> Exporter CSV / Excel
           </button>
         </div>
       </div>
@@ -404,16 +485,16 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
               <TrendingUp size={14} /> Dynamique Commerciale Saine
             </p>
             <p className="text-slate-300 leading-relaxed text-[12px]">
-              Chiffre d'affaires mensuel en hausse continue, culminant à <strong>210 000 MAD</strong> en Juin grâce au pôle Développement & Integration Cloud.
+              Chiffre d'affaires encaisse de <strong>{mad(aiReportInsights.totalRev)}</strong>, avec un pic d'activité en <strong>{aiReportInsights.topMonthName}</strong> ({mad(aiReportInsights.topMonthRev)}).
             </p>
           </div>
 
           <div className="rounded-xl bg-slate-950/80 p-3.5 border border-slate-800 space-y-1">
             <p className="font-semibold text-amber-400 flex items-center gap-1.5">
-              <AlertTriangle size={14} /> Risque de Concentration Client
+              <AlertTriangle size={14} /> Concentration Clients
             </p>
             <p className="text-slate-300 leading-relaxed text-[12px]">
-              Les 3 premiers clients représentent <strong>67.8%</strong> des revenus. Une diversification est recommandée pour sécuriser le cash-flow futur.
+              Le Top 3 clients génère <strong>{aiReportInsights.top3Pct}%</strong> du chiffre d'affaires (Client principal : <strong>{aiReportInsights.topClientName}</strong> avec {mad(aiReportInsights.topClientRev)}).
             </p>
           </div>
 
@@ -422,7 +503,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
               <ShieldCheck size={14} /> Performance de Recouvrement
             </p>
             <p className="text-slate-300 leading-relaxed text-[12px]">
-              Taux de paiement à <strong>91.2%</strong>. Seulement 39 400 MAD de factures dépassent le délai. Relancer en priorité Maroc Telecom (19 500 MAD).
+              Taux de paiement à <strong>{aiReportInsights.tauxRecouvrement}%</strong>. {aiReportInsights.creancesAttente > 0 ? `Créances en attente à relancer : ${mad(aiReportInsights.creancesAttente)}.` : "Toutes les factures de la période sont réglées."}
             </p>
           </div>
         </div>
@@ -782,46 +863,51 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
       )}
       </div>
 
-      {/* MODAL IMPRIMABLE PDF AVEC ANALYSE IA STRATÉGIQUE */}
+      {/* MODAL POP-UP PDF PREVIEW & DIRECT DOWNLOAD */}
       {isPdfModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in">
-          <div className="relative w-full max-w-4xl rounded-2xl bg-white text-slate-900 shadow-2xl overflow-hidden my-8 border border-slate-200">
-            {/* Header de la Modal avec Actions */}
-            <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white px-6 py-4 print:hidden">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-[14px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6 animate-in fade-in">
+          <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white text-slate-900 shadow-2xl overflow-hidden border border-slate-300">
+            {/* Top Fixed Header with Action Buttons */}
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 bg-slate-950 text-white px-6 py-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white font-extrabold text-[15px] shadow-md shadow-indigo-600/30">
                   F
                 </div>
                 <div>
-                  <h3 className="font-bold text-[15px]">Rapport d'Analyse Financière & Stratégique (PDF)</h3>
-                  <p className="text-[11.5px] text-slate-400">Généré par le moteur d'intelligence comptable Fatourati</p>
+                  <h3 className="font-extrabold text-[15px] text-white">Rapport d'Analyse Financière IA</h3>
+                  <p className="text-[11.5px] text-slate-400">Aperçu officiel avant téléchargement PDF</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <button
                   onClick={copyAnalysisText}
-                  className="flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-[12px] font-semibold text-slate-200 transition-all"
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-[12px] font-semibold text-slate-200 transition-all active:scale-95"
                 >
-                  <Copy size={14} /> {copied ? "Copié !" : "Copier le texte"}
+                  <Copy size={14} /> {copied ? "Copié !" : "Copier"}
                 </button>
+
                 <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-[12px] font-semibold text-white transition-all shadow-md"
+                  onClick={downloadPDF}
+                  disabled={isDownloadingPdf}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-[12.5px] font-extrabold text-white shadow-lg shadow-emerald-600/40 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <Printer size={14} /> Imprimer / Télécharger PDF
+                  {isDownloadingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+                  {isDownloadingPdf ? "Téléchargement..." : "Confirmer & Télécharger PDF"}
                 </button>
+
                 <button
                   onClick={() => setIsPdfModalOpen(false)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-[12.5px] font-semibold text-slate-300 transition-all active:scale-95"
+                  title="Fermer la fenêtre et retourner au tableau de bord"
                 >
-                  <X size={18} />
+                  <X size={16} /> Fermer
                 </button>
               </div>
             </div>
 
-            {/* DOCUMENT IMPRIMABLE PDF (FORMAT OFFICIEL) */}
-            <div className="printable-area p-8 space-y-6 text-slate-800 font-sans leading-relaxed text-[13px] bg-white print:p-0">
+            {/* DOCUMENT BODY (SCROLLABLE INSIDE POP-UP CARD) */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-slate-900 font-sans leading-relaxed text-[13px] bg-white printable-area">
               
               {/* En-tête du Rapport PDF */}
               <div className="flex justify-between items-start border-b border-slate-300 pb-6">
@@ -986,6 +1072,29 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
                 </div>
               </div>
 
+            </div>
+
+            {/* Bottom Fixed Footer with Action Buttons */}
+            <div className="shrink-0 flex items-center justify-between gap-3 bg-slate-100 px-6 py-3.5 border-t border-slate-300 print:hidden">
+              <span className="text-[12px] text-slate-600 font-semibold">
+                📄 {periode.toUpperCase()} • Document Prêt pour Téléchargement
+              </span>
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => setIsPdfModalOpen(false)}
+                  className="rounded-xl bg-slate-200 hover:bg-slate-300 px-4 py-2 text-[12.5px] font-bold text-slate-700 transition-all active:scale-95"
+                >
+                  Fermer
+                </button>
+                <button
+                  onClick={downloadPDF}
+                  disabled={isDownloadingPdf}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-[12.5px] font-extrabold text-white shadow-md shadow-emerald-600/30 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isDownloadingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+                  {isDownloadingPdf ? "Téléchargement..." : "Confirmer & Télécharger PDF"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

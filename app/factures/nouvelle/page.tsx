@@ -27,6 +27,7 @@ function FactureFormContent() {
 
   const recurrenteOptions = false;
   const [recurrente, setRecurrente] = useState(false);
+  const [statut, setStatut] = useState<string>("Brouillon");
   const [echeance, setEcheance] = useState<"15" | "30" | "60" | "perso">("30");
   const [afficherTva, setAfficherTva] = useState(true);
   const [afficherLettres, setAfficherLettres] = useState(true);
@@ -72,33 +73,38 @@ function FactureFormContent() {
     setLignes((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
   }
 
-  const handleSave = async () => {
+  const handleSave = async (overrideStatut?: string) => {
     setIsSubmitting(true);
     try {
-      const selectedClient = clients.find(c => c.id === clientId);
+      const targetStatut = overrideStatut || statut || "Brouillon";
+      const selectedClient = clients.find(c => c.id === clientId || c.customer_code === clientId);
       const invoiceData = {
-        invoice_number: `FAC-00${Math.floor(Math.random() * 1000)}`,
+        invoice_number: `FAC-${Math.floor(1000 + Math.random() * 9000)}`,
         client: clientId,
-        client_name: selectedClient ? (selectedClient.company_name || selectedClient.nom) : "Client Inconnu",
-        status: "Brouillon",
+        client_name: selectedClient ? (selectedClient.company_name || selectedClient.contact_name || selectedClient.nom) : (clientId || "Client Comptoir"),
+        status: targetStatut,
         total_amount: total,
-        date: new Date().toISOString(),
+        date: new Date().toISOString().split("T")[0],
         lignes,
       };
       
-      // Fetch in background to not block UI (instant transition)
-      fetch('/api/invoices', {
+      const res = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)
-      }).then(() => {
+      });
+      
+      if (res.ok) {
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "invoices" } }));
         }
-      });
-      
-      setSaveSuccess(true);
-      router.push("/factures");
+        setSaveSuccess(true);
+        setTimeout(() => {
+          router.push("/factures");
+        }, 300);
+      } else {
+        setIsSubmitting(false);
+      }
     } catch (err) {
       console.error(err);
       setIsSubmitting(false);
@@ -127,36 +133,52 @@ function FactureFormContent() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-[12.5px] text-ink-600 font-medium">Client *</label>
-                  <select
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    className="w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
-                  >
-                    <option value="">-- Choisir un client existant --</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.company_name || c.nom}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <label className="mb-1.5 block text-[12.5px] text-slate-300 font-medium">Client *</label>
+                <select
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">-- Choisir un client existant --</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.company_name || c.contact_name || c.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-[12.5px] text-slate-300 font-medium">Statut initial de la facture *</label>
+                <select
+                  value={statut}
+                  onChange={(e) => setStatut(e.target.value)}
+                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[13px] text-white font-semibold focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="Brouillon">📝 Brouillon</option>
+                  <option value="Envoyée">📩 Envoyée</option>
+                  <option value="Vue">👁️ Vue</option>
+                  <option value="Payée">✅ Payée</option>
+                  <option value="En retard">⚠️ En retard</option>
+                  <option value="Annulée">🚫 Annulée</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:col-span-2">
                 <div>
-                  <label className="mb-1.5 block text-[12.5px] text-ink-600 font-medium">Date d'émission</label>
+                  <label className="mb-1.5 block text-[12.5px] text-slate-300 font-medium">Date d'émission</label>
                   <input
                     type="date"
                     defaultValue={new Date().toISOString().split("T")[0]}
-                    className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[12.5px] text-ink-600 font-medium">Date d'échéance</label>
+                  <label className="mb-1.5 block text-[12.5px] text-slate-300 font-medium">Date d'échéance</label>
                   <input
                     type="date"
                     defaultValue={new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0]}
-                    className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
+                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
                   />
                   <div className="mt-1.5 flex gap-1">
                     {(["15", "30", "60", "perso"] as const).map((v) => (
@@ -166,8 +188,8 @@ function FactureFormContent() {
                         onClick={() => setEcheance(v)}
                         className={`flex-1 rounded-md border px-1.5 py-1 text-[11px] ${
                           echeance === v
-                            ? "border-brass bg-brass/10 text-brass font-medium"
-                            : "border-ink-200 text-ink-500 hover:border-brass/50"
+                            ? "border-indigo-500 bg-indigo-500/20 text-indigo-300 font-medium"
+                            : "border-slate-800 text-slate-400 hover:border-slate-700"
                         }`}
                       >
                         {v === "perso" ? "Perso." : `Net ${v}`}
@@ -377,17 +399,17 @@ function FactureFormContent() {
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={handleSave}
-              className="w-full rounded-md border border-ink-200 py-2.5 text-[13px] font-medium text-ink-700 hover:border-brass/50 flex items-center justify-center gap-2"
+              onClick={() => handleSave("Brouillon")}
+              className="w-full rounded-md border border-slate-700 bg-slate-900 py-2.5 text-[13px] font-medium text-slate-200 hover:bg-slate-800 flex items-center justify-center gap-2"
             >
-              {saveSuccess ? <Check size={16} className="text-green-600" /> : null}
+              {saveSuccess ? <Check size={16} className="text-emerald-400" /> : null}
               {saveSuccess ? "Brouillon enregistré !" : "Enregistrer comme brouillon"}
             </button>
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={handleSave}
-              className="w-full rounded-md bg-ink-900 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800 flex items-center justify-center gap-2"
+              onClick={() => handleSave("Envoyée")}
+              className="w-full rounded-md bg-indigo-600 py-2.5 text-[13px] font-bold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2"
             >
               {saveSuccess ? <Check size={16} /> : null}
               {saveSuccess ? "Facture créée et envoyée !" : "Créer et envoyer la facture"}

@@ -335,11 +335,17 @@ export const addEmployee = (emp: Partial<Employee>): Employee => {
   employeesStore.push(newEmp); saveData();
   return newEmp;
 };
+export const updateEmployee = (id: string, patch: Partial<Employee>): Employee | null => {
+  const emp = employeesStore.find(e => e.id === id);
+  if (emp) { Object.assign(emp, patch); saveData(); return emp; }
+  return null;
+};
 export const deleteEmployee = (id: string): boolean => {
   const idx = employeesStore.findIndex(e => e.id === id);
   if (idx !== -1) { employeesStore.splice(idx, 1); saveData(); return true; }
   return false;
 };
+export const clearEmployees = () => { employeesStore.length = 0; saveData(); };
 
 // AVOIRS
 g.avoirsStore = g.avoirsStore || [];
@@ -362,11 +368,22 @@ g.depensesStore = g.depensesStore || [];
 const depensesStore: any[] = g.depensesStore;
 export const getDepenses = () => [...depensesStore].reverse();
 export const addDepense = (dep: any) => { dep.id = `DEP-${Date.now()}`; depensesStore.push(dep); saveData(); return dep; };
+export const updateDepense = (id: string, patch: any) => {
+  const item = depensesStore.find((d: any) => d.id === id);
+  if (item) {
+    if (patch.status && !patch.statut) patch.statut = patch.status;
+    if (patch.statut && !patch.status) patch.status = patch.statut;
+    Object.assign(item, patch);
+    saveData();
+  }
+  return item;
+};
 export const deleteDepense = (id: string) => {
   const idx = depensesStore.findIndex((d: any) => d.id === id);
   if (idx !== -1) { depensesStore.splice(idx, 1); saveData(); return true; }
   return false;
 };
+export const clearDepenses = () => { depensesStore.length = 0; saveData(); };
 
 // BULLETINS DE PAIE
 g.bulletinsStore = g.bulletinsStore || [];
@@ -400,6 +417,7 @@ export const deleteBonCommande = (id: string) => {
   if (idx !== -1) { bonsCommandeStore.splice(idx, 1); saveData(); return true; }
   return false;
 };
+export const clearBonsCommande = () => { bonsCommandeStore.length = 0; saveData(); };
 
 // EQUIPE
 g.equipeStore = g.equipeStore || [];

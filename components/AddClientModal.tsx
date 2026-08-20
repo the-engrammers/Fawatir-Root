@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import Modal from "./Modal";
 import FormAlert from "./FormAlert";
@@ -19,14 +19,23 @@ const fieldsByCountry: Record<string, { label: string; placeholder: string; key:
   ],
 };
 
-export default function AddClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
-  const [companyName, setCompanyName] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [pays, setPays] = useState("Maroc");
-  const [fiscalData, setFiscalData] = useState<Record<string, string>>({});
+export default function AddClientModal({ 
+  onClose, 
+  onSuccess,
+  initialData 
+}: { 
+  onClose: () => void; 
+  onSuccess?: () => void;
+  initialData?: any;
+}) {
+  const isEditing = !!initialData;
+  const [companyName, setCompanyName] = useState(initialData?.company_name || "");
+  const [contactName, setContactName] = useState(initialData?.contact_name || "");
+  const [email, setEmail] = useState(initialData?.email || "");
+  const [phone, setPhone] = useState(initialData?.phone || initialData?.mobile || "");
+  const [address, setAddress] = useState(initialData?.city || initialData?.address || "");
+  const [pays, setPays] = useState(initialData?.country || "Maroc");
+  const [fiscalData, setFiscalData] = useState<Record<string, string>>(initialData?.metadata || {});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,8 +52,11 @@ export default function AddClientModal({ onClose, onSuccess }: { onClose: () => 
     setError(null);
 
     try {
-      const res = await fetch("/api/clients", {
-        method: "POST",
+      const url = isEditing ? `/api/clients/${initialData.id}` : "/api/clients";
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           company_name: companyName,
@@ -57,7 +69,7 @@ export default function AddClientModal({ onClose, onSuccess }: { onClose: () => 
         }),
       });
 
-      if (!res.ok) throw new Error("Échec de la création du client");
+      if (!res.ok) throw new Error(isEditing ? "Échec de la modification du client" : "Échec de la création du client");
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "clients" } }));
@@ -72,7 +84,7 @@ export default function AddClientModal({ onClose, onSuccess }: { onClose: () => 
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Ajouter un Client">
+    <Modal isOpen={true} onClose={onClose} title={isEditing ? "Modifier le Client" : "Ajouter un Client"}>
       <FormAlert error={error} onClose={() => setError(null)} title="Erreur de formulaire" />
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -177,7 +189,7 @@ export default function AddClientModal({ onClose, onSuccess }: { onClose: () => 
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 disabled:opacity-60 transition-all active:scale-95"
           >
             {isSubmitting && <Loader2 size={15} className="animate-spin" />}
-            Ajouter le client
+            {isEditing ? "Enregistrer les modifications" : "Ajouter le client"}
           </button>
         </div>
       </form>

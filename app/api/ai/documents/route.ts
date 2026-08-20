@@ -1,12 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
+import { saveAIDocument } from "@/lib/ai-document-store";
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const text = formData.get("text") as string | null;
-    const docType = (formData.get("doc_type") as string) || "invoice";
+    const docType = (formData.get("doc_type") as string) || "devis";
 
     if (!file && !text) {
       return NextResponse.json({ status: "failed", error_message: "Aucun document ou texte fourni" }, { status: 400 });
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     if (!apiKey) {
       return NextResponse.json({ 
         status: "failed", 
-        error_message: "ERREUR CRITIQUE: Clé API Gemini manquante. Veuillez ajouter GEMINI_API_KEY dans le fichier .env de votre projet." 
+        error_message: "ERREUR CRITIQUE: Clé API Gemini manquante dans le fichier .env." 
       }, { status: 500 });
     }
 
@@ -33,33 +34,51 @@ export async function POST(req: Request) {
         }
       });
 
-      const promptText = `Tu es un système comptable ultra-précis et expert en OCR pour les entreprises au Maroc.
-Ton objectif est de lire ce document ou texte et d'extraire les données avec UNE PRÉCISION ABSOLUE DE 100%. AUCUNE HALLUCINATION N'EST TOLÉRÉE. N'invente jamais de données. Si une donnée est manquante, utilise la valeur par défaut logique (ex: 0 pour un montant introuvable).
-${file ? "" : `\nTexte à analyser : "${text}"`}
+      const promptText = `Tu es un assistant comptable IA ultra-intelligent spécialisé dans l'analyse OCR et l'extraction de documents d'entreprise (Devis, Estimations, Factures).
+Ton objectif est de lire ce document (${file ? file.name : "texte"}) et d'extraire TOUTES les informations financières et lignes d'articles avec UNE PRÉCISION DE 100%. AUCUNE HALLUCINATION.
 
-Le JSON DOIT respecter scrupuleusement ce format :
+Consignes d'extraction :
+1. "type": Doit être "devis" si c'est une estimation/devis/proposition commercial, ou "facture" si c'est une facture.
+2. "fournisseur": Nom exact de l'entreprise émettrice / fournisseur.
+3. "client": Nom exact du destinataire / client.
+4. "numero_facture": Numéro du devis ou de la facture (ex: DEV-2026-001, N° 45892, BC-99).
+5. "date": Date d'émission au format YYYY-MM-DD.
+6. "montant_ht": Total Hors Taxe numérique (ex: 1500.00).
+7. "montant_ttc": Total Toutes Taxes Comprises numérique (ex: 1800.00).
+8. "taux_tva": Taux de TVA principal (ex: 20, 14, 10, 7 ou 0).
+9. "lignes": Tableau de toutes les lignes d'articles ou prestations. Chaque élément doit comporter :
+   - "description": Nom / Désignation exacte de l'article ou de la prestation.
+   - "quantite": Nombre d'unités (nombre entier ou décimal).
+   - "prix_unitaire": Prix unitaire HT.
+   - "montant": Montant total HT de la ligne.
+
+Renvoie STRICTEMENT un objet JSON valide au format suivant sans aucun texte autour :
 {
-  "type": "Doit être exactement 'facture' ou 'devis' selon la nature du document",
-  "fournisseur": "Nom de l'émetteur ou fournisseur. Cherche le nom de l'entreprise en haut.",
-  "client": "Nom du destinataire ou client.",
-  "numero_facture": "Numéro exact de facture ou devis.",
+  "type": "${docType === "devis" ? "devis" : "facture"}",
+  "fournisseur": "Nom Fournisseur",
+  "client": "Nom Client",
+  "numero_facture": "DEV-001",
   "date": "YYYY-MM-DD",
   "montant_ht": 1000.00,
   "montant_ttc": 1200.00,
   "taux_tva": 20,
   "lignes": [
     {
-      "description": "Nom ou désignation exacte de l'article",
+      "description": "Désignation article",
       "quantite": 1,
       "prix_unitaire": 1000.00,
       "montant": 1000.00
     }
   ]
-}
+}`;
 
-Attention : Réponds UNIQUEMENT avec l'objet JSON brut. Pas de texte explicatif, pas de balises Markdown autour du JSON.`;
+      let contentsParts: any[] = [];
 
-      let contentsParts: any[] = [{ text: promptText }];
+      if (text) {
+        contentsParts.push({ text: `Document à analyser :\n"${text}"\n\n${promptText}` });
+      } else {
+        contentsParts.push({ text: promptText });
+      }
 
       if (file) {
         const fileName = file.name || "document.pdf";
@@ -82,6 +101,7 @@ Attention : Réponds UNIQUEMENT avec l'objet JSON brut. Pas de texte explicatif,
         });
       }
 
+      // Valid Gemini Vision Model Suite - gemini-3.6-flash is primary
       const candidateModels = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
 
       for (const modelName of candidateModels) {
@@ -93,7 +113,7 @@ Attention : Réponds UNIQUEMENT avec l'objet JSON brut. Pas de texte explicatif,
           if (response && response.text) break;
         } catch (err: any) {
           lastError = err;
-          console.warn(`Gemini model ${modelName} failed, trying fallback:`, err?.message || err);
+          console.warn(`Gemini model ${modelName} attempt failed:`, err?.message || err);
         }
       }
     } catch (geminiInitErr: any) {
@@ -104,58 +124,42 @@ Attention : Réponds UNIQUEMENT avec l'objet JSON brut. Pas de texte explicatif,
       const cleanText = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
       try {
         const extracted = JSON.parse(cleanText);
-        return NextResponse.json({
+        const docResult = {
           id: `doc-${Date.now()}`,
           status: "completed",
           extracted_data: {
-            fournisseur: extracted.fournisseur || "Fournisseur Inconnu",
-            client: extracted.client || "Client",
-            type: extracted.type === "devis" ? "devis" : "facture",
-            numero_facture: extracted.numero_facture || `FAC-${Math.floor(100 + Math.random() * 900)}`,
+            fournisseur: extracted.fournisseur || "Fournisseur Non Spécifié",
+            client: extracted.client || "Client Comptoir",
+            type: (extracted.type === "devis" || docType === "devis" ? "devis" : "facture") as "devis" | "facture",
+            numero_facture: extracted.numero_facture || (docType === "devis" ? `DEV-${Math.floor(1000 + Math.random() * 9000)}` : `FAC-${Math.floor(1000 + Math.random() * 9000)}`),
             date: extracted.date || new Date().toISOString().split("T")[0],
             montant_ht: Number(extracted.montant_ht) || 0,
-            montant_ttc: Number(extracted.montant_ttc) || 0,
+            montant_ttc: Number(extracted.montant_ttc) || Number(extracted.montant_ht || 0) * 1.2,
             taux_tva: Number(extracted.taux_tva) || 20,
-            lignes: Array.isArray(extracted.lignes) && extracted.lignes.length > 0 ? extracted.lignes : []
+            lignes: Array.isArray(extracted.lignes) && extracted.lignes.length > 0 
+              ? extracted.lignes.map((l: any) => ({
+                  description: l.description || l.nom || "Article extrait",
+                  quantite: Number(l.quantite || l.qte || 1),
+                  prix_unitaire: Number(l.prix_unitaire || l.prix || 0),
+                  montant: Number(l.montant || (Number(l.quantite || 1) * Number(l.prix_unitaire || 0)))
+                }))
+              : []
           }
-        });
+        };
+        saveAIDocument(docResult);
+        return NextResponse.json(docResult);
       } catch (e) {
-        return NextResponse.json({ status: "failed", error_message: "L'IA a généré un format invalide." }, { status: 500 });
+        return NextResponse.json({ status: "failed", error_message: "L'IA a généré un format d'analyse invalide." }, { status: 500 });
       }
     }
 
-    // Fallback for 503 High Demand / 429 Quota Exceeded / Unavailable errors
-    const errStr = String(lastError?.message || lastError || "");
-    if (errStr.includes("503") || errStr.includes("UNAVAILABLE") || errStr.includes("high demand") || errStr.includes("429") || errStr.includes("Quota exceeded")) {
-      return NextResponse.json({
-        id: `doc-${Date.now()}`,
-        status: "completed",
-        extracted_data: {
-          fournisseur: "Fournisseur Exemple (Service IA temporairement indisponible)",
-          client: "Client Démo",
-          type: docType === "devis" ? "devis" : "facture",
-          numero_facture: `FAC-${Math.floor(100 + Math.random() * 900)}`,
-          date: new Date().toISOString().split("T")[0],
-          montant_ht: 1000,
-          montant_ttc: 1200,
-          taux_tva: 20,
-          lignes: [
-            {
-              description: "Prestation / Article (Saisie automatique suite à saturation temporaire de l'IA)",
-              quantite: 1,
-              prix_unitaire: 1000,
-              montant: 1000
-            }
-          ]
-        }
-      }
-    );
-  }
-
-    return NextResponse.json({ status: "failed", error_message: `Erreur IA: ${lastError?.message || "Aucune réponse de l'IA"}` }, { status: 500 });
+    return NextResponse.json({ 
+      status: "failed", 
+      error_message: `Erreur d'extraction IA: ${lastError?.message || "Impossible d'analyser le document. Assurez-vous d'envoyer un fichier PDF ou une image lisible."}` 
+    }, { status: 500 });
 
   } catch (error: any) {
     console.error("Error processing document AI:", error);
-    return NextResponse.json({ status: "failed", error_message: "Erreur lors du traitement du document" }, { status: 500 });
+    return NextResponse.json({ status: "failed", error_message: "Erreur lors du traitement du document avec l'IA" }, { status: 500 });
   }
 }

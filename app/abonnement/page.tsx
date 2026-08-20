@@ -1,89 +1,123 @@
-import { Check } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Sparkles, Rocket, Clock, CheckCircle2, ShieldCheck, Zap, Mail, ArrowRight } from "lucide-react";
 
 export default function AbonnementPage() {
+  const [email, setEmail] = useState("");
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setIsSubscribed(true);
+    setTimeout(() => {
+      setEmail("");
+    }, 2000);
+  };
+
   return (
-    <div className="mx-auto max-w-[1000px] space-y-5">
-      <div>
-        <h1 className="font-display text-[22px] font-semibold text-ink-900">Abonnement</h1>
-        <p className="text-[13px] text-ink-400">Gérez votre plan et votre facturation</p>
-      </div>
-
-      <div className="ledger-card flex items-center justify-between">
+    <div className="mx-auto max-w-[1100px] space-y-6 text-slate-100">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-[11.5px] uppercase tracking-wide text-ink-400">Plan actuel</p>
-          <p className="mt-1 text-[18px] font-semibold text-ink-900">Pro</p>
-          <p className="text-[12.5px] text-ink-400">Renouvellement le 12 mai 2026</p>
-        </div>
-        <button className="rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:border-brass/50">
-          Changer de plan
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="ledger-card">
-          <p className="text-[12px] text-ink-400">Factures ce mois-ci</p>
-          <p className="figure mt-1 text-[20px] font-medium text-ink-900">46 / Illimité</p>
-        </div>
-        <div className="ledger-card">
-          <p className="text-[12px] text-ink-400">Membres de l'équipe</p>
-          <p className="figure mt-1 text-[20px] font-medium text-ink-900">3 / 10</p>
-        </div>
-        <div className="ledger-card">
-          <p className="text-[12px] text-ink-400">Prochain paiement</p>
-          <p className="figure mt-1 text-[20px] font-medium text-ink-900">299 MAD</p>
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-[24px] font-bold text-white tracking-tight">Abonnement & Offres</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/20 to-indigo-500/20 border border-amber-500/30 px-3 py-1 text-[11px] font-extrabold uppercase text-amber-300 shadow-md">
+              <Sparkles size={12} className="text-amber-400 animate-pulse" /> Bientôt Disponible
+            </span>
+          </div>
+          <p className="text-[13px] text-slate-400">Gérez votre formule, vos quotas et vos options de facturation</p>
         </div>
       </div>
 
-      <div className="ledger-card">
-        <p className="mb-3 text-[12px] font-medium uppercase tracking-wide text-ink-400">
-          Ce qui est inclus dans le plan Pro
+      {/* Main Hero Coming Soon Card */}
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-950 p-8 sm:p-12 shadow-2xl">
+        {/* Glow decorative blur */}
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-2xl space-y-5">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/20 text-indigo-400 ring-1 ring-indigo-500/40 shadow-lg shadow-indigo-600/20">
+            <Rocket size={28} className="animate-bounce" />
+          </div>
+
+          <h2 className="font-display text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+            Une nouvelle expérience d'abonnement arrive très bientôt sur <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-amber-300 bg-clip-text text-transparent">FATOURATI</span> !
+          </h2>
+
+          <p className="text-[14px] leading-relaxed text-slate-300">
+            Nous préparons des formules flexibles, transparentes et sur-mesure adaptées aux entrepreneurs, TPE et PME au Maroc. Profitez actuellement de toutes les fonctionnalités en version illimitée.
+          </p>
+
+          {/* Email Notify Form */}
+          <div className="pt-2">
+            {isSubscribed ? (
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 px-5 py-3 text-[13px] font-bold text-emerald-300">
+                <CheckCircle2 size={18} />
+                <span>Merci ! Vous serez notifié en priorité lors du lancement de nos offres.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5 max-w-md">
+                <div className="relative flex-1">
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Votre adresse email pro..."
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/80 pl-10 pr-4 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95 whitespace-nowrap"
+                >
+                  M'avertir <ArrowRight size={14} />
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Feature Teasers Grid */}
+      <div>
+        <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">
+          Ce qui est en cours de préparation :
         </p>
-        <ul className="grid grid-cols-1 gap-2 text-[13px] text-ink-700 sm:grid-cols-2">
-          {[
-            "Factures et devis illimités",
-            "Assistant IA & bot WhatsApp",
-            "Point de vente",
-            "Bulletins de paie",
-            "Rapprochement bancaire",
-            "Jusqu'à 10 membres d'équipe",
-          ].map((f) => (
-            <li key={f} className="flex items-center gap-2">
-              <Check size={14} className="text-status-success" /> {f}
-            </li>
-          ))}
-        </ul>
-      </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bento-card space-y-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20">
+              <Zap size={18} />
+            </div>
+            <h3 className="text-[14px] font-bold text-white">IA Vision & Automatisation</h3>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              Extraction automatique des devis & factures PDF par l'IA Gemini 2.5 et assistant bot WhatsApp.
+            </p>
+          </div>
 
-      <div className="ledger-card">
-        <p className="mb-3 text-[12px] font-medium uppercase tracking-wide text-ink-400">
-          Historique de facturation
-        </p>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
-              <th className="pb-2 font-medium">Date</th>
-              <th className="pb-2 font-medium">Montant</th>
-              <th className="pb-2 font-medium">Statut</th>
-              <th className="pb-2 font-medium text-right">Reçu</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-ink-200/60">
-            {["12 Avr 2026", "12 Mar 2026", "12 Fev 2026"].map((date) => (
-              <tr key={date}>
-                <td className="py-2.5 text-ink-700">{date}</td>
-                <td className="figure py-2.5 text-ink-900">299,00 MAD</td>
-                <td className="py-2.5">
-                  <span className="rounded-full bg-status-successBg px-2 py-0.5 text-[11px] font-medium text-status-success">
-                    Payée
-                  </span>
-                </td>
-                <td className="py-2.5 text-right">
-                  <button className="text-[12.5px] font-medium text-brass hover:underline">Télécharger</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <div className="bento-card space-y-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+              <ShieldCheck size={18} />
+            </div>
+            <h3 className="text-[14px] font-bold text-white">Paiement CMI & Carte Marocaine</h3>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              Intégration sécurisée des passerelles de paiement locales en Dirhams (MAD).
+            </p>
+          </div>
+
+          <div className="bento-card space-y-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20">
+              <Clock size={18} />
+            </div>
+            <h3 className="text-[14px] font-bold text-white">Accès Gratuit Actuel</h3>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              Toutes les fonctionnalités restent 100% gratuites et illimitées pendant la phase de lancement.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

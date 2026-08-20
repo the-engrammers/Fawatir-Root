@@ -2,19 +2,21 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Loader2, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Plus, Loader2, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Trash2, CheckCircle2, X, Eye } from "lucide-react";
 import { mad } from "@/lib/format";
 import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
+import EditProductModal from "@/components/EditProductModal";
 import ConfirmModal from "@/components/ConfirmModal";
-import { fetchAPI } from "@/lib/api";
 
 export default function StocksPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [metadataKeys, setMetadataKeys] = useState<string[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
@@ -22,6 +24,11 @@ export default function StocksPage() {
     message: "",
     onConfirm: () => {}
   });
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,7 +47,6 @@ export default function StocksPage() {
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.results || [];
       setProducts(list);
-      setCurrentPage(1);
       
       const keys = new Set<string>();
       list.forEach((p: any) => {
@@ -56,12 +62,55 @@ export default function StocksPage() {
     }
   };
 
+  // 0ms Optimistic UI Delete Product
+  const handleDeleteProduct = (id: string, name: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: `Supprimer le produit ${name}`,
+      message: "Voulez-vous vraiment supprimer ce produit ? Cette action est irréversible.",
+      onConfirm: () => {
+        // 1. INSTANT UI removal (0ms delay)
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        showToast(`Produit ${name} supprimé avec succès !`);
+
+        // 2. Asynchronous API sync in background
+        fetch(`/api/products/${id}`, { method: "DELETE" }).then(() => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+          }
+        }).catch((err) => console.error("Error deleting product:", err));
+      }
+    });
+    setActionMenuOpen(null);
+  };
+
+  // 0ms Optimistic UI Clear All
+  const handleClearProducts = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Vider les produits",
+      message: "Voulez-vous vraiment vider toute la liste des produits ? Cette action est irréversible.",
+      onConfirm: () => {
+        // 1. INSTANT UI clear (0ms delay)
+        setProducts([]);
+        showToast("Tous les produits ont été vidés avec succès !");
+
+        // 2. Asynchronous API sync in background
+        fetch("/api/products/clear", { method: "DELETE" }).then(() => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
+          }
+        }).catch((err) => console.error("Error clearing products:", err));
+      }
+    });
+  };
+
   const filteredProducts = products.filter((p) => {
     const term = searchTerm.toLowerCase();
     return (
-      (p.name || "").toLowerCase().includes(term) ||
+      (p.name || p.nom || "").toLowerCase().includes(term) ||
       (p.sku || "").toLowerCase().includes(term) ||
-      (p.category_name || "").toLowerCase().includes(term)
+      (p.category_name || p.categorie || "").toLowerCase().includes(term)
     );
   });
 
@@ -74,262 +123,249 @@ export default function StocksPage() {
   const suivis = products.filter((p) => p.track_inventory !== false);
   const enRupture = suivis.filter((p) => (p.quantity ?? 0) === 0).length;
   const stockBas = suivis.filter((p) => (p.quantity ?? 0) > 0 && (p.quantity ?? 0) < 10).length;
-  const valeurTotale = suivis.reduce((s, p) => s + (p.selling_price || 0) * (p.quantity ?? 0), 0);
+  const valeurTotale = suivis.reduce((s, p) => s + (p.selling_price || p.prix || 0) * (p.quantity ?? 0), 0);
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-[22px] font-semibold text-ink-900">
-            Gestion des stocks
-          </h1>
-          <p className="text-[13px] text-ink-400">Gérez vos produits, services et inventaire</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setConfirmConfig({
-                isOpen: true,
-                title: "Vider les produits",
-                message: "Voulez-vous vraiment vider toute la liste des produits ? Cette action est irréversible.",
-                onConfirm: async () => {
-                  await fetch("/api/products/clear", { method: "DELETE" });
-                  if (typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
-                  }
-                  fetchProducts();
-                }
-              });
-            }}
-            className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-200 px-4 py-2 text-[13px] font-medium text-red-600 hover:bg-red-500/20"
-          >
-            Vider
+    <>
+      {toast && (
+        <div className="fixed top-5 right-5 z-[100] flex items-center gap-2.5 rounded-2xl bg-emerald-600 px-5 py-3.5 text-[13px] font-bold text-white shadow-2xl border border-emerald-400 animate-in fade-in slide-in-from-top-3">
+          <CheckCircle2 size={16} />
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 rounded-lg p-1 hover:bg-emerald-700">
+            <X size={14} />
           </button>
-          <button 
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2 rounded-md bg-paper border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:bg-ink-50"
-          >
-            Importer
-          </button>
-          <Link
-            href="/stocks/nouveau"
-            className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
-          >
-            <Plus size={15} /> Ajouter un produit
-          </Link>
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="ledger-card">
-          <p className="figure text-[19px] font-medium text-ink-900">{suivis.length}</p>
-          <p className="text-[12px] text-ink-400">Produits suivis · {products.length} total</p>
-        </div>
-        <div className="ledger-card !border-l-status-danger/70">
-          <p className="figure text-[19px] font-medium text-ink-900">{enRupture}</p>
-          <p className="text-[12px] text-ink-400">En rupture</p>
-        </div>
-        <div className="ledger-card !border-l-status-warning/70">
-          <p className="figure text-[19px] font-medium text-ink-900">{stockBas}</p>
-          <p className="text-[12px] text-ink-400">Stock bas</p>
-        </div>
-        <div className="ledger-card">
-          <p className="figure text-[19px] font-medium text-ink-900">{mad(valeurTotale)}</p>
-          <p className="text-[12px] text-ink-400">Valeur totale du stock</p>
-        </div>
-      </div>
-
-      <div className="ledger-card !p-4 flex flex-col min-h-[500px]">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setCurrentPage(1);
-          }}
-          placeholder="Rechercher des produits..."
-          className="mb-4 w-72 rounded-md border border-ink-200 bg-paper px-3 py-1.5 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
-        />
-
-        {loading ? (
-          <div className="flex justify-center py-10 flex-1">
-            <Loader2 className="animate-spin text-ink-300" size={24} />
+      <div className="mx-auto max-w-[1400px] space-y-5 text-slate-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">
+              Gestion des stocks & Produits
+            </h1>
+            <p className="text-[13px] text-slate-400">Gérez vos produits, tarifs et votre inventaire en temps réel</p>
           </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto flex-1 pb-44 min-h-[360px]">
-              <table className="w-full text-[13px] min-w-max">
-                <thead>
-                  <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
-                    <th className="pb-2.5 font-medium px-2">Nom</th>
-                    <th className="pb-2.5 font-medium px-2">SKU</th>
-                    <th className="pb-2.5 font-medium px-2">Prix</th>
-                    <th className="pb-2.5 font-medium px-2">Unité</th>
-                    <th className="pb-2.5 font-medium px-2">Catégorie</th>
-                    <th className="pb-2.5 font-medium px-2">Stock</th>
-                    {metadataKeys.map(key => (
-                      <th key={key} className="pb-2.5 font-medium px-2 text-brass">{key}</th>
-                    ))}
-                    <th className="pb-2.5 font-medium px-2">Statut</th>
-                    <th className="pb-2.5 font-medium text-right px-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-200/60">
-                  {displayedProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={8 + metadataKeys.length} className="py-8 text-center text-ink-400">
-                        Aucun produit trouvé.
-                      </td>
+          <div className="flex gap-2">
+            <button
+              onClick={handleClearProducts}
+              className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-[12.5px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
+            >
+              <Trash2 size={14} /> Vider
+            </button>
+            <button 
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 active:scale-95 transition-all"
+            >
+              Importer
+            </button>
+            <Link
+              href="/stocks/nouveau"
+              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all"
+            >
+              <Plus size={15} /> Ajouter un produit
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="bento-card space-y-1">
+            <p className="figure text-[22px] font-extrabold text-white">{suivis.length}</p>
+            <p className="text-[12px] text-slate-400">Produits suivis · {products.length} total</p>
+          </div>
+          <div className="bento-card space-y-1 border-l-4 border-l-red-500">
+            <p className="figure text-[22px] font-extrabold text-red-400">{enRupture}</p>
+            <p className="text-[12px] text-slate-400">En rupture de stock</p>
+          </div>
+          <div className="bento-card space-y-1 border-l-4 border-l-amber-500">
+            <p className="figure text-[22px] font-extrabold text-amber-400">{stockBas}</p>
+            <p className="text-[12px] text-slate-400">Stock bas</p>
+          </div>
+          <div className="bento-card space-y-1">
+            <p className="figure text-[22px] font-extrabold text-emerald-400">{mad(valeurTotale)}</p>
+            <p className="text-[12px] text-slate-400">Valeur totale du stock</p>
+          </div>
+        </div>
+
+        <div className="bento-card !p-5 flex flex-col min-h-[500px]">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Rechercher des produits par nom, SKU ou catégorie..."
+            className="mb-5 w-80 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+
+          {loading ? (
+            <div className="flex justify-center py-12 flex-1 items-center">
+              <Loader2 className="animate-spin text-indigo-400" size={28} />
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto flex-1 pb-44 min-h-[360px]">
+                <table className="w-full text-[13.5px] min-w-max border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <th className="py-3 px-3">Produit</th>
+                      <th className="py-3 px-3">SKU</th>
+                      <th className="py-3 px-3">Prix Vente</th>
+                      <th className="py-3 px-3">Unité</th>
+                      <th className="py-3 px-3">Catégorie</th>
+                      <th className="py-3 px-3">Stock</th>
+                      {metadataKeys.map(key => (
+                        <th key={key} className="py-3 px-3 text-indigo-400">{key}</th>
+                      ))}
+                      <th className="py-3 px-3">Statut</th>
+                      <th className="py-3 px-3 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    displayedProducts.map((p, idx) => (
-                      <tr key={`${p.id}-${idx}`}>
-                        <td className="py-3 px-2">
-                          <Link href={`/stocks/${p.id}`} className="font-medium text-ink-900 hover:text-brass">
-                            {p.name || 'Sans nom'}
-                          </Link>
-                        </td>
-                        <td className="figure py-3 px-2 text-ink-500">{p.sku}</td>
-                        <td className="figure py-3 px-2 text-ink-900">{mad(p.selling_price || 0)}</td>
-                        <td className="py-3 px-2 text-ink-500">{p.unit || '-'}</td>
-                        <td className="py-3 px-2">
-                          <span className="rounded-full bg-status-infoBg px-2 py-0.5 text-[11px] font-medium text-status-info">
-                            {p.category_name || 'Général'}
-                          </span>
-                        </td>
-                        <td className="figure py-3 px-2 text-ink-700">
-                          {p.track_inventory !== false ? (p.quantity ?? 0) : <span className="text-ink-300">—</span>}
-                        </td>
-                        
-                        {metadataKeys.map(key => (
-                          <td key={key} className="py-3 px-2 text-ink-500">
-                            {p.metadata && p.metadata[key] ? p.metadata[key] : '-'}
-                          </td>
-                        ))}
-                        
-                        <td className="py-3 px-2">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              p.is_active !== false
-                                ? "bg-status-successBg text-status-success"
-                                : "bg-ink-200/60 text-ink-500"
-                            }`}
-                          >
-                            {p.is_active !== false ? 'Actif' : 'Inactif'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-2 text-right relative">
-                          <button 
-                            onClick={() => setActionMenuOpen(actionMenuOpen === p.id ? null : p.id)}
-                            className="rounded-md p-1.5 text-ink-400 hover:bg-ink-900/[0.04] hover:text-ink-700"
-                          >
-                            <MoreHorizontal size={16} />
-                          </button>
-                          {actionMenuOpen === p.id && (
-                            <div className="absolute right-2 top-10 z-50 w-48 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
-                              <button
-                                onClick={async () => {
-                                  const newQtyStr = prompt("Ajuster la quantité en stock :", String(p.quantity || 0));
-                                  if (newQtyStr !== null) {
-                                    const newQty = parseInt(newQtyStr) || 0;
-                                    try {
-                                      await fetch(`/api/products/${p.id}`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ quantity: newQty })
-                                      });
-                                    } catch (err) {}
-                                    if (typeof window !== "undefined") {
-                                      window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
-                                    }
-                                    fetchProducts();
-                                  }
-                                  setActionMenuOpen(null);
-                                }}
-                                className="block w-full text-left px-3 py-1.5 text-[12px] text-ink-700 hover:bg-ink-50"
-                              >
-                                Ajuster le stock
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setConfirmConfig({
-                                    isOpen: true,
-                                    title: `Supprimer le produit ${p.name}`,
-                                    message: "Voulez-vous vraiment supprimer ce produit ? Cette action est irréversible.",
-                                    onConfirm: async () => {
-                                      try {
-                                        await fetch(`/api/products/${p.id}`, { method: "DELETE" });
-                                      } catch (err) {}
-                                      if (typeof window !== "undefined") {
-                                        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "stock" } }));
-                                      }
-                                      fetchProducts();
-                                    }
-                                  });
-                                  setActionMenuOpen(null);
-                                }}
-                                className="block w-full text-left px-3 py-1.5 text-[12px] text-red-600 hover:bg-red-50"
-                              >
-                                Supprimer
-                              </button>
-                            </div>
-                          )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {displayedProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={8 + metadataKeys.length} className="py-12 text-center text-slate-500">
+                          Aucun produit trouvé.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="flex items-center justify-between border-t border-ink-200/60 pt-4 mt-4">
-              <span className="text-[13px] text-ink-500">
-                Affichage de {products.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} à {Math.min(currentPage * itemsPerPage, products.length)} sur {products.length}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="flex items-center justify-center rounded border border-ink-200 h-8 w-8 text-ink-600 disabled:opacity-50 hover:bg-ink-50 disabled:hover:bg-transparent transition-colors"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="text-[13px] font-medium px-3 text-ink-900">
-                  Page {currentPage} / {Math.max(1, totalPages)}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="flex items-center justify-center rounded border border-ink-200 h-8 w-8 text-ink-600 disabled:opacity-50 hover:bg-ink-50 disabled:hover:bg-transparent transition-colors"
-                >
-                  <ChevronRight size={16} />
-                </button>
+                    ) : (
+                      displayedProducts.map((p, idx) => (
+                        <tr key={`${p.id}-${idx}`} className="group hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3.5 px-3">
+                            <Link href={`/stocks/${p.id}`} className="font-semibold text-white group-hover:text-indigo-300 transition-colors">
+                              {p.name || p.nom || 'Sans nom'}
+                            </Link>
+                          </td>
+                          <td className="figure py-3.5 px-3 font-mono text-slate-400">{p.sku}</td>
+                          <td className="figure py-3.5 px-3 font-mono font-bold text-white">{mad(p.selling_price || p.prix || 0)}</td>
+                          <td className="py-3.5 px-3 text-slate-400">{p.unit || 'unité'}</td>
+                          <td className="py-3.5 px-3">
+                            <span className="rounded-xl bg-indigo-500/10 px-2.5 py-1 text-[11.5px] font-semibold text-indigo-300 border border-indigo-500/20">
+                              {p.category_name || p.categorie || 'Général'}
+                            </span>
+                          </td>
+                          <td className="figure py-3.5 px-3 font-mono font-bold">
+                            {p.track_inventory !== false ? (
+                              <span className={(p.quantity ?? 0) === 0 ? "text-red-400 font-extrabold" : (p.quantity ?? 0) < 10 ? "text-amber-400" : "text-emerald-400"}>
+                                {p.quantity ?? 0}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+                          
+                          {metadataKeys.map(key => (
+                            <td key={key} className="py-3.5 px-3 text-slate-400">
+                              {p.metadata && p.metadata[key] ? p.metadata[key] : '-'}
+                            </td>
+                          ))}
+                          
+                          <td className="py-3.5 px-3">
+                            <span
+                              className={`rounded-xl px-2.5 py-1 text-[11px] font-bold ${
+                                p.is_active !== false
+                                  ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                                  : "bg-slate-800 text-slate-400 border border-slate-700"
+                              }`}
+                            >
+                              {p.is_active !== false ? 'Actif' : 'Inactif'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-right relative">
+                            <button 
+                              onClick={() => setActionMenuOpen(actionMenuOpen === p.id ? null : p.id)}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
+                            >
+                              <MoreHorizontal size={16} />
+                            </button>
+                            {actionMenuOpen === p.id && (
+                              <div className="absolute right-2 top-10 z-50 w-52 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-1.5 text-left animate-in fade-in zoom-in-95 space-y-1">
+                                <Link 
+                                  href={`/stocks/${p.id}`}
+                                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px] text-slate-200 hover:bg-slate-800 font-medium"
+                                >
+                                  <Eye size={14} className="text-indigo-400" /> Voir le produit
+                                </Link>
+                                <button
+                                  onClick={() => {
+                                    setEditingProduct(p);
+                                    setActionMenuOpen(null);
+                                  }}
+                                  className="flex items-center gap-2 w-full text-left rounded-lg px-2.5 py-2 text-[12.5px] text-amber-300 hover:bg-slate-800 font-semibold"
+                                >
+                                  <Pencil size={14} className="text-amber-400" /> Modifier le produit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(p.id, p.name || p.nom || p.sku)}
+                                  className="flex items-center gap-2 w-full text-left rounded-lg px-2.5 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium border-t border-slate-800 pt-1.5"
+                                >
+                                  <Trash2 size={14} className="text-red-400" /> Supprimer
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </>
+
+              {totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-4 text-[13px] text-slate-400">
+                  <span>
+                    Affichage {((currentPage - 1) * itemsPerPage) + 1} à {Math.min(currentPage * itemsPerPage, filteredProducts.length)} sur {filteredProducts.length} produits
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1 rounded-xl border border-slate-800 px-3 py-1.5 hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      <ChevronLeft size={16} /> Précédent
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1 rounded-xl border border-slate-800 px-3 py-1.5 hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      Suivant <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Edit Product Modal */}
+        {editingProduct && (
+          <EditProductModal 
+            product={editingProduct} 
+            onClose={() => setEditingProduct(null)} 
+            onSuccess={() => {
+              showToast("Produit modifié avec succès dans la base de données !");
+              fetchProducts();
+            }} 
+          />
         )}
+
+        {/* Spreadsheet Import Modal */}
+        <SpreadsheetImportModal 
+          isOpen={isImportModalOpen} 
+          onClose={() => setIsImportModalOpen(false)} 
+          expectedType="stock" 
+        />
+
+        {/* Confirm Modal */}
+        <ConfirmModal
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          onClose={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmConfig.onConfirm}
+        />
       </div>
-
-      <SpreadsheetImportModal 
-        isOpen={isImportModalOpen} 
-        onClose={() => {
-          setIsImportModalOpen(false);
-          fetchProducts(); 
-        }}
-        onSuccess={() => {
-          fetchProducts();
-        }}
-        expectedType="stock"
-      />
-
-      <ConfirmModal
-        isOpen={confirmConfig.isOpen}
-        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmConfig.onConfirm}
-        title={confirmConfig.title}
-        message={confirmConfig.message}
-      />
-    </div>
+    </>
   );
 }

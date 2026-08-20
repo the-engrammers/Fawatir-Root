@@ -16,6 +16,36 @@
 }
 
 /* ==========================================================================
+   PRINT MEDIA RULES FOR PHYSICAL PAPER RECEIPTS & THERMAL PRINTERS
+   ========================================================================== */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    visibility: hidden !important;
+  }
+
+  /* Only reveal the printable receipt element */
+  #printable-pos-receipt, #printable-pos-receipt * {
+    visibility: visible !important;
+  }
+
+  #printable-pos-receipt {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 15px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    z-index: 999999 !important;
+  }
+}
+
+/* ==========================================================================
    1. DEFAULT THEME: DARK MODE
    ========================================================================== */
 
@@ -243,15 +273,60 @@ html.light-mode .text-ink-100 {
   color: #475569 !important;
 }
 
-/* Fix Unreadable Text Classes in Dark Mode */
-html:not(.light-mode) .text-slate-900,
-html:not(.light-mode) .text-slate-800,
-html:not(.light-mode) .text-slate-700,
-html:not(.light-mode) .text-black,
-html:not(.light-mode) .text-ink-900,
-html:not(.light-mode) .text-ink-800,
-html:not(.light-mode) .text-ink-700 {
+/* Fix Unreadable Text Classes in Dark Mode (exclude printable white documents) */
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-slate-900,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-slate-800,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-slate-700,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-black,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-ink-900,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-ink-800,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *).text-ink-700 {
   color: #F8FAFC !important;
+}
+
+/* High-contrast Dark Typography for Printable & White Documents */
+.printable-area,
+.printable-area *,
+.bg-white .printable-area,
+.bg-white .printable-area * {
+  color: #0f172a !important;
+}
+
+.printable-area h1,
+.printable-area h2,
+.printable-area h3,
+.printable-area h4,
+.printable-area h5,
+.printable-area h6,
+.printable-area strong,
+.printable-area b,
+.printable-area th {
+  color: #000000 !important;
+}
+
+.printable-area p,
+.printable-area span,
+.printable-area li,
+.printable-area div,
+.printable-area td {
+  color: #1e293b !important;
+}
+
+.printable-area .bg-slate-100 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.printable-area table,
+.printable-area th,
+.printable-area td {
+  border-color: #cbd5e1 !important;
+}
+
+.printable-area th {
+  background-color: #e2e8f0 !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
 }
 
 /* Scrollbars & Focus */

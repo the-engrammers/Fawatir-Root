@@ -7,6 +7,7 @@ import { ChevronLeft, Pencil, Download, CheckCircle2, MessageSquare, MoreHorizon
 import StatusChip from "@/components/StatusChip";
 import { mad, statusTone } from "@/lib/format";
 import WhatsAppSendModal from "@/components/WhatsAppSendModal";
+import { printFactureWindow } from "@/components/FacturePrintView";
 
 export default function FactureDetailPage({ params }: { params: { id: string } }) {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -70,13 +71,12 @@ export default function FactureDetailPage({ params }: { params: { id: string } }
           >
             <MessageSquare size={15} /> Envoyer WhatsApp
           </button>
-          <Link
-            href={`/factures/${facture.id || params.id}/print`}
-            target="_blank"
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all"
+          <button
+            onClick={() => printFactureWindow(facture)}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-[12.5px] font-bold text-indigo-400 hover:bg-indigo-500/20 shadow-md transition-all active:scale-95"
           >
-            <Download size={15} /> Télécharger PDF
-          </Link>
+            <Download size={15} /> Télécharger / Imprimer PDF (A4)
+          </button>
         </div>
       </div>
 

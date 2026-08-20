@@ -124,6 +124,7 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={true}
                     className={`flex items-center justify-between rounded-xl px-3 py-2 text-[12.5px] font-medium transition-all duration-200 ${
                       isActive
                         ? "bg-indigo-600/20 text-indigo-300 font-semibold ring-1 ring-indigo-500/40 shadow-sm"
@@ -156,6 +157,7 @@ export default function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   className={`flex items-center justify-between rounded-xl px-3 py-2 text-[12.5px] font-medium transition-all duration-200 ${
                     isActive
                       ? "bg-indigo-600/20 text-indigo-300 font-semibold ring-1 ring-indigo-500/40 shadow-sm"
