@@ -127,26 +127,26 @@ export default function BulletinsPaiePage() {
       )}
 
       <div className="mx-auto max-w-[1400px] space-y-6 text-slate-100 pb-12">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">Bulletins & Fiches de Paie</h1>
             <p className="text-[13px] text-slate-400">
               Gestion de la paie, cotisations CNSS / AMO et génération des fiches de paie (Loi Marocaine)
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-[12.5px] font-semibold text-slate-200">
+          <div className="flex items-center gap-2.5 shrink-0 overflow-x-auto pb-1 sm:pb-0">
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-200 shrink-0 whitespace-nowrap">
               Avril <ChevronDown size={14} className="text-slate-400" /> 2026
             </div>
             <button 
               onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+              className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[12.5px] font-semibold text-slate-200 hover:bg-slate-800 transition-all shrink-0 whitespace-nowrap active:scale-95"
             >
               <Settings size={15} /> Paramètres de paie
             </button>
             <button
               onClick={() => setModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4.5 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 shrink-0 whitespace-nowrap active:scale-95 transition-all"
             >
               Générer le mois
             </button>
@@ -375,18 +375,18 @@ export default function BulletinsPaiePage() {
         {pdfPreviewOpen && selectedRow && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
             <div className="relative w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl bg-white text-slate-900 shadow-2xl overflow-hidden border border-slate-300">
-              <div className="shrink-0 flex items-center justify-between bg-slate-950 text-white px-6 py-4 border-b border-slate-800">
-                <h3 className="font-extrabold text-[15px]">Fiche de Paie Certifiée — {selectedRow.emp.prenom} {selectedRow.emp.nom}</h3>
-                <div className="flex items-center gap-3">
+              <div className="shrink-0 flex items-center justify-between gap-3 bg-slate-950 text-white px-5 py-3.5 border-b border-slate-800 z-20">
+                <h3 className="font-extrabold text-[14px] text-slate-100 truncate max-w-[280px] sm:max-w-md">Fiche de Paie Certifiée — {selectedRow.emp.prenom} {selectedRow.emp.nom}</h3>
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => window.print()}
-                    className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-[12.5px] font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-95"
+                    className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 text-[12px] font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-95 whitespace-nowrap"
                   >
-                    <Download size={15} /> Imprimer / PDF
+                    <Download size={14} /> Imprimer / PDF
                   </button>
                   <button
                     onClick={() => setPdfPreviewOpen(false)}
-                    className="rounded-xl bg-slate-800 hover:bg-slate-700 px-3 py-2 text-[12.5px] font-bold text-slate-300"
+                    className="rounded-xl bg-slate-800 hover:bg-slate-700 px-3 py-2 text-[12px] font-bold text-slate-300 whitespace-nowrap"
                   >
                     Fermer
                   </button>
