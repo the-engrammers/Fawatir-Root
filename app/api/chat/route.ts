@@ -484,7 +484,7 @@ RÈGLES SPÉCIALES POUR L'ORTHOGRAPHE ET LES NOMS :
           let response;
           try {
             response = await ai.models.generateContent({
-              model: 'gemini-3.6-flash',
+              model: 'gemini-2.0-flash',
               contents: `Tu es Fatourati, un assistant IA intelligent pour un logiciel ERP marocain (Facturation, CRM, Stock). 
 Réponds de manière professionnelle, très concise et en français. Voici le contexte de la base de données de l'utilisateur:
 - Clients: ${dbContext.clientsCount}

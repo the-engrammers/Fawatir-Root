@@ -23,7 +23,7 @@ def get_simple_genai_model():
         raise ValueError("GEMINI_API_KEY is not configured.")
     
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-3.5-flash-lite')
+    return genai.GenerativeModel('gemini-1.5-flash')
 
 def get_genai_model():
     api_key = os.environ.get('GEMINI_API_KEY')
@@ -34,7 +34,7 @@ def get_genai_model():
     
     genai.configure(api_key=api_key)
     # Using gemini-3.5-flash-lite to avoid deprecation and strict rate limits
-    return genai.GenerativeModel('gemini-3.5-flash-lite', tools=[
+    return genai.GenerativeModel('gemini-1.5-flash', tools=[
         check_stock,
         create_quotation,
         prepare_whatsapp_message,
