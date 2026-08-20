@@ -233,6 +233,11 @@ export const addSupplier = (sup: Partial<Supplier>): Supplier => {
   suppliersStore.push(newSup); saveData();
   return newSup;
 };
+export const updateSupplier = (id: string, patch: Partial<Supplier>) => {
+  const sup = suppliersStore.find(s => s.id === id);
+  if (sup) { Object.assign(sup, patch); saveData(); }
+  return sup;
+};
 export const deleteSupplier = (id: string) => {
   const idx = suppliersStore.findIndex(s => s.id === id);
   if (idx !== -1) suppliersStore.splice(idx, 1); saveData();

@@ -1,11 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import Modal from "./Modal";
 import FormAlert from "./FormAlert";
 
-export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) {
+export default function AddSupplierModal({
+  isOpen,
+  onClose,
+  initialData,
+  onSuccess
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  initialData?: any;
+  onSuccess?: () => void;
+}) {
+  const isEdit = !!initialData?.id;
+
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
@@ -16,10 +28,32 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (initialData) {
+      setCompanyName(initialData.company_name || "");
+      setContactName(initialData.contact_name || "");
+      setEmail(initialData.email || "");
+      setPhone(initialData.phone || initialData.mobile || "");
+      setCity(initialData.city || "");
+      setCountry(initialData.country || "Maroc");
+      setIce(initialData.metadata?.ICE || "");
+    } else {
+      setCompanyName("");
+      setContactName("");
+      setEmail("");
+      setPhone("");
+      setCity("");
+      setCountry("Maroc");
+      setIce("");
+    }
+  }, [initialData, isOpen]);
+
+  if (!isOpen) return null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName) {
-      setError("Le nom de l'entreprise est obligatoire");
+    if (!companyName.trim()) {
+      setError("Le nom de l'entreprise est obligatoire.");
       return;
     }
     
@@ -33,20 +67,24 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
       phone,
       city,
       country,
-      metadata: ice ? { ICE: ice } : {}
+      metadata: ice ? { ...(initialData?.metadata || {}), ICE: ice } : (initialData?.metadata || {})
     };
 
-    // Optimistic background fetch
     try {
-      fetch("/api/suppliers", {
-        method: "POST",
+      const endpoint = isEdit ? `/api/suppliers/${initialData.id}` : "/api/suppliers";
+      const method = isEdit ? "PATCH" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
-      }).then((res) => {
-        if (res.ok && typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
-        }
       });
+
+      if (!res.ok) throw new Error(`Échec de la ${isEdit ? "modification" : "création"} du fournisseur.`);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dataUpdated", { detail: { type: "suppliers" } }));
+      }
       
       if (onSuccess) onSuccess();
       onClose();
@@ -58,10 +96,10 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Ajouter un Fournisseur">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? `Modifier le fournisseur : ${companyName}` : "Ajouter un Fournisseur"}>
       <FormAlert error={error} onClose={() => setError(null)} title="Erreur de formulaire" />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 text-slate-100">
         <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
           <div>
             <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom du fournisseur / Entreprise *</label>
@@ -70,7 +108,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="Ex: Papeterie du Sud"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -80,7 +118,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
               value={contactName}
               onChange={(e) => setContactName(e.target.value)}
               placeholder="Ex: Karim Tazi"
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -92,7 +130,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="contact@fournisseur.ma"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div>
@@ -101,7 +139,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+212 522 000000"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>
           </div>
@@ -113,7 +151,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="Casablanca"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div>
@@ -122,7 +160,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
                 value={ice}
                 onChange={(e) => setIce(e.target.value)}
                 placeholder="000XXXXXXXXXXXX"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>
           </div>
@@ -142,7 +180,7 @@ export default function AddSupplierModal({ isOpen, onClose, onSuccess }: { isOpe
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 disabled:opacity-60 transition-all active:scale-95"
           >
             {isSubmitting && <Loader2 size={15} className="animate-spin" />}
-            Ajouter le fournisseur
+            {isEdit ? "Enregistrer les modifications" : "Ajouter le fournisseur"}
           </button>
         </div>
       </form>
