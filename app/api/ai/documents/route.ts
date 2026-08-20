@@ -101,12 +101,23 @@ Renvoie STRICTEMENT un objet JSON valide au format suivant sans aucun texte auto
           try {
             response = await ai.models.generateContent({
               model: modelName,
-              contents: { parts: contentsParts }
+              contents: contentsParts,
+              config: {
+                responseMimeType: "application/json"
+              }
             });
             if (response && response.text) break;
           } catch (err: any) {
-            lastError = err;
-            console.warn(`Gemini model ${modelName} attempt failed:`, err?.message || err);
+            try {
+              response = await ai.models.generateContent({
+                model: modelName,
+                contents: contentsParts
+              });
+              if (response && response.text) break;
+            } catch (e: any) {
+              lastError = err;
+              console.warn(`Gemini model ${modelName} attempt failed:`, err?.message || err);
+            }
           }
         }
       } catch (geminiInitErr: any) {
@@ -116,34 +127,40 @@ Renvoie STRICTEMENT un objet JSON valide au format suivant sans aucun texte auto
     }
 
     if (response && response.text) {
-      const cleanText = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
+      let cleanText = response.text.replace(/```json/gi, "").replace(/```/gi, "").trim();
+      const firstBrace = cleanText.indexOf('{');
+      const lastBrace = cleanText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+      }
+
       try {
         const extracted = JSON.parse(cleanText);
         const docResult = {
           id: `doc-${Date.now()}`,
           status: "completed",
           extracted_data: {
-            fournisseur: extracted.fournisseur || "Maroc Distribution SARL",
-            client: extracted.client || "Client Comptoir",
+            fournisseur: extracted.fournisseur || extracted.supplier || "Fournisseur Maroc SARL",
+            client: extracted.client || extracted.customer || "Client Comptoir",
             type: (extracted.type === "devis" || docType === "devis" ? "devis" : "facture") as "devis" | "facture",
-            numero_facture: extracted.numero_facture || (docType === "devis" ? `DEV-${Math.floor(1000 + Math.random() * 9000)}` : `FAC-${Math.floor(1000 + Math.random() * 9000)}`),
+            numero_facture: extracted.numero_facture || extracted.numero || extracted.devis_number || (docType === "devis" ? `DEV-${Math.floor(1000 + Math.random() * 9000)}` : `FAC-${Math.floor(1000 + Math.random() * 9000)}`),
             date: extracted.date || new Date().toISOString().split("T")[0],
-            montant_ht: Number(extracted.montant_ht) || 2500,
-            montant_ttc: Number(extracted.montant_ttc) || Number(extracted.montant_ht || 2500) * 1.2,
+            montant_ht: Number(extracted.montant_ht) || Number(extracted.total_ht) || 2500,
+            montant_ttc: Number(extracted.montant_ttc) || Number(extracted.total_ttc) || (Number(extracted.montant_ht || 2500) * 1.2),
             taux_tva: Number(extracted.taux_tva) || 20,
             lignes: Array.isArray(extracted.lignes) && extracted.lignes.length > 0 
               ? extracted.lignes.map((l: any) => ({
-                  description: l.description || l.nom || "Article extrait par l'IA",
-                  quantite: Number(l.quantite || l.qte || 1),
-                  prix_unitaire: Number(l.prix_unitaire || l.prix || 0),
+                  description: l.description || l.nom || l.article || "Article extrait par l'IA",
+                  quantite: Number(l.quantite || l.qte || l.quantity || 1),
+                  prix_unitaire: Number(l.prix_unitaire || l.prix || l.unit_price || 0),
                   montant: Number(l.montant || (Number(l.quantite || 1) * Number(l.prix_unitaire || 0)))
                 }))
               : [
                   {
                     description: "Prestation de service & fourniture technique",
                     quantite: 1,
-                    prix_unitaire: 2500,
-                    montant: 2500
+                    prix_unitaire: Number(extracted.montant_ht) || 2500,
+                    montant: Number(extracted.montant_ht) || 2500
                   }
                 ]
           }
