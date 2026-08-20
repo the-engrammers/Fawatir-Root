@@ -589,7 +589,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
             </button>
           </div>
 
-          <div className="overflow-x-auto pb-32 min-h-[300px]">
+          <div className="overflow-x-auto pb-10 min-h-[300px]">
             <table className="w-full text-[13px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400 tracking-wider">
@@ -683,7 +683,7 @@ Période : ${periode.toUpperCase()} | Date : ${new Date().toLocaleDateString("fr
             </Link>
           </div>
 
-          <div className="overflow-x-auto pb-32 min-h-[300px]">
+          <div className="overflow-x-auto pb-10 min-h-[300px]">
             <table className="w-full text-[13px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400 tracking-wider">

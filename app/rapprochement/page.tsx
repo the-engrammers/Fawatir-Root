@@ -193,17 +193,17 @@ export default function RapprochementPage() {
       </div>
 
       {/* Transaction Table Card */}
-      <div className="ledger-card !p-4 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200/60 pb-3">
-          <div className="flex gap-1.5">
+      <div className="bento-card !p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4 mb-4">
+          <div className="flex gap-1.5 flex-wrap">
             {["Tous", "À rapprocher", "Rapproché"].map((st) => (
               <button
                 key={st}
                 onClick={() => setStatutFilter(st)}
-                className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                className={`rounded-xl px-3.5 py-1.5 text-[12px] font-semibold transition-all ${
                   statutFilter === st
-                    ? "bg-ink-900 text-white"
-                    : "bg-paper border border-ink-200 text-ink-600 hover:bg-ink-50"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400/30"
+                    : "bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800"
                 }`}
               >
                 {st}
@@ -211,65 +211,65 @@ export default function RapprochementPage() {
             ))}
           </div>
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher libellé ou pièce..."
-              className="w-64 rounded-md border border-ink-200 bg-paper py-1.5 pl-8 pr-3 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
+              className="w-64 rounded-xl border border-slate-800 bg-slate-950 py-2 pl-9 pr-3.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto pb-32 min-h-[300px]">
-          <table className="w-full text-[13px]">
+        <div className="overflow-x-auto pb-10 min-h-[300px]">
+          <table className="w-full text-[13.5px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
-                <th className="pb-2.5 font-medium">Date</th>
-                <th className="pb-2.5 font-medium">Libellé bancaire</th>
-                <th className="pb-2.5 font-medium">Montant</th>
-                <th className="pb-2.5 font-medium">Pièce associée</th>
-                <th className="pb-2.5 font-medium">Statut</th>
-                <th className="pb-2.5 font-medium text-right">Action</th>
+              <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="py-3 px-3">Date</th>
+                <th className="py-3 px-3">Libellé bancaire</th>
+                <th className="py-3 px-3">Montant</th>
+                <th className="py-3 px-3">Pièce associée</th>
+                <th className="py-3 px-3">Statut</th>
+                <th className="py-3 px-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200/60">
+            <tbody className="divide-y divide-slate-800/60">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-ink-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     Aucune transaction trouvée.
                   </td>
                 </tr>
               ) : (
                 filtered.map((t) => (
-                  <tr key={t.id} className="group">
-                    <td className="py-3 text-ink-500 font-mono text-[12px]">{t.date}</td>
-                    <td className="py-3 font-medium text-ink-900 max-w-md truncate">{t.libelle}</td>
-                    <td className={`figure py-3 font-semibold ${t.montant >= 0 ? "text-status-success" : "text-ink-900"}`}>
+                  <tr key={t.id} className="group hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3.5 px-3 text-slate-400 font-mono text-[12.5px]">{t.date}</td>
+                    <td className="py-3.5 px-3 font-semibold text-white max-w-md truncate">{t.libelle}</td>
+                    <td className={`figure py-3.5 px-3 font-mono font-bold ${t.montant >= 0 ? "text-emerald-400" : "text-white"}`}>
                       {t.montant >= 0 ? `+${mad(t.montant)}` : `-${mad(Math.abs(t.montant))}`}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3.5 px-3">
                       {t.pieceAssociee ? (
-                        <span className="font-mono text-[12px] bg-brass/10 text-brass px-2 py-0.5 rounded font-medium">
+                        <span className="font-mono text-[12px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-xl font-semibold">
                           {t.pieceAssociee}
                         </span>
                       ) : (
-                        <span className="text-ink-300 italic text-[12px]">Aucune</span>
+                        <span className="text-slate-500 italic text-[12px]">Aucune</span>
                       )}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3.5 px-3">
                       {t.statut === "Rapproché" ? (
-                        <span className="inline-flex items-center gap-1 text-status-success bg-status-successBg px-2 py-0.5 rounded-full text-[11px] font-medium">
-                          <CheckCircle2 size={12} /> Rapproché
+                        <span className="inline-flex items-center gap-1.5 text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl text-[11px] font-bold">
+                          <CheckCircle2 size={13} /> Rapproché
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-status-warning bg-status-warningBg px-2 py-0.5 rounded-full text-[11px] font-medium">
-                          <Clock size={12} /> À rapprocher
+                        <span className="inline-flex items-center gap-1.5 text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl text-[11px] font-bold">
+                          <Clock size={13} /> À rapprocher
                         </span>
                       )}
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3.5 px-3 text-right">
                       {t.statut === "À rapprocher" ? (
                         <button
                           onClick={() => {
@@ -278,7 +278,7 @@ export default function RapprochementPage() {
                             setPieceInput(match ? match[0].toUpperCase() : "FAC-0045");
                             setIsMatchModalOpen(true);
                           }}
-                          className="rounded bg-ink-900 px-3 py-1 text-[12px] font-medium text-white hover:bg-ink-800"
+                          className="rounded-xl bg-indigo-600 px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all"
                         >
                           Rapprocher
                         </button>
@@ -291,7 +291,7 @@ export default function RapprochementPage() {
                               )
                             );
                           }}
-                          className="text-[12px] text-ink-400 hover:text-ink-700"
+                          className="text-[12.5px] font-semibold text-slate-400 hover:text-slate-200"
                         >
                           Délier
                         </button>
@@ -307,25 +307,25 @@ export default function RapprochementPage() {
 
       {/* Manual Match Modal */}
       {isMatchModalOpen && selectedTxn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-lg bg-paper-card p-5 shadow-panel border border-ink-200 space-y-4 animate-scale-in">
-            <div className="flex items-center justify-between border-b border-ink-200/60 pb-3">
-              <h3 className="font-display text-[16px] font-semibold text-ink-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 space-y-5 animate-in zoom-in-95 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h3 className="text-base font-bold text-white">
                 Rapprocher la transaction
               </h3>
-              <button onClick={() => setIsMatchModalOpen(false)} className="text-ink-400 hover:text-ink-700">
+              <button onClick={() => setIsMatchModalOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-2 rounded-md bg-paper p-3 text-[12.5px] border border-ink-200">
-              <p className="text-ink-500">Date : <span className="text-ink-900 font-medium">{selectedTxn.date}</span></p>
-              <p className="text-ink-500">Libellé : <span className="text-ink-900 font-medium">{selectedTxn.libelle}</span></p>
-              <p className="text-ink-500">Montant : <span className="figure text-ink-900 font-semibold">{mad(Math.abs(selectedTxn.montant))}</span></p>
+            <div className="space-y-2 rounded-xl bg-slate-950 p-3.5 text-[13px] border border-slate-800">
+              <p className="text-slate-400">Date : <span className="text-white font-mono font-semibold">{selectedTxn.date}</span></p>
+              <p className="text-slate-400">Libellé : <span className="text-white font-semibold">{selectedTxn.libelle}</span></p>
+              <p className="text-slate-400">Montant : <span className="figure text-emerald-400 font-bold">{mad(Math.abs(selectedTxn.montant))}</span></p>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-[12.5px] font-medium text-ink-700">
+              <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">
                 Numéro de facture ou pièce comptable liée
               </label>
               <input
@@ -333,20 +333,20 @@ export default function RapprochementPage() {
                 value={pieceInput}
                 onChange={(e) => setPieceInput(e.target.value)}
                 placeholder="Ex: FAC-0045, DEP-012"
-                className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none font-mono"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
               <button
                 onClick={() => setIsMatchModalOpen(false)}
-                className="rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:bg-ink-50"
+                className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-slate-300 hover:bg-slate-800"
               >
                 Annuler
               </button>
               <button
                 onClick={handleMatch}
-                className="rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
+                className="rounded-xl bg-indigo-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all"
               >
                 Confirmer le rapprochement
               </button>

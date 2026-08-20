@@ -509,7 +509,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="overflow-x-auto pb-32 min-h-[300px]">
+        <div className="overflow-x-auto pb-10 min-h-[300px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/80 text-[11px] font-bold uppercase tracking-wider text-slate-400">

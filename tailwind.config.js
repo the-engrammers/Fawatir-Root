@@ -8,8 +8,8 @@ module.exports = {
     extend: {
       colors: {
         ink: {
-          900: "#FFFFFF", // Pure white primary text
-          800: "#F8FAFC", // Slate-50 high contrast text
+          900: "#4F46E5", // Indigo accent for buttons
+          800: "#3730A3", // Indigo dark
           700: "#E2E8F0", // Slate-200 readable text
           600: "#CBD5E1", // Slate-300 readable text
           50: "#94A3B8", // Slate-400 secondary text

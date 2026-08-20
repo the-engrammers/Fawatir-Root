@@ -46,26 +46,26 @@ export default function ModeleFacturePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1000px] space-y-5">
+    <div className="mx-auto max-w-[1000px] space-y-6 text-slate-100 pb-12">
       <div>
-        <h1 className="font-display text-[22px] font-semibold text-ink-900">Modèle de facture</h1>
-        <p className="text-[13px] text-ink-400">Choisissez le design de vos factures PDF</p>
+        <h1 className="text-2xl font-extrabold text-white tracking-tight">Modèle & Numérotation de Facture</h1>
+        <p className="text-[13px] text-slate-400">Personnalisez le design PDF, les préfixes et la numérotation automatique</p>
       </div>
 
-      <div className="ledger-card space-y-4">
-        <p className="text-[12px] font-medium uppercase tracking-wide text-ink-400">
+      <div className="bento-card space-y-5">
+        <p className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">
           Numérotation des documents
         </p>
 
         <div>
-          <p className="mb-1.5 text-[12.5px] text-ink-600">Séparateur</p>
-          <div className="grid grid-cols-4 gap-2">
+          <p className="mb-2 text-[12.5px] font-semibold text-slate-300">Format de Séparateur</p>
+          <div className="grid grid-cols-4 gap-2.5">
             {["A-B", "A/B", "A.B", "AB"].map((s) => (
               <button
                 key={s}
                 onClick={() => setSeparateur(s)}
-                className={`rounded-md border py-2 text-[13px] font-medium ${
-                  separateur === s ? "border-brass bg-brass/10 text-brass" : "border-ink-200 text-ink-600"
+                className={`rounded-xl border py-2.5 text-[13px] font-mono font-bold transition-all ${
+                  separateur === s ? "border-indigo-500 bg-indigo-600/20 text-indigo-300" : "border-slate-800 bg-slate-950 text-slate-400 hover:text-white"
                 }`}
               >
                 {s}
@@ -74,28 +74,28 @@ export default function ModeleFacturePage() {
           </div>
         </div>
 
-        <label className="flex items-center justify-between rounded-md border border-ink-200 px-3 py-2.5">
-          <span className="text-[13px] text-ink-700">
-            Inclure l'année
-            <span className="block text-[11.5px] text-ink-400">Insère l'année en cours dans le numéro</span>
+        <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 cursor-pointer">
+          <span className="text-[13px] font-semibold text-slate-200">
+            Inclure l'année en cours
+            <span className="block text-[11.5px] text-slate-400 font-normal">Insère {new Date().getFullYear()} dans le numéro (ex: FAC-{new Date().getFullYear()}-0001)</span>
           </span>
           <input
             type="checkbox"
             checked={inclureAnnee}
             onChange={(e) => setInclureAnnee(e.target.checked)}
-            className="h-4 w-8 accent-brass"
+            className="h-4 w-4 accent-indigo-500 rounded"
           />
         </label>
 
         <div>
-          <p className="mb-1.5 text-[12.5px] text-ink-600">Longueur du numéro</p>
-          <div className="grid grid-cols-4 gap-2">
+          <p className="mb-2 text-[12.5px] font-semibold text-slate-300">Longueur du séquençage</p>
+          <div className="grid grid-cols-4 gap-2.5">
             {[3, 4, 5, 6].map((n) => (
               <button
                 key={n}
                 onClick={() => setLongueur(n)}
-                className={`rounded-md border py-2 text-[13px] font-medium ${
-                  longueur === n ? "border-brass bg-brass/10 text-brass" : "border-ink-200 text-ink-600"
+                className={`rounded-xl border py-2.5 text-[13px] font-medium transition-all ${
+                  longueur === n ? "border-indigo-500 bg-indigo-600/20 text-indigo-300" : "border-slate-800 bg-slate-950 text-slate-400 hover:text-white"
                 }`}
               >
                 {n} chiffres
@@ -104,98 +104,95 @@ export default function ModeleFacturePage() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3 pt-2">
           {prefixesEtNumeros.map((p) => (
-            <div key={p.doc} className="flex items-center gap-3 rounded-md border border-ink-200 p-3">
-              <span className="w-20 text-[13px] font-medium text-ink-700">{p.doc}</span>
+            <div key={p.doc} className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
+              <span className="w-24 text-[13px] font-bold text-white">{p.doc}</span>
               <div className="flex-1">
-                <label className="mb-1 block text-[11px] text-ink-400">Préfixe</label>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-400">Préfixe</label>
                 <input
                   defaultValue={p.prefixe}
-                  className="w-full rounded-md border border-ink-200 bg-paper px-2 py-1.5 text-[13px] focus:border-brass/60 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none font-mono"
                 />
               </div>
               <div className="flex-1">
-                <label className="mb-1 block text-[11px] text-ink-400">Prochain N°</label>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-400">Prochain N°</label>
                 <input
                   type="number"
                   defaultValue={p.prochain}
-                  className="w-full rounded-md border border-ink-200 bg-paper px-2 py-1.5 text-[13px] focus:border-brass/60 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none font-mono"
                 />
               </div>
-              <div className="flex-1 text-right">
-                <p className="mb-1 text-[11px] text-ink-400">Aperçu</p>
-                <p className="figure text-[13px] font-medium text-ink-900">{apercu(p.prefixe, p.prochain)}</p>
+              <div className="flex-1 sm:text-right">
+                <p className="mb-1 text-[11px] font-semibold text-slate-400">Aperçu direct</p>
+                <p className="figure text-[13.5px] font-mono font-bold text-indigo-400">{apercu(p.prefixe, p.prochain)}</p>
               </div>
             </div>
           ))}
         </div>
-        <p className="text-[11.5px] text-ink-400">
-          Ces réglages s'appliquent à tous vos documents — ex. {apercu("FAC", 47)}
-        </p>
       </div>
 
-      <div className="ledger-card space-y-4">
-        <p className="text-[12px] font-medium uppercase tracking-wide text-ink-400">Couleur d'accent</p>
-        <div className="flex flex-wrap gap-2">
+      <div className="bento-card space-y-5">
+        <p className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">Couleur d'accent & Pied de page</p>
+        <div className="flex flex-wrap gap-3">
           {accentColors.map((c) => (
             <button
               key={c}
               onClick={() => setAccent(c)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2"
-              style={{ backgroundColor: c, borderColor: accent === c ? "#14171F" : "transparent" }}
+              className="flex h-9 w-9 items-center justify-center rounded-full border-2 transition-transform active:scale-95 shadow-md"
+              style={{ backgroundColor: c, borderColor: accent === c ? "#FFFFFF" : "transparent" }}
             >
-              {accent === c && <Check size={14} className="text-white" />}
+              {accent === c && <Check size={16} className="text-white" />}
             </button>
           ))}
         </div>
         <div>
-          <label className="mb-1.5 block text-[12.5px] text-ink-600">Texte de pied de page</label>
+          <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Texte de pied de page sur le PDF</label>
           <input
-            defaultValue="Merci pour votre confiance !"
-            className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:border-brass/60 focus:outline-none"
+            defaultValue="Merci pour votre confiance ! ICE N° 00294829100032 · Capital Social: 100 000 MAD"
+            className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
           />
         </div>
       </div>
 
-      <div className="ledger-card">
-        <p className="mb-3 text-[12px] font-medium uppercase tracking-wide text-ink-400">Modèles PDF</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="bento-card space-y-4">
+        <p className="text-[12px] font-bold uppercase tracking-wider text-indigo-400">Modèles PDF & Templates</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {templates.map((t) => (
             <button
               key={t.id}
               onClick={() => setTemplate(t.id)}
-              className={`rounded-md border p-3 text-left ${
-                template === t.id ? "border-brass ring-1 ring-brass/30" : "border-ink-200"
+              className={`rounded-2xl border p-4 text-left transition-all ${
+                template === t.id ? "border-indigo-500 bg-indigo-600/10 ring-1 ring-indigo-500/30" : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
               }`}
             >
               <div
-                className="mb-2 flex h-24 items-center justify-center rounded-md text-[11px] text-white/70"
+                className="mb-3 flex h-24 items-center justify-center rounded-xl text-[12px] font-bold text-white/90 shadow-inner"
                 style={{ backgroundColor: accent }}
               >
-                Aperçu
+                Aperçu PDF ({t.nom})
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-[13px] font-medium text-ink-900">{t.nom}</p>
-                {template === t.id && <Check size={14} className="text-brass" />}
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[13.5px] font-bold text-white">{t.nom}</p>
+                {template === t.id && <Check size={16} className="text-indigo-400" />}
               </div>
-              <p className="text-[11.5px] text-ink-400">{t.desc}</p>
+              <p className="text-[12px] text-slate-400 leading-snug">{t.desc}</p>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-4 pt-2">
         {saved && (
-          <span className="text-[13px] text-status-success font-medium animate-fade-in">
-            ✓ Modèle de facture enregistré !
+          <span className="text-[13px] text-emerald-400 font-bold animate-in fade-in">
+            ✓ Modèle de facture enregistré avec succès !
           </span>
         )}
         <button
           onClick={handleSave}
-          className="rounded-md bg-ink-900 px-5 py-2.5 text-[13px] font-medium text-white hover:bg-ink-800"
+          className="rounded-xl bg-indigo-600 px-6 py-3 text-[13px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all"
         >
-          Enregistrer
+          Enregistrer les modifications
         </button>
       </div>
     </div>

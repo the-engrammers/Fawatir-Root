@@ -220,7 +220,7 @@ export default function FacturesPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto pb-44 min-h-[360px]">
+          <div className="overflow-x-auto pb-10 min-h-[360px]">
             <table className="w-full text-[13.5px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">

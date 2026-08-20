@@ -124,19 +124,17 @@ td {
 }
 
 /* Printable PDF Document / White Cards in Dark Mode */
-.bg-white {
-  color: #0F172A;
+html:not(.light-mode) :not(.printable-area):not(.printable-area *) input,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *) select,
+html:not(.light-mode) :not(.printable-area):not(.printable-area *) textarea {
+  background-color: #020617 !important;
+  border-color: #1E293B !important;
+  color: #FFFFFF !important;
 }
 
-.bg-white p,
-.bg-white h1,
-.bg-white h2,
-.bg-white h3,
-.bg-white h4,
-.bg-white td,
-.bg-white th,
-.bg-white div:not([class*="bg-indigo"]):not([class*="bg-emerald"]):not([class*="bg-red"]):not([class*="bg-amber"]):not([class*="bg-slate-900"]) {
-  color: #0F172A;
+html:not(.light-mode) :not(.printable-area):not(.printable-area *) .bg-white:not(input):not(select):not(textarea):not(.printable-area) {
+  background-color: #4F46E5 !important;
+  color: #FFFFFF !important;
 }
 
 /* ==========================================================================

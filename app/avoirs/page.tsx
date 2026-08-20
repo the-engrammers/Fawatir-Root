@@ -93,46 +93,46 @@ export default function AvoirsPage() {
   const totalEmis = list.filter((a) => a.statut === "Émis").reduce((s, a) => s + a.montant, 0);
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-[1400px] space-y-6 text-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-[22px] font-semibold text-ink-900">Avoirs & Notes de Crédit</h1>
-          <p className="text-[13px] text-ink-400">Gérez les remboursements et déductions sur factures</p>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">Avoirs & Notes de Crédit</h1>
+          <p className="text-[13px] text-slate-400">Gérez les remboursements, ajustements et déductions sur factures</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
+          className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all self-start sm:self-auto"
         >
-          <Plus size={15} /> Nouvel avoir
+          <Plus size={16} /> Nouvel avoir
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="ledger-card">
-          <p className="text-[12px] text-ink-400">Total des avoirs émises</p>
-          <p className="figure mt-1 text-[20px] font-medium text-ink-900">{mad(totalAvoirs)}</p>
+        <div className="bento-card space-y-1">
+          <p className="text-[12px] font-semibold text-slate-400">Total des avoirs émis</p>
+          <p className="figure text-2xl font-extrabold text-white">{mad(totalAvoirs)}</p>
         </div>
-        <div className="ledger-card">
-          <p className="text-[12px] text-ink-400">En attente d'application</p>
-          <p className="figure mt-1 text-[20px] font-medium text-brass">{mad(totalEmis)}</p>
+        <div className="bento-card space-y-1 border-l-4 border-l-amber-500">
+          <p className="text-[12px] font-semibold text-slate-400">En attente d'application</p>
+          <p className="figure text-2xl font-extrabold text-amber-400">{mad(totalEmis)}</p>
         </div>
-        <div className="ledger-card">
-          <p className="text-[12px] text-ink-400">Nombre d'avoirs</p>
-          <p className="figure mt-1 text-[20px] font-medium text-ink-900">{list.length}</p>
+        <div className="bento-card space-y-1">
+          <p className="text-[12px] font-semibold text-slate-400">Nombre d'avoirs</p>
+          <p className="figure text-2xl font-extrabold text-indigo-400">{list.length}</p>
         </div>
       </div>
 
-      <div className="ledger-card !p-4 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200/60 pb-3">
-          <div className="flex gap-1.5">
+      <div className="bento-card !p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4 mb-4">
+          <div className="flex gap-1.5 flex-wrap">
             {["Tous", "Émis", "Appliqué", "Remboursé"].map((st) => (
               <button
                 key={st}
                 onClick={() => setStatutFilter(st)}
-                className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                className={`rounded-xl px-3.5 py-1.5 text-[12px] font-semibold transition-all ${
                   statutFilter === st
-                    ? "bg-ink-900 text-white"
-                    : "bg-paper border border-ink-200 text-ink-600 hover:bg-ink-50"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-1 ring-indigo-400/30"
+                    : "bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800"
                 }`}
               >
                 {st}
@@ -140,77 +140,77 @@ export default function AvoirsPage() {
             ))}
           </div>
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher avoir, client..."
-              className="w-64 rounded-md border border-ink-200 bg-paper py-1.5 pl-8 pr-3 text-[13px] placeholder:text-ink-400 focus:border-brass/60 focus:outline-none"
+              placeholder="Rechercher un avoir..."
+              className="w-64 rounded-xl border border-slate-800 bg-slate-950 py-2 pl-9 pr-3.5 text-[13px] text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto pb-44 min-h-[360px]">
-          <table className="w-full text-[13px]">
+        <div className="overflow-x-auto pb-10 min-h-[300px]">
+          <table className="w-full text-[13.5px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-ink-200/60 text-left text-[11px] uppercase tracking-wide text-ink-400">
-                <th className="pb-2.5 font-medium">Avoir N°</th>
-                <th className="pb-2.5 font-medium">Client</th>
-                <th className="pb-2.5 font-medium">Facture liée</th>
-                <th className="pb-2.5 font-medium">Motif</th>
-                <th className="pb-2.5 font-medium">Montant</th>
-                <th className="pb-2.5 font-medium">Date</th>
-                <th className="pb-2.5 font-medium">Statut</th>
-                <th className="pb-2.5 font-medium text-right">Actions</th>
+              <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="py-3 px-3">Avoir N°</th>
+                <th className="py-3 px-3">Client</th>
+                <th className="py-3 px-3">Facture liée</th>
+                <th className="py-3 px-3">Motif</th>
+                <th className="py-3 px-3">Montant</th>
+                <th className="py-3 px-3">Date</th>
+                <th className="py-3 px-3">Statut</th>
+                <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200/60">
+            <tbody className="divide-y divide-slate-800/60">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-ink-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     Aucun avoir trouvé.
                   </td>
                 </tr>
               ) : (
                 filtered.map((a) => (
-                  <tr key={a.id} className="group">
-                    <td className="py-3 font-medium text-brass">{a.id}</td>
-                    <td className="py-3 font-medium text-ink-900">{a.client}</td>
-                    <td className="py-3 text-ink-500 font-mono text-[12px]">{a.facture}</td>
-                    <td className="py-3 text-ink-500">{a.motif}</td>
-                    <td className="figure py-3 font-semibold text-status-danger">-{mad(a.montant)}</td>
-                    <td className="py-3 text-ink-400">{a.date}</td>
-                    <td className="py-3">
+                  <tr key={a.id} className="group hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3.5 px-3 font-mono font-bold text-indigo-400">{a.id}</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-200">{a.client}</td>
+                    <td className="py-3.5 px-3 text-slate-400 font-mono text-[12.5px]">{a.facture}</td>
+                    <td className="py-3.5 px-3 text-slate-300">{a.motif}</td>
+                    <td className="figure py-3.5 px-3 font-mono font-bold text-red-400">-{mad(a.montant)}</td>
+                    <td className="py-3.5 px-3 text-slate-400 text-[12.5px]">{a.date}</td>
+                    <td className="py-3.5 px-3">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        className={`rounded-xl px-2.5 py-1 text-[11px] font-bold ${
                           a.statut === "Appliqué"
-                            ? "bg-status-successBg text-status-success"
+                            ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
                             : a.statut === "Remboursé"
-                            ? "bg-status-infoBg text-status-info"
-                            : "bg-status-warningBg text-status-warning"
+                            ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                            : "bg-amber-500/10 text-amber-300 border border-amber-500/20"
                         }`}
                       >
                         {a.statut || "Émis"}
                       </span>
                     </td>
-                    <td className="py-3 text-right relative">
+                    <td className="py-3.5 px-3 text-right relative">
                       <button
                         onClick={() => setActionMenuOpen(actionMenuOpen === a.id ? null : a.id)}
-                        className="rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
                       >
                         <MoreHorizontal size={16} />
                       </button>
                       {actionMenuOpen === a.id && (
-                        <div className="absolute right-2 top-9 z-50 w-48 rounded-md bg-paper-card shadow-panel border border-ink-200 py-1 text-left">
+                        <div className="absolute right-2 top-10 z-50 w-52 rounded-xl bg-slate-900 shadow-2xl border border-slate-800 p-2 text-left animate-in fade-in zoom-in-95 space-y-1">
                           <button
                             onClick={() => {
                               window.print();
                               setActionMenuOpen(null);
                             }}
-                            className="block w-full text-left px-3 py-1.5 text-[12px] text-ink-700 hover:bg-ink-50"
+                            className="flex items-center gap-2 w-full text-left rounded-lg px-2.5 py-2 text-[12.5px] text-slate-200 hover:bg-slate-800 font-medium"
                           >
-                            Imprimer l'avoir
+                            <Printer size={14} className="text-indigo-400" /> Imprimer l'avoir
                           </button>
                           <button
                             onClick={async () => {
@@ -230,9 +230,9 @@ export default function AvoirsPage() {
                               );
                               setActionMenuOpen(null);
                             }}
-                            className="block w-full text-left px-3 py-1.5 text-[12px] text-brass font-medium hover:bg-ink-50"
+                            className="flex items-center gap-2 w-full text-left rounded-lg px-2.5 py-2 text-[12.5px] text-emerald-300 hover:bg-slate-800 font-semibold"
                           >
-                            Appliquer sur la facture
+                            <CheckCircle size={14} className="text-emerald-400" /> Appliquer sur la facture
                           </button>
                           <button
                             onClick={async () => {
@@ -244,9 +244,9 @@ export default function AvoirsPage() {
                               setList((prev) => prev.filter((item) => item.id !== a.id));
                               setActionMenuOpen(null);
                             }}
-                            className="block w-full text-left px-3 py-1.5 text-[12px] text-red-600 hover:bg-red-50"
+                            className="flex items-center gap-2 w-full text-left rounded-lg px-2.5 py-2 text-[12.5px] text-red-400 hover:bg-red-500/10 font-medium border-t border-slate-800 pt-1.5"
                           >
-                            Supprimer
+                            <Trash2 size={14} className="text-red-400" /> Supprimer
                           </button>
                         </div>
                       )}
@@ -260,65 +260,65 @@ export default function AvoirsPage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-lg bg-paper-card p-5 shadow-panel border border-ink-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-ink-200/60 pb-3">
-              <h2 className="text-[15px] font-semibold text-ink-900">Créer un nouvel avoir</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-ink-400 hover:text-ink-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 space-y-5 animate-in zoom-in-95 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h2 className="text-base font-bold text-white">Créer un nouvel avoir</h2>
+              <button onClick={() => setIsModalOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreate} className="space-y-3">
+            <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="mb-1 block text-[12.5px] text-ink-600">Client *</label>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Nom du Client *</label>
                 <input
                   required
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
-                  placeholder="Mouad El Khatib"
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:outline-none"
+                  placeholder="Nom du client..."
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[12.5px] text-ink-600">Facture liée</label>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Facture liée</label>
                 <input
                   value={facture}
                   onChange={(e) => setFacture(e.target.value)}
-                  placeholder="FAC-0045"
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:outline-none"
+                  placeholder="FAC-2026-001"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[12.5px] text-ink-600">Motif de l'avoir</label>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Motif de l'avoir</label>
                 <input
                   value={motif}
                   onChange={(e) => setMotif(e.target.value)}
                   placeholder="Retour produit / Remise commerciale"
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:outline-none"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[12.5px] text-ink-600">Montant HT (MAD) *</label>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-slate-300">Montant HT (MAD) *</label>
                 <input
                   required
                   type="number"
                   value={montant}
                   onChange={(e) => setMontant(e.target.value)}
                   placeholder="1500"
-                  className="w-full rounded-md border border-ink-200 bg-paper px-3 py-2 text-[13px] focus:outline-none"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-[13px] text-white focus:border-indigo-500 focus:outline-none font-mono"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-md border border-ink-200 px-4 py-2 text-[13px] font-medium text-ink-700 hover:bg-ink-50"
+                  className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-slate-300 hover:bg-slate-800"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="rounded-md bg-ink-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-ink-800"
+                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500"
                 >
                   Créer l'avoir
                 </button>
