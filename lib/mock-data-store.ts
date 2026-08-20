@@ -331,7 +331,11 @@ export const deleteInvoice = (id: string) => {
 export const clearInvoices = () => { invoicesStore.length = 0; saveData(); };
 
 // EMPLOYEES
-g.employeesStore = g.employeesStore || [];
+g.employeesStore = g.employeesStore || [
+  { id: "EMP-1001", prenom: "Karim", nom: "Benjelloun", cin: "BE892102", cnss: "109829384", poste: "Directeur Technique", departement: "Engineering", salaire_base: 18500, personnesACharge: 2, statut: "Actif" },
+  { id: "EMP-1002", prenom: "Sophia", nom: "Tazi", cin: "A778901", cnss: "209182391", poste: "Responsable Financier", departement: "Finance", salaire_base: 15000, personnesACharge: 1, statut: "Actif" },
+  { id: "EMP-1003", prenom: "Youssef", nom: "Berrada", cin: "C992102", cnss: "308291029", poste: "Ingénieur DevOps", departement: "Engineering", salaire_base: 12500, personnesACharge: 0, statut: "Actif" }
+];
 const employeesStore: Employee[] = g.employeesStore;
 
 export const getEmployees = (): Employee[] => [...employeesStore].reverse();
@@ -391,7 +395,11 @@ export const deleteDepense = (id: string) => {
 export const clearDepenses = () => { depensesStore.length = 0; saveData(); };
 
 // BULLETINS DE PAIE
-g.bulletinsStore = g.bulletinsStore || [];
+g.bulletinsStore = g.bulletinsStore || [
+  { id: "BUL-1001", employeId: "EMP-1001", periode: "Avril 2026", dateEmission: "2026-04-28", statut: "Payé" },
+  { id: "BUL-1002", employeId: "EMP-1002", periode: "Avril 2026", dateEmission: "2026-04-28", statut: "Payé" },
+  { id: "BUL-1003", employeId: "EMP-1003", periode: "Avril 2026", dateEmission: "2026-04-28", statut: "Brouillon" }
+];
 const bulletinsStore: any[] = g.bulletinsStore;
 export const getBulletins = () => [...bulletinsStore].reverse();
 export const addBulletin = (bul: any) => { bul.id = `BUL-${Date.now()}`; bulletinsStore.push(bul); saveData(); return bul; };
